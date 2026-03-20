@@ -10,6 +10,7 @@ import {
   CheckCircle, XCircle, Loader2, Copy, Check, Hash,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 import { updateOrderStatus } from '@/app/(admin)/orders/[id]/order-actions-server';
 
 /* ════════════════════ Types ════════════════════ */
@@ -368,7 +369,9 @@ function OrderRow({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; 
         <td className="pl-3 pr-1 py-2.5">
           <ChevronRight className={cn('h-3.5 w-3.5 text-[#cbd5e1] transition-transform duration-150 group-hover:text-[#94a3b8]', isOpen && 'rotate-90')} />
         </td>
-        <td className="px-2 py-2.5 text-[12px] text-[#475569] font-mono tabular-nums">{order.order_number}</td>
+        <td className="px-2 py-2.5 text-[12px] text-[#3b82f6] font-mono tabular-nums">
+          <Link href={`/orders/${order.id}`} onClick={e => e.stopPropagation()} className="hover:underline">{order.order_number}</Link>
+        </td>
         <td className="px-2 py-2.5"><SourceBadge source={order.source} /></td>
         <td className="px-2 py-2.5 text-[12px] text-[#334155]">{fmtDate(order.created_at)}</td>
         <td className="px-2 py-2.5"><StatusPill status={order.status} /></td>
