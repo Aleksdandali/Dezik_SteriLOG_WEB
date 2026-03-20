@@ -14,7 +14,7 @@ import {
   updateOrderStatus, addPayment, addExpense, addComment, updatePaymentStatus,
 } from '@/app/(admin)/orders/[id]/order-actions-server';
 
-//Typesinterface Payment {
+interface Payment {
   id: string; amount: number; method: string; status: string;
   comment: string | null; paid_at: string | null; created_at: string;
 }
@@ -33,7 +33,7 @@ interface Order {
   order_expenses?: Expense[];
 }
 
-//Configconst STATUSES: Record<string, { label: string; bg: string; text: string }> = {
+const STATUSES: Record<string, { label: string; bg: string; text: string }> = {
   all:        { label: 'Всі',          bg: 'bg-gray-100',   text: 'text-gray-600' },
   pending:    { label: 'НОВЕ',         bg: 'bg-amber-100',  text: 'text-amber-800' },
   confirmed:  { label: 'ПІДТВЕРДЖЕНО', bg: 'bg-blue-100',   text: 'text-blue-800' },
@@ -58,7 +58,7 @@ const fmtD = (d: string) => {
   return isToday(date) ? `Сьогодні ${format(date, 'HH:mm')}` : format(date, 'dd.MM.yy HH:mm', { locale: uk });
 };
 
-//Atomsfunction Badge({ status }: { status: string }) {
+function Badge({ status }: { status: string }) {
   const c = STATUSES[status] ?? STATUSES.pending;
   return <span className={cn('inline-flex px-2 py-0.5 rounded text-[10px] font-bold tracking-wide', c.bg, c.text)}>{c.label}</span>;
 }
@@ -82,7 +82,7 @@ function LV({ label, children, className: cls }: { label: string; children: Reac
   );
 }
 
-//Custom Dropdowns (KeyCRM style)function Dropdown({ current, options, onSelect, disabled }: {
+function Dropdown({ current, options, onSelect, disabled }: {
   current: string;
   options: { value: string; label: string; bg: string; text: string }[];
   onSelect: (v: string) => void;
@@ -421,7 +421,7 @@ function PanelDiv({ order }: { order: Order }) {
   );
 }
 
-//Order Cardfunction OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
+function OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
   const name = [order.first_name, order.last_name].filter(Boolean).join(' ') || '—';
   return (
     <div className={cn('rounded-lg border-2 transition-all overflow-hidden',
@@ -448,7 +448,7 @@ function PanelDiv({ order }: { order: Order }) {
   );
 }
 
-//Metricfunction Metric({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub: string; icon: React.ComponentType<{ className?: string }> }) {
+function Metric({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
       <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-[#eceef5] text-[#4b569e]">
@@ -463,7 +463,7 @@ function PanelDiv({ order }: { order: Order }) {
   );
 }
 
-//Mainexport function OrdersList({ orders }: { orders: Order[] }) {
+export function OrdersList({ orders }: { orders: Order[] }) {
   const [activeStatus, setActiveStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
