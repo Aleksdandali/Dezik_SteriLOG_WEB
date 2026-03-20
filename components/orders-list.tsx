@@ -174,7 +174,7 @@ function PanelDiv({ order }: { order: Order }) {
 
   return (
     <div className="border-t-2 border-[#4b569e] bg-white">
-        {//3 Columns ═══ */}
+        {/* 3 Columns */}
         <div className="grid grid-cols-3 divide-x divide-gray-100 min-h-[280px]">
 
           {/* ─── LEFT: Order ─── */}
@@ -301,7 +301,7 @@ function PanelDiv({ order }: { order: Order }) {
           </div>
         </div>
 
-        {//Products ═══ */}
+        {/* Products */}
         <div className="border-t border-gray-200">
           <div className="px-5 py-2.5 flex items-center justify-between bg-gray-50">
             <span className="text-[13px] font-semibold text-gray-700">Товари ({order.order_items?.length ?? 0})</span>
@@ -338,7 +338,7 @@ function PanelDiv({ order }: { order: Order }) {
           </table>
         </div>
 
-        {//Payments + Totals ═══ */}
+        {/* Payments + Totals */}
         <div className="border-t border-gray-200 grid grid-cols-[1fr_320px]">
           {/* Payments */}
           <div className="px-5 py-3">
