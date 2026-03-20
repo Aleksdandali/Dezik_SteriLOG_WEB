@@ -75,32 +75,79 @@ function LV({ label, children, className: cls }: { label: string; children: Reac
   );
 }
 
-/* ═══ Status & Payment dropdowns ═══ */
+/* ═══ Custom Dropdowns (KeyCRM style) ═══ */
+function Dropdown({ current, options, onSelect, disabled }: {
+  current: string;
+  options: { value: string; label: string; bg: string; text: string }[];
+  onSelect: (v: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const cur = options.find(o => o.value === current) ?? options[0];
+
+  return (
+    <div className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => !disabled && setOpen(!open)}
+        disabled={disabled}
+        className={cn(
+          'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold tracking-wide cursor-pointer transition-all border',
+          cur.bg, cur.text, 'border-transparent',
+          open && 'ring-2 ring-[#4b569e]/20',
+          disabled && 'opacity-60 cursor-default',
+        )}
+      >
+        {cur.label}
+        <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1 z-50 bg-white rounded-lg border border-gray-200 shadow-lg py-1.5 min-w-[200px]">
+            {options.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => { if (opt.value !== current) onSelect(opt.value); setOpen(false); }}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors',
+                  opt.value === current ? 'bg-gray-50' : 'hover:bg-gray-50',
+                )}
+              >
+                <span className={cn('inline-flex px-2 py-0.5 rounded text-[10px] font-bold tracking-wide', opt.bg, opt.text)}>
+                  {opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function StatusDrop({ current, orderId, isPending, act }: {
   current: string; orderId: string; isPending: boolean; act: (fn: () => Promise<void>) => void;
 }) {
   const allowed = TRANSITIONS[current] ?? [];
-  const c = STATUSES[current] ?? STATUSES.pending;
-  return (
-    <select value={current} disabled={isPending || !allowed.length}
-      onChange={e => { const v = e.target.value; if (v !== current) act(() => updateOrderStatus(orderId, v)); }}
-      className={cn('rounded text-[11px] font-bold tracking-wide px-2 py-1 border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4b569e]/30', c.bg, c.text, 'disabled:cursor-default')}>
-      <option value={current}>{c.label}</option>
-      {allowed.map(s => <option key={s} value={s}>{STATUSES[s]?.label ?? s}</option>)}
-    </select>
-  );
+  const options = [current, ...allowed].map(s => ({
+    value: s,
+    label: STATUSES[s]?.label ?? s,
+    bg: STATUSES[s]?.bg ?? 'bg-gray-100',
+    text: STATUSES[s]?.text ?? 'text-gray-600',
+  }));
+  return <Dropdown current={current} options={options} disabled={isPending || !allowed.length}
+    onSelect={v => act(() => updateOrderStatus(orderId, v))} />;
 }
+
 function PayDrop({ current, orderId, isPending, act }: {
   current: string; orderId: string; isPending: boolean; act: (fn: () => Promise<void>) => void;
 }) {
-  const c = PAY[current] ?? PAY.unpaid;
-  return (
-    <select value={current} disabled={isPending}
-      onChange={e => { const v = e.target.value; if (v !== current) act(() => updatePaymentStatus(orderId, v)); }}
-      className={cn('rounded text-[11px] font-bold px-2 py-1 border cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4b569e]/30', c.cls, 'disabled:cursor-default')}>
-      {Object.entries(PAY).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-    </select>
-  );
+  const options = Object.entries(PAY).map(([k, v]) => ({
+    value: k, label: v.label, bg: v.cls.split(' ')[0], text: v.cls.split(' ')[1],
+  }));
+  return <Dropdown current={current} options={options} disabled={isPending}
+    onSelect={v => act(() => updatePaymentStatus(orderId, v))} />;
 }
 
 /* ═══ Expanded Panel ═══ */
