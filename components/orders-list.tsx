@@ -226,7 +226,7 @@ function ExpandedCard({ order }: { order: Order }) {
                     <button onClick={() => setShowExpForm(!showExpForm)} className="text-[11px] text-[#4b569e] hover:text-[#363f75] font-medium flex items-center gap-1"><Plus className="h-3 w-3" />Додати</button>
                   }>Витрати</Sec>
                   {showExpForm && (
-                    <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.currentTarget); act(() => addExpense(order.id, { name: fd.get('name') as string, amount: Number(fd.get('amount')) })).then(() => setShowExpForm(false)); }}
+                    <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.currentTarget); act(async () => { await addExpense(order.id, { name: fd.get('name') as string, amount: Number(fd.get('amount')) }); setShowExpForm(false); }); }}
                       className="flex gap-2 mb-2">
                       <input name="name" required placeholder="Назва" className="flex-1 rounded-md border border-[#d8dce8] px-2 py-1.5 text-[12px] placeholder:text-[#cbd5e1] focus:outline-none focus:border-[#4b569e]" />
                       <input name="amount" type="number" step="0.01" required placeholder="₴" className="w-20 rounded-md border border-[#d8dce8] px-2 py-1.5 text-[12px] placeholder:text-[#cbd5e1] focus:outline-none focus:border-[#4b569e]" />
@@ -255,7 +255,7 @@ function ExpandedCard({ order }: { order: Order }) {
               {showPayForm && (
                 <div className="rounded-lg border border-[#d8dce8] bg-white p-4">
                   <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.currentTarget);
-                    act(() => addPayment(order.id, { amount: Number(fd.get('amount')), method: fd.get('method') as string, status: 'paid', comment: fd.get('comment') as string || undefined })).then(() => setShowPayForm(false)); }}
+                    act(async () => { await addPayment(order.id, { amount: Number(fd.get('amount')), method: fd.get('method') as string, status: 'paid', comment: fd.get('comment') as string || undefined }); setShowPayForm(false); }); }}
                     className="grid grid-cols-4 gap-3">
                     <div><label className="text-[11px] text-[#94a3b8]">Сума</label><input name="amount" type="number" step="0.01" defaultValue={Number(order.total_amount)} required className="mt-1 w-full rounded-md border border-[#d8dce8] px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#4b569e]" /></div>
                     <div><label className="text-[11px] text-[#94a3b8]">Спосіб</label><select name="method" className="mt-1 w-full rounded-md border border-[#d8dce8] px-3 py-1.5 text-[13px] focus:outline-none focus:border-[#4b569e]"><option value="cash">Готівка</option><option value="card">Картка</option><option value="online">Онлайн</option><option value="bank_transfer">Переказ</option></select></div>
