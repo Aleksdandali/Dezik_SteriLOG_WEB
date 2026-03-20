@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  updateOrderStatus, addPayment, addComment,
+  updateOrderStatus, addPayment, addComment, updatePaymentStatus,
 } from '@/app/(admin)/orders/[id]/order-actions-server';
 
 /* ═══ Types ═══ */
@@ -76,6 +76,50 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+/* ═══ Status & Payment selects ═══ */
+const ALL_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'canceled'] as const;
+
+function StatusSelect({ current, orderId, isPending, act }: {
+  current: string; orderId: string; isPending: boolean; act: (fn: () => Promise<void>) => void;
+}) {
+  const allowed = TRANSITIONS[current] ?? [];
+  return (
+    <select
+      value={current}
+      disabled={isPending || allowed.length === 0}
+      onChange={e => { const v = e.target.value; if (v !== current) act(() => updateOrderStatus(orderId, v)); }}
+      className={cn(
+        'rounded-md border text-[12px] font-semibold px-2 py-1 cursor-pointer appearance-none bg-no-repeat bg-[length:12px] bg-[right_4px_center] pr-5 focus:outline-none focus:ring-1 focus:ring-[#4b569e] disabled:opacity-60',
+        STATUSES[current]?.bg, STATUSES[current]?.text, 'border-transparent',
+      )}
+      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234b569e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")` }}
+    >
+      <option value={current}>{STATUSES[current]?.label ?? current}</option>
+      {allowed.map(s => <option key={s} value={s}>{STATUSES[s]?.label ?? s}</option>)}
+    </select>
+  );
+}
+
+function PaymentSelect({ current, orderId, isPending, act }: {
+  current: string; orderId: string; isPending: boolean; act: (fn: () => Promise<void>) => void;
+}) {
+  const payOptions = ['unpaid', 'paid', 'partial'] as const;
+  return (
+    <select
+      value={current}
+      disabled={isPending}
+      onChange={e => { const v = e.target.value; if (v !== current) act(() => updatePaymentStatus(orderId, v)); }}
+      className={cn(
+        'rounded-md border text-[12px] font-semibold px-2 py-1 cursor-pointer appearance-none bg-no-repeat bg-[length:12px] bg-[right_4px_center] pr-5 focus:outline-none focus:ring-1 focus:ring-[#4b569e]',
+        PAY[current]?.cls ?? 'bg-gray-50 text-gray-500 border-gray-200',
+      )}
+      style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234b569e' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")` }}
+    >
+      {payOptions.map(s => <option key={s} value={s}>{PAY[s]?.label ?? s}</option>)}
+    </select>
+  );
+}
+
 /* ═══ Expanded Panel — KeyCRM style, no tabs ═══ */
 function OrderPanel({ order }: { order: Order }) {
   const [isPending, startTransition] = useTransition();
@@ -104,28 +148,15 @@ function OrderPanel({ order }: { order: Order }) {
               <span className="text-gray-400">Дата створення</span>
               <span className="text-gray-700">{fmtD(order.created_at)}</span>
               <span className="text-gray-400">Статус</span>
-              <span><StatusBadge status={order.status} size="md" /></span>
+              <span><StatusSelect current={order.status} orderId={order.id} isPending={isPending} act={act} /></span>
               <span className="text-gray-400">Оплата</span>
-              <span><PayBadge status={order.payment_status} /></span>
+              <span><PaymentSelect current={order.payment_status} orderId={order.id} isPending={isPending} act={act} /></span>
               {order.keycrm_order_id && <>
                 <span className="text-gray-400">KeyCRM</span>
                 <span className="text-gray-700 font-mono text-[12px]">#{order.keycrm_order_id}</span>
               </>}
             </div>
 
-            {/* Status actions */}
-            {allowed.length > 0 && (
-              <div className="flex gap-2 pt-2 border-t border-[#eceef5]">
-                {allowed.map(s => (
-                  <button key={s} onClick={() => act(() => updateOrderStatus(order.id, s))} disabled={isPending}
-                    className={cn('flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-medium disabled:opacity-50 transition-colors',
-                      s === 'canceled' ? 'border border-gray-200 text-gray-500 hover:bg-gray-50' : 'bg-[#4b569e] text-white hover:bg-[#363f75]')}>
-                    {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {STATUSES[s]?.label ?? s}
-                  </button>
-                ))}
-              </div>
-            )}
 
             {/* Comment */}
             <div className="pt-2 border-t border-[#eceef5]">
@@ -135,7 +166,7 @@ function OrderPanel({ order }: { order: Order }) {
                 className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] text-gray-700 placeholder:text-gray-300 focus:outline-none focus:border-[#4b569e] focus:bg-white resize-none" />
               {comment !== (order.manager_comment ?? '') && (
                 <button onClick={() => act(() => addComment(order.id, comment))} disabled={isPending}
-                  className="mt-1 rounded-md bg-[#4b569e] text-white px-3 py-1 text-[11px] font-medium hover:bg-[#363f75] disabled:opacity-50">Зберегти</button>
+                  className="mt-1 rounded-md bg-[#4b569e] text-white px-3 py-1.5 text-[11px] font-semibold hover:bg-[#363f75] disabled:opacity-50 shadow-sm">Зберегти</button>
               )}
             </div>
           </div>
@@ -164,10 +195,10 @@ function OrderPanel({ order }: { order: Order }) {
             {order.phone && (
               <div className="flex gap-2 mt-4">
                 <a href={`tel:${order.phone}`} onClick={e => e.stopPropagation()}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white h-9 text-[12px] font-semibold transition-colors">
+                  className="flex-1 flex items-center justify-center gap-2 rounded-md bg-[#4b569e] hover:bg-[#363f75] text-white h-9 text-[12px] font-semibold transition-colors shadow-sm">
                   <Phone className="h-3.5 w-3.5" /> Зателефонувати
                 </a>
-                <button className="flex-1 flex items-center justify-center gap-2 rounded-md bg-[#4b569e] hover:bg-[#363f75] text-white h-9 text-[12px] font-semibold transition-colors">
+                <button className="flex-1 flex items-center justify-center gap-2 rounded-md border-2 border-[#4b569e] text-[#4b569e] hover:bg-[#eceef5] h-9 text-[12px] font-semibold transition-colors">
                   <MessageSquare className="h-3.5 w-3.5" /> Написати
                 </button>
               </div>
@@ -272,7 +303,7 @@ function OrderPanel({ order }: { order: Order }) {
                   <option value="cash">Готівка</option><option value="card">Картка</option><option value="online">Онлайн</option>
                 </select>
                 <button type="submit" disabled={isPending}
-                  className="rounded-md bg-[#4b569e] text-white px-3 py-1.5 text-[11px] font-medium hover:bg-[#363f75] disabled:opacity-50">
+                  className="rounded-md bg-[#4b569e] text-white px-3 py-1.5 text-[11px] font-semibold hover:bg-[#363f75] disabled:opacity-50 shadow-sm">
                   {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Зберегти'}
                 </button>
                 <button type="button" onClick={() => setShowPayForm(false)} className="text-[11px] text-gray-400 hover:text-gray-600">Скасувати</button>

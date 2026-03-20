@@ -41,6 +41,26 @@ export async function addComment(orderId: string, comment: string) {
   revalidatePath('/orders');
 }
 
+export async function updatePaymentStatus(orderId: string, status: string) {
+  const admin = await getAdmin();
+  const { createAdminClient } = await import('@/lib/supabase/server');
+  const supabase = await createAdminClient();
+  await supabase.from('orders').update({
+    payment_status: status,
+    paid_at: status === 'paid' ? new Date().toISOString() : null,
+  }).eq('id', orderId);
+  // Log audit
+  await supabase.from('order_audit_log').insert({
+    order_id: orderId,
+    action: 'payment_status',
+    field_name: 'payment_status',
+    new_value: status,
+    created_by: admin.id,
+    created_by_name: admin.name,
+  });
+  revalidatePath('/orders');
+}
+
 export async function updateDelivery(orderId: string, fields: Record<string, unknown>) {
   const admin = await getAdmin();
   const service = new OrderService();
