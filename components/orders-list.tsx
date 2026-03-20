@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { uk } from 'date-fns/locale';
@@ -29,7 +29,7 @@ interface Order {
   warehouse_name: string | null; np_ttn: string | null; np_delivery_cost: number | null;
   notes: string | null; manager_comment: string | null; keycrm_order_id: number | null;
   created_at: string;
-  order_items?: { id: string; product_name: string; quantity: number; price_at_order: number }[];
+  order_items?: { id: string; product_name: string; quantity: number; price_at_order: number; products?: { image_path: string | null } | null }[];
   payments?: Payment[];
   order_expenses?: Expense[];
 }
@@ -161,7 +161,7 @@ function PayDrop({ current, orderId, isPending, act }: {
 }
 
 /* ═══ Expanded Panel ═══ */
-function Panel({ order }: { order: Order }) {
+function PanelDiv({ order }: { order: Order }) {
   const [isPending, startTransition] = useTransition();
   const [showPay, setShowPay] = useState(false);
   const [comment, setComment] = useState(order.manager_comment ?? '');
@@ -177,8 +177,7 @@ function Panel({ order }: { order: Order }) {
   const [showExp, setShowExp] = useState(false);
 
   return (
-    <td colSpan={8} className="p-0 bg-white">
-      <div className="border-t-2 border-[#4b569e]">
+    <div className="border-t-2 border-[#4b569e] bg-white">
         {/* ═══ 3 Columns ═══ */}
         <div className="grid grid-cols-3 divide-x divide-gray-100 min-h-[280px]">
 
@@ -314,7 +313,8 @@ function Panel({ order }: { order: Order }) {
           <table className="w-full text-[13px]">
             <thead>
               <tr className="text-[11px] text-gray-400 border-b border-gray-100 bg-gray-50/50">
-                <th className="px-5 py-2 text-left font-medium">Назва</th>
+                <th className="px-5 py-2 text-left font-medium w-14">Фото</th>
+                <th className="px-3 py-2 text-left font-medium">Назва</th>
                 <th className="px-3 py-2 text-center font-medium w-20">Кіл-во</th>
                 <th className="px-3 py-2 text-right font-medium w-28">Ціна</th>
                 <th className="px-5 py-2 text-right font-medium w-28">Сума</th>
@@ -323,7 +323,16 @@ function Panel({ order }: { order: Order }) {
             <tbody>
               {order.order_items?.map((item, i) => (
                 <tr key={item.id} className={cn('hover:bg-blue-50/30 transition-colors', i > 0 && 'border-t border-gray-50')}>
-                  <td className="px-5 py-2.5 text-gray-800">{item.product_name}</td>
+                  <td className="px-5 py-2">
+                    {item.products?.image_path ? (
+                      <img src={item.products.image_path} alt="" className="h-10 w-10 rounded object-cover border border-gray-200" />
+                    ) : (
+                      <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-300">
+                        <Package className="h-4 w-4" />
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-gray-800">{item.product_name}</td>
                   <td className="px-3 py-2.5 text-center text-gray-500 tabular-nums">{item.quantity} шт</td>
                   <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">{money(item.price_at_order)} ₴</td>
                   <td className="px-5 py-2.5 text-right font-medium text-gray-800 tabular-nums">{money(item.quantity * Number(item.price_at_order))} ₴</td>
@@ -412,40 +421,35 @@ function Panel({ order }: { order: Order }) {
           </div>
         </div>
       </div>
-    </td>
+    </div>
   );
 }
 
-/* ═══ Row ═══ */
-function Row({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
+/* ═══ Order Card ═══ */
+function OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
   const name = [order.first_name, order.last_name].filter(Boolean).join(' ') || '—';
   return (
-    <Fragment>
-      <tr onClick={onToggle}
-        className={cn('group cursor-pointer transition-all border-b',
-          isOpen ? 'bg-[#eceef5]/60 border-[#4b569e]/20' : 'bg-white hover:bg-gray-50 border-gray-100')}>
-        <td className="pl-4 pr-1 py-2.5 w-10">
-          <ChevronDown className={cn('h-4 w-4 text-gray-300 transition-transform duration-150 group-hover:text-[#4b569e]', isOpen && 'rotate-180 text-[#4b569e]')} />
-        </td>
-        <td className="px-2 py-2.5 w-14">
-          <span className="text-[13px] text-gray-700 font-semibold tabular-nums">{order.order_number}</span>
-        </td>
-        <td className="px-2 py-2.5 w-[140px] text-[12px] text-gray-500">{fmtD(order.created_at)}</td>
-        <td className="px-2 py-2.5 w-[140px]"><Badge status={order.status} /></td>
-        <td className="px-2 py-2.5">
-          <p className="text-[13px] text-gray-800 font-medium truncate">{name}</p>
-          {order.phone && <p className="text-[11px] text-gray-400 font-mono">{order.phone}</p>}
-        </td>
-        <td className="px-2 py-2.5 w-[140px]">
-          {order.np_ttn ? <span className="text-[11px] font-mono text-gray-500">{order.np_ttn.slice(-10)}</span> : <span className="text-[11px] text-gray-200">—</span>}
-        </td>
-        <td className="px-2 py-2.5 w-[110px]"><PayBadge status={order.payment_status} /></td>
-        <td className="px-4 py-2.5 w-[100px] text-right">
-          <span className="text-[14px] font-bold text-gray-900 tabular-nums">{money(order.total_amount)} ₴</span>
-        </td>
-      </tr>
-      {isOpen && <tr><Panel order={order} /></tr>}
-    </Fragment>
+    <div className={cn('rounded-lg border-2 transition-all overflow-hidden',
+      isOpen ? 'border-[#4b569e] shadow-md' : 'border-gray-200 hover:border-[#4b569e]/40 hover:shadow-sm')}>
+      {/* Compact header row */}
+      <div onClick={onToggle}
+        className={cn('flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors',
+          isOpen ? 'bg-[#eceef5]/60' : 'bg-white hover:bg-gray-50')}>
+        <ChevronDown className={cn('h-4 w-4 text-gray-300 transition-transform duration-150 shrink-0', isOpen && 'rotate-180 text-[#4b569e]')} />
+        <span className="text-[13px] text-gray-700 font-semibold tabular-nums w-10">{order.order_number}</span>
+        <span className="text-[12px] text-gray-500 w-[130px]">{fmtD(order.created_at)}</span>
+        <span className="w-[130px]"><Badge status={order.status} /></span>
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] text-gray-800 font-medium truncate block">{name}</span>
+        </div>
+        <span className="text-[12px] font-mono text-gray-400 w-[120px] truncate">{order.phone ?? '—'}</span>
+        <span className="w-[130px]">{order.np_ttn ? <span className="text-[11px] font-mono text-gray-500">{order.np_ttn.slice(-10)}</span> : <span className="text-[11px] text-gray-200">—</span>}</span>
+        <span className="w-[100px]"><PayBadge status={order.payment_status} /></span>
+        <span className="text-[14px] font-bold text-gray-900 tabular-nums w-[90px] text-right">{money(order.total_amount)} ₴</span>
+      </div>
+      {/* Expanded panel */}
+      {isOpen && <PanelDiv order={order} />}
+    </div>
   );
 }
 
@@ -533,41 +537,39 @@ export function OrdersList({ orders }: { orders: Order[] }) {
         })}
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden shadow-sm">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <th className="pl-4 py-2.5 w-10"></th>
-              <th className="px-2 py-2.5 w-14 text-left">№</th>
-              <th className="px-2 py-2.5 w-[140px] text-left">Дата</th>
-              <th className="px-2 py-2.5 w-[140px] text-left">Статус</th>
-              <th className="px-2 py-2.5 text-left">Покупець</th>
-              <th className="px-2 py-2.5 w-[140px] text-left">Трекінг</th>
-              <th className="px-2 py-2.5 w-[110px] text-left">Оплата</th>
-              <th className="px-4 py-2.5 w-[100px] text-right">Сума</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(order => (
-              <Row key={order.id} order={order} isOpen={expandedId === order.id}
-                onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)} />
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={8} className="py-16 text-center">
-                <ShoppingCart className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-[13px] text-gray-400">{search ? 'Нічого не знайдено' : 'Замовлень поки немає'}</p>
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-        {filtered.length > 0 && (
-          <div className="border-t border-gray-200 bg-gray-50 px-5 py-2 flex justify-between text-[12px] text-gray-400">
-            <span>Показано {filtered.length} з {orders.length}</span>
-            <span>Сума: <span className="font-semibold text-gray-700">{money(rev(filtered))} ₴</span></span>
+      {/* Header row */}
+      <div className="flex items-center gap-3 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+        <span className="w-4"></span>
+        <span className="w-10">№</span>
+        <span className="w-[130px]">Дата</span>
+        <span className="w-[130px]">Статус</span>
+        <span className="flex-1">Покупець</span>
+        <span className="w-[120px]">Телефон</span>
+        <span className="w-[130px]">Трекінг</span>
+        <span className="w-[100px]">Оплата</span>
+        <span className="w-[90px] text-right">Сума</span>
+      </div>
+
+      {/* Order cards */}
+      <div className="space-y-2">
+        {filtered.map(order => (
+          <OrderCard key={order.id} order={order} isOpen={expandedId === order.id}
+            onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)} />
+        ))}
+        {filtered.length === 0 && (
+          <div className="rounded-lg border-2 border-gray-200 bg-white py-16 text-center">
+            <ShoppingCart className="h-8 w-8 text-gray-200 mx-auto mb-2" />
+            <p className="text-[13px] text-gray-400">{search ? 'Нічого не знайдено' : 'Замовлень поки немає'}</p>
           </div>
         )}
       </div>
+
+      {filtered.length > 0 && (
+        <div className="flex justify-between text-[12px] text-gray-400 px-4">
+          <span>Показано {filtered.length} з {orders.length}</span>
+          <span>Сума: <span className="font-semibold text-gray-700">{money(rev(filtered))} ₴</span></span>
+        </div>
+      )}
     </div>
   );
 }

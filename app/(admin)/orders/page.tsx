@@ -8,7 +8,7 @@ export default async function OrdersPage() {
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('*, order_items(*), payments(*), order_expenses(*)')
+    .select('*, order_items(*, products(image_path)), payments(*), order_expenses(*)')
     .order('created_at', { ascending: false });
 
   return <OrdersList orders={orders ?? []} />;
