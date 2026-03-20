@@ -28,7 +28,7 @@ interface Order {
   warehouse_name: string | null; np_ttn: string | null; np_delivery_cost: number | null;
   notes: string | null; manager_comment: string | null; keycrm_order_id: number | null;
   created_at: string;
-  order_items?: { id: string; product_name: string; quantity: number; price_at_order: number; products?: { image_path: string | null } | null }[];
+  order_items?: { id: string; product_name: string; quantity: number; price_at_order: number; image_path?: string | null }[];
   payments?: Payment[];
   order_expenses?: Expense[];
 }
@@ -320,8 +320,8 @@ function PanelDiv({ order }: { order: Order }) {
               {order.order_items?.map((item, i) => (
                 <tr key={item.id} className={cn('hover:bg-blue-50/30 transition-colors', i > 0 && 'border-t border-gray-50')}>
                   <td className="px-5 py-2">
-                    {item.products?.image_path ? (
-                      <img src={item.products.image_path} alt="" className="h-10 w-10 rounded object-cover border border-gray-200" />
+                    {item.image_path ? (
+                      <img src={item.image_path} alt="" className="h-10 w-10 rounded object-cover border border-gray-200" />
                     ) : (
                       <div className="h-10 w-10 rounded bg-gray-100 flex items-center justify-center text-gray-300">
                         <Package className="h-4 w-4" />
