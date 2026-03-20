@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createAdminClient } from '@/lib/supabase/server';
 import { StatusBadge } from '@/components/status-badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +15,7 @@ export default async function OrdersPage() {
 
   const { data: orders } = await supabase
     .from('orders')
-    .select('*, profiles(name, last_name)')
+    .select('*')
     .order('created_at', { ascending: false });
 
   return (

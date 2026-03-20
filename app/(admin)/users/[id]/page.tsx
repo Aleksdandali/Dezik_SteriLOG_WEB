@@ -40,7 +40,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         <Link href="/users" className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-3xl font-bold">{profile.name} {profile.last_name}</h1>
+        <h1 className="text-3xl font-bold">{profile.name ?? '—'}</h1>
         <Badge variant="outline">{profile.role}</Badge>
       </div>
 

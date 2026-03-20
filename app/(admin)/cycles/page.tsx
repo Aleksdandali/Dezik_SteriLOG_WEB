@@ -1,5 +1,7 @@
+export const dynamic = 'force-dynamic';
+
 import { createAdminClient } from '@/lib/supabase/server';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/status-badge';
 import { StatCard } from '@/components/stat-card';
@@ -21,10 +23,21 @@ export default async function CyclesPage() {
     supabase.from('sterilization_sessions').select('*', { count: 'exact', head: true }).eq('result', 'success'),
     supabase.from('sterilization_sessions').select('*', { count: 'exact', head: true }).eq('result', 'fail'),
     supabase.from('sterilization_sessions')
-      .select('*, profiles(name, last_name, salon_name)')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(100),
   ]);
+
+  // Fetch user names for sessions
+  const userIds = [...new Set(sessions?.map(s => s.user_id).filter(Boolean) ?? [])];
+  const profileMap: Record<string, string> = {};
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .in('id', userIds);
+    profiles?.forEach(p => { profileMap[p.id] = p.name ?? '—'; });
+  }
 
   const total = totalCount ?? 0;
   const successPct = total > 0 ? Math.round(((successCount ?? 0) / total) * 100) : 0;
@@ -60,8 +73,8 @@ export default async function CyclesPage() {
                   <TableCell className="whitespace-nowrap">
                     {format(new Date(s.created_at), 'dd.MM.yyyy HH:mm', { locale: uk })}
                   </TableCell>
-                  <TableCell>{s.profiles?.name} {s.profiles?.last_name}</TableCell>
-                  <TableCell>{s.profiles?.salon_name ?? '—'}</TableCell>
+                  <TableCell>{profileMap[s.user_id] ?? '—'}</TableCell>
+                  <TableCell>{s.salon_name ?? '—'}</TableCell>
                   <TableCell className="max-w-[200px] truncate">{s.instrument_names}</TableCell>
                   <TableCell>{s.sterilizer_name}</TableCell>
                   <TableCell className="whitespace-nowrap">

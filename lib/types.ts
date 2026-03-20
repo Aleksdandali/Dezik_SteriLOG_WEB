@@ -1,7 +1,6 @@
 export interface Profile {
   id: string;
   name: string | null;
-  last_name: string | null;
   salon_name: string | null;
   phone: string | null;
   city: string | null;

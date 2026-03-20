@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createAdminClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,7 +18,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   const { data: order } = await supabase
     .from('orders')
-    .select('*, order_items(*), profiles(name, last_name, phone, city)')
+    .select('*, order_items(*)')
     .eq('id', id)
     .single();
 
@@ -45,11 +47,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <CardTitle>Клієнт</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <p><span className="text-muted-foreground">Ім'я:</span> {order.first_name} {order.last_name}</p>
+            <p><span className="text-muted-foreground">Ім&#39;я:</span> {order.first_name ?? '—'} {order.last_name ?? ''}</p>
             <p><span className="text-muted-foreground">Телефон:</span> {order.phone ?? '—'}</p>
-            {order.profiles && (
-              <p><span className="text-muted-foreground">Місто (профіль):</span> {order.profiles.city ?? '—'}</p>
-            )}
           </CardContent>
         </Card>
 

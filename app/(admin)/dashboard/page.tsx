@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createAdminClient } from '@/lib/supabase/server';
 import { StatCard } from '@/components/stat-card';
 import { StatusBadge } from '@/components/status-badge';
@@ -36,7 +38,7 @@ export default async function DashboardPage() {
     supabase.from('orders').select('total_amount').neq('status', 'canceled').gte('created_at', monthStart),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', monthStart),
     supabase.from('sterilization_sessions').select('*', { count: 'exact', head: true }).gte('created_at', todayStart),
-    supabase.from('orders').select('*, profiles(name, last_name)').order('created_at', { ascending: false }).limit(5),
+    supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(5),
   ]);
 
   const monthRevenue = revenueData?.reduce((sum, o) => sum + Number(o.total_amount), 0) ?? 0;

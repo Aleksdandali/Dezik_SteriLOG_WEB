@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createAdminClient } from '@/lib/supabase/server';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,8 +25,7 @@ export default async function UsersPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ім'я</TableHead>
-                <TableHead>Прізвище</TableHead>
+                <TableHead>Ім&#39;я</TableHead>
                 <TableHead>Салон</TableHead>
                 <TableHead>Місто</TableHead>
                 <TableHead>Телефон</TableHead>
@@ -40,7 +41,6 @@ export default async function UsersPage() {
                       {p.name ?? '—'}
                     </Link>
                   </TableCell>
-                  <TableCell>{p.last_name ?? '—'}</TableCell>
                   <TableCell>{p.salon_name ?? '—'}</TableCell>
                   <TableCell>{p.city ?? '—'}</TableCell>
                   <TableCell className="font-mono text-sm">{p.phone ?? '—'}</TableCell>
@@ -52,7 +52,7 @@ export default async function UsersPage() {
               ))}
               {(!profiles || profiles.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Користувачів поки немає
                   </TableCell>
                 </TableRow>
@@ -64,3 +64,4 @@ export default async function UsersPage() {
     </div>
   );
 }
+
