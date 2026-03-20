@@ -9,13 +9,8 @@ import {
   Package,
   FolderOpen,
   Users,
-  Microscope,
   Settings2,
-  Pipette,
-  BookOpen,
   LogOut,
-  Ruler,
-  Thermometer,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -44,21 +39,6 @@ const navigation = [
     title: 'КЛІЄНТИ',
     items: [
       { name: 'Користувачі', href: '/users', icon: Users },
-    ],
-  },
-  {
-    title: 'СТЕРИЛІЗАЦІЯ',
-    items: [
-      { name: 'Журнал циклів', href: '/cycles', icon: Microscope },
-      { name: 'Режими стерилізації', href: '/steri-presets', icon: Thermometer },
-      { name: 'Рекомендації пакетів', href: '/pouch-recommendations', icon: Ruler },
-    ],
-  },
-  {
-    title: 'РОЗЧИНИ',
-    items: [
-      { name: 'Концентрації', href: '/concentrations', icon: Pipette },
-      { name: 'Методички', href: '/guides', icon: BookOpen },
     ],
   },
   {
