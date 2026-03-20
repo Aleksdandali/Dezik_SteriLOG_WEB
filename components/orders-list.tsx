@@ -11,10 +11,17 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  updateOrderStatus, addPayment, addComment, updatePaymentStatus,
+  updateOrderStatus, addPayment, addExpense, addComment, updatePaymentStatus,
 } from '@/app/(admin)/orders/[id]/order-actions-server';
 
 /* ═══ Types ═══ */
+interface Payment {
+  id: string; amount: number; method: string; status: string;
+  comment: string | null; paid_at: string | null; created_at: string;
+}
+interface Expense {
+  id: string; name: string; amount: number; comment: string | null; created_at: string;
+}
 interface Order {
   id: string; user_id: string; status: string; payment_status: string; source: string;
   order_number: number; total_amount: number; phone: string | null;
@@ -23,6 +30,8 @@ interface Order {
   notes: string | null; manager_comment: string | null; keycrm_order_id: number | null;
   created_at: string;
   order_items?: { id: string; product_name: string; quantity: number; price_at_order: number }[];
+  payments?: Payment[];
+  order_expenses?: Expense[];
 }
 
 /* ═══ Config ═══ */
@@ -44,6 +53,7 @@ const PAY: Record<string, { label: string; cls: string }> = {
   partial: { label: 'Частково',    cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   paid:    { label: 'Оплачено',    cls: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
 };
+const METHOD_LABELS: Record<string, string> = { cash: 'Готівка', card: 'Картка', online: 'Онлайн', bank_transfer: 'Переказ' };
 const money = (n: number | string) => Number(n).toLocaleString('uk-UA');
 const fmtD = (d: string) => {
   const date = new Date(d);
@@ -160,6 +170,11 @@ function Panel({ order }: { order: Order }) {
 
   const name = [order.first_name, order.last_name].filter(Boolean).join(' ') || '—';
   const itemsSum = order.order_items?.reduce((s, i) => s + i.quantity * Number(i.price_at_order), 0) ?? 0;
+  const payments = order.payments ?? [];
+  const expenses = order.order_expenses ?? [];
+  const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + Number(p.amount), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const [showExp, setShowExp] = useState(false);
 
   return (
     <td colSpan={8} className="p-0 bg-white">
@@ -268,7 +283,26 @@ function Panel({ order }: { order: Order }) {
                 </span>
               ) : <span className="text-gray-300">—</span>}
             </LV>
-            <LV label="Витрати"><span className="text-[#4b569e] font-medium cursor-pointer">+ Додати</span></LV>
+            <LV label="Витрати">
+              <div>
+                {expenses.length > 0 && expenses.map(e => (
+                  <div key={e.id} className="text-[12px] text-gray-700">{e.name}: {money(e.amount)} ₴</div>
+                ))}
+                {totalExpenses > 0 && <div className="text-[12px] font-medium text-gray-800 mt-0.5">Всього: {money(totalExpenses)} ₴</div>}
+                <button onClick={() => setShowExp(!showExp)} className="text-[#4b569e] font-medium text-[12px] mt-1">+ Додати</button>
+                {showExp && (
+                  <form onSubmit={e => { e.preventDefault(); const fd = new FormData(e.currentTarget);
+                    act(async () => {
+                      await addExpense(order.id, { name: fd.get('name') as string, amount: Number(fd.get('amount')) });
+                      setShowExp(false);
+                    }); }} className="flex gap-1.5 mt-1.5">
+                    <input name="name" required placeholder="Назва" className="w-24 rounded border border-gray-200 px-2 py-1 text-[11px] focus:outline-none focus:border-[#4b569e]" />
+                    <input name="amount" type="number" step="0.01" required placeholder="₴" className="w-16 rounded border border-gray-200 px-2 py-1 text-[11px] focus:outline-none focus:border-[#4b569e]" />
+                    <button type="submit" disabled={isPending} className="rounded bg-[#4b569e] text-white px-2 py-1 text-[10px] font-semibold hover:bg-[#363f75] disabled:opacity-50">OK</button>
+                  </form>
+                )}
+              </div>
+            </LV>
           </div>
         </div>
 
@@ -326,23 +360,54 @@ function Panel({ order }: { order: Order }) {
                 <button type="button" onClick={() => setShowPay(false)} className="text-[11px] text-gray-400 hover:text-gray-600 px-2">Скасувати</button>
               </form>
             )}
-            <p className="text-[12px] text-gray-300">Оплат: 0,00 ₴</p>
+            {payments.length > 0 ? (
+              <table className="w-full text-[12px]">
+                <thead><tr className="text-[10px] text-gray-400 border-b border-gray-100">
+                  <th className="pb-1 text-left font-medium">Дата</th>
+                  <th className="pb-1 text-left font-medium">Тип</th>
+                  <th className="pb-1 text-right font-medium">Сума</th>
+                  <th className="pb-1 text-center font-medium">Статус</th>
+                </tr></thead>
+                <tbody>{payments.map(p => (
+                  <tr key={p.id} className="border-b border-gray-50 last:border-0">
+                    <td className="py-1.5 text-gray-500">{fmtD(p.created_at)}</td>
+                    <td className="py-1.5 text-gray-600">{METHOD_LABELS[p.method] ?? p.method}</td>
+                    <td className="py-1.5 text-right font-medium tabular-nums">{money(p.amount)} ₴</td>
+                    <td className="py-1.5 text-center">
+                      <span className={cn('px-1.5 py-0.5 rounded text-[9px] font-bold',
+                        p.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500')}>{p.status === 'paid' ? '✓' : '○'}</span>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            ) : <p className="text-[12px] text-gray-300">Оплат немає</p>}
+            <div className="mt-1 text-[12px] text-gray-500">Оплати: <span className="font-medium text-gray-700 tabular-nums">{money(totalPaid)} ₴</span></div>
           </div>
 
           {/* Totals */}
           <div className="px-5 py-3 border-l border-gray-200 bg-gray-50/50">
             <div className="space-y-1 text-[13px]">
               <div className="flex justify-between"><span className="text-gray-400">Сума за товари:</span><span className="text-gray-800 font-medium tabular-nums">{money(itemsSum)} ₴</span></div>
-              <div className="flex justify-between"><span className="text-gray-400">Знижка:</span><span className="text-red-500 tabular-nums">-0,00 ₴</span></div>
-              {order.np_delivery_cost && Number(order.np_delivery_cost) > 0 ? (
-                <div className="flex justify-between"><span className="text-gray-400">Вартість доставки:</span><span className="text-gray-800 tabular-nums">{money(order.np_delivery_cost)} ₴</span></div>
-              ) : (
-                <div className="flex justify-between"><span className="text-gray-400">Вартість доставки:</span><span className="text-gray-400 tabular-nums">0,00 ₴</span></div>
+              <div className="flex justify-between"><span className="text-gray-400">Вартість доставки:</span><span className={cn('tabular-nums', Number(order.np_delivery_cost ?? 0) > 0 ? 'text-gray-800' : 'text-gray-400')}>{money(order.np_delivery_cost ?? 0)} ₴</span></div>
+              {totalExpenses > 0 && (
+                <div className="flex justify-between"><span className="text-gray-400">Витрати:</span><span className="text-red-500 tabular-nums">-{money(totalExpenses)} ₴</span></div>
               )}
               <div className="flex justify-between pt-2 mt-1 border-t border-gray-200 text-[15px] font-bold">
                 <span className="text-gray-800">Загальна вартість:</span>
                 <span className="text-gray-900 tabular-nums">{money(order.total_amount)} ₴</span>
               </div>
+              {totalPaid > 0 && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-400">Оплачено:</span>
+                  <span className="text-emerald-600 font-medium tabular-nums">{money(totalPaid)} ₴</span>
+                </div>
+              )}
+              {totalPaid > 0 && totalPaid < Number(order.total_amount) && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-gray-400">До сплати:</span>
+                  <span className="text-red-500 font-medium tabular-nums">{money(Number(order.total_amount) - totalPaid)} ₴</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
