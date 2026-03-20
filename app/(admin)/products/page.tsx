@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Plus, Package, Pencil } from 'lucide-react';
 import { ProductToggle } from './product-toggle';
 
-const STORAGE_URL = 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/product-images';
+const STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images`;
 
 function getImageUrl(path: string | null) {
   if (!path) return null;

@@ -14,7 +14,7 @@ import { Upload, X, ImageIcon, Loader2 } from 'lucide-react';
 import { uploadProductImage, removeProductImage } from '@/app/(admin)/products/upload-action';
 import { saveProduct } from '@/app/(admin)/products/actions';
 
-const STORAGE_URL = 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/product-images';
+const STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/product-images`;
 
 interface ProductFormProps {
   product?: Product;

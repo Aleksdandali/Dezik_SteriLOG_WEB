@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { isAdminEmail } from '@/lib/admin-emails';
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -49,4 +50,16 @@ export async function createAdminClient() {
       },
     }
   );
+}
+
+/** Verify that the current request is from an authenticated admin. Call this in every server action. */
+export async function requireAdmin() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user || !isAdminEmail(user.email)) {
+    throw new Error('Unauthorized');
+  }
+
+  return user;
 }

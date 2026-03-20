@@ -1,9 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-const ADMIN_EMAILS = [
-  'gloss.odessa@gmail.com',
-];
+import { isAdminEmail } from '@/lib/admin-emails';
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -41,7 +38,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !ADMIN_EMAILS.includes(user.email ?? '')) {
+  if (user && !isAdminEmail(user.email)) {
     if (!isLoginPage) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
@@ -50,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (user && ADMIN_EMAILS.includes(user.email ?? '') && isLoginPage) {
+  if (user && isAdminEmail(user.email) && isLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);

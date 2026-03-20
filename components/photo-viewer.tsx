@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Camera } from 'lucide-react';
 
-const STORAGE_URL = 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/cycle-photos';
+const STORAGE_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/cycle-photos`;
 
 interface PhotoViewerProps {
   beforePath?: string | null;

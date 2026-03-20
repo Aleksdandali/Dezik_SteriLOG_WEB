@@ -1,9 +1,10 @@
 'use server';
 
-import { createAdminClient } from '@/lib/supabase/server';
+import { createAdminClient, requireAdmin } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function toggleProductStock(productId: string, inStock: boolean) {
+  await requireAdmin();
   const supabase = await createAdminClient();
   const { error } = await supabase
     .from('products')
@@ -26,6 +27,7 @@ export async function saveProduct(productId: string | null, payload: {
   shelf_life_days: number | null;
   sort_order: number;
 }) {
+  await requireAdmin();
   const supabase = await createAdminClient();
 
   if (productId) {
