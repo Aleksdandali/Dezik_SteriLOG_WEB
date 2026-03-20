@@ -54,19 +54,57 @@ const STATUSES: Record<string, { label: string; dot: string }> = {
 
 const money = (n: number | string) => Number(n).toLocaleString('uk-UA');
 
-function ActionBtn({ onClick, disabled, primary, children }: {
-  onClick: () => void; disabled?: boolean; primary?: boolean; children: React.ReactNode;
+const STATUS_FLOW: { value: string; label: string }[] = [
+  { value: 'pending',    label: 'Нове' },
+  { value: 'confirmed',  label: 'Підтверджено' },
+  { value: 'processing', label: 'В обробці' },
+  { value: 'shipped',    label: 'Відправлено' },
+  { value: 'delivered',  label: 'Доставлено' },
+  { value: 'canceled',   label: 'Скасовано' },
+];
+
+const TRANSITIONS: Record<string, string[]> = {
+  pending:    ['confirmed', 'canceled'],
+  confirmed:  ['processing', 'canceled'],
+  processing: ['shipped', 'canceled'],
+  shipped:    ['delivered'],
+  delivered:  [],
+  canceled:   [],
+};
+
+function StatusChanger({ status, isPending, onChangeStatus }: {
+  status: string; isPending: boolean; onChangeStatus: (s: string) => void;
 }) {
+  const allowed = TRANSITIONS[status] ?? [];
+  if (allowed.length === 0) return null;
+
   return (
-    <button onClick={onClick} disabled={disabled}
-      className={cn(
-        'flex-1 flex items-center justify-center gap-1.5 rounded-lg h-8 text-[12px] font-medium disabled:opacity-50 transition-colors',
-        primary
-          ? 'bg-[#0f172a] text-white hover:bg-[#1e293b]'
-          : 'border border-[#e2e8f0] bg-white text-[#64748b] hover:bg-[#f8fafc]',
-      )}>
-      {children}
-    </button>
+    <div className="mt-4 space-y-2">
+      <p className="text-[11px] text-[#94a3b8] font-medium">Змінити статус</p>
+      <div className="flex flex-wrap gap-1.5">
+        {allowed.map(s => {
+          const cfg = STATUSES[s];
+          const info = STATUS_FLOW.find(f => f.value === s);
+          const isCanceled = s === 'canceled';
+          return (
+            <button
+              key={s}
+              onClick={() => onChangeStatus(s)}
+              disabled={isPending}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-3 py-[6px] text-[12px] font-medium transition-all disabled:opacity-50',
+                isCanceled
+                  ? 'border border-[#e2e8f0] text-[#94a3b8] hover:bg-[#f8fafc] hover:text-[#64748b]'
+                  : 'bg-[#0f172a] text-white hover:bg-[#1e293b] shadow-[0_1px_2px_rgba(0,0,0,0.15)]',
+              )}
+            >
+              {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <span className={cn('h-[6px] w-[6px] rounded-full', isCanceled ? 'bg-[#94a3b8]' : cfg?.dot ?? 'bg-white')} />}
+              {info?.label ?? s}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -160,40 +198,7 @@ function OrderDetailsCard({ order }: { order: Order }) {
             {order.notes && (
               <p className="mt-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] px-3 py-2 text-[12px] text-[#64748b] leading-relaxed">{order.notes}</p>
             )}
-            {/* Status action buttons — based on current status */}
-            {order.status !== 'delivered' && order.status !== 'canceled' && (
-              <div className="flex gap-2 mt-4">
-                {order.status === 'pending' && (
-                  <ActionBtn onClick={() => act('confirmed')} disabled={isPending} primary>
-                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                    Підтвердити
-                  </ActionBtn>
-                )}
-                {order.status === 'confirmed' && (
-                  <ActionBtn onClick={() => act('processing')} disabled={isPending} primary>
-                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
-                    В обробку
-                  </ActionBtn>
-                )}
-                {order.status === 'processing' && (
-                  <ActionBtn onClick={() => act('shipped')} disabled={isPending} primary>
-                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
-                    Відправлено
-                  </ActionBtn>
-                )}
-                {order.status === 'shipped' && (
-                  <ActionBtn onClick={() => act('delivered')} disabled={isPending} primary>
-                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                    Доставлено
-                  </ActionBtn>
-                )}
-                {(order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing') && (
-                  <ActionBtn onClick={() => act('canceled')} disabled={isPending}>
-                    <XCircle className="h-3.5 w-3.5" /> Скасувати
-                  </ActionBtn>
-                )}
-              </div>
-            )}
+            <StatusChanger status={order.status} isPending={isPending} onChangeStatus={act} />
           </div>
 
           {/* Card: Client */}
