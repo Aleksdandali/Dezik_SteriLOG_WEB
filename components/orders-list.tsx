@@ -417,7 +417,6 @@ function PanelDiv({ order }: { order: Order }) {
           </div>
         </div>
       </div>
-    </div>
   );
 }
 
