@@ -14,8 +14,7 @@ import {
   updateOrderStatus, addPayment, addExpense, addComment, updatePaymentStatus,
 } from '@/app/(admin)/orders/[id]/order-actions-server';
 
-/* ═══ Types ═══ */
-interface Payment {
+//Typesinterface Payment {
   id: string; amount: number; method: string; status: string;
   comment: string | null; paid_at: string | null; created_at: string;
 }
@@ -34,8 +33,7 @@ interface Order {
   order_expenses?: Expense[];
 }
 
-/* ═══ Config ═══ */
-const STATUSES: Record<string, { label: string; bg: string; text: string }> = {
+//Configconst STATUSES: Record<string, { label: string; bg: string; text: string }> = {
   all:        { label: 'Всі',          bg: 'bg-gray-100',   text: 'text-gray-600' },
   pending:    { label: 'НОВЕ',         bg: 'bg-amber-100',  text: 'text-amber-800' },
   confirmed:  { label: 'ПІДТВЕРДЖЕНО', bg: 'bg-blue-100',   text: 'text-blue-800' },
@@ -60,8 +58,7 @@ const fmtD = (d: string) => {
   return isToday(date) ? `Сьогодні ${format(date, 'HH:mm')}` : format(date, 'dd.MM.yy HH:mm', { locale: uk });
 };
 
-/* ═══ Atoms ═══ */
-function Badge({ status }: { status: string }) {
+//Atomsfunction Badge({ status }: { status: string }) {
   const c = STATUSES[status] ?? STATUSES.pending;
   return <span className={cn('inline-flex px-2 py-0.5 rounded text-[10px] font-bold tracking-wide', c.bg, c.text)}>{c.label}</span>;
 }
@@ -85,8 +82,7 @@ function LV({ label, children, className: cls }: { label: string; children: Reac
   );
 }
 
-/* ═══ Custom Dropdowns (KeyCRM style) ═══ */
-function Dropdown({ current, options, onSelect, disabled }: {
+//Custom Dropdowns (KeyCRM style)function Dropdown({ current, options, onSelect, disabled }: {
   current: string;
   options: { value: string; label: string; bg: string; text: string }[];
   onSelect: (v: string) => void;
@@ -160,7 +156,7 @@ function PayDrop({ current, orderId, isPending, act }: {
     onSelect={v => act(() => updatePaymentStatus(orderId, v))} />;
 }
 
-/* ═══ Expanded Panel ═══ */
+// Expanded Panel
 function PanelDiv({ order }: { order: Order }) {
   const [isPending, startTransition] = useTransition();
   const [showPay, setShowPay] = useState(false);
@@ -178,7 +174,7 @@ function PanelDiv({ order }: { order: Order }) {
 
   return (
     <div className="border-t-2 border-[#4b569e] bg-white">
-        {/* ═══ 3 Columns ═══ */}
+        {//3 Columns ═══ */}
         <div className="grid grid-cols-3 divide-x divide-gray-100 min-h-[280px]">
 
           {/* ─── LEFT: Order ─── */}
@@ -305,7 +301,7 @@ function PanelDiv({ order }: { order: Order }) {
           </div>
         </div>
 
-        {/* ═══ Products ═══ */}
+        {//Products ═══ */}
         <div className="border-t border-gray-200">
           <div className="px-5 py-2.5 flex items-center justify-between bg-gray-50">
             <span className="text-[13px] font-semibold text-gray-700">Товари ({order.order_items?.length ?? 0})</span>
@@ -342,7 +338,7 @@ function PanelDiv({ order }: { order: Order }) {
           </table>
         </div>
 
-        {/* ═══ Payments + Totals ═══ */}
+        {//Payments + Totals ═══ */}
         <div className="border-t border-gray-200 grid grid-cols-[1fr_320px]">
           {/* Payments */}
           <div className="px-5 py-3">
@@ -425,8 +421,7 @@ function PanelDiv({ order }: { order: Order }) {
   );
 }
 
-/* ═══ Order Card ═══ */
-function OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
+//Order Cardfunction OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
   const name = [order.first_name, order.last_name].filter(Boolean).join(' ') || '—';
   return (
     <div className={cn('rounded-lg border-2 transition-all overflow-hidden',
@@ -453,8 +448,7 @@ function OrderCard({ order, isOpen, onToggle }: { order: Order; isOpen: boolean;
   );
 }
 
-/* ═══ Metric ═══ */
-function Metric({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub: string; icon: React.ComponentType<{ className?: string }> }) {
+//Metricfunction Metric({ label, value, sub, icon: Icon }: { label: string; value: string | number; sub: string; icon: React.ComponentType<{ className?: string }> }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
       <div className="h-9 w-9 flex items-center justify-center rounded-lg bg-[#eceef5] text-[#4b569e]">
@@ -469,8 +463,7 @@ function Metric({ label, value, sub, icon: Icon }: { label: string; value: strin
   );
 }
 
-/* ═══ Main ═══ */
-export function OrdersList({ orders }: { orders: Order[] }) {
+//Mainexport function OrdersList({ orders }: { orders: Order[] }) {
   const [activeStatus, setActiveStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
