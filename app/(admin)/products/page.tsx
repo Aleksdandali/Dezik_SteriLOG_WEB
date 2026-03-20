@@ -3,10 +3,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Plus, Package } from 'lucide-react';
+import { Plus, Package, Pencil } from 'lucide-react';
 import { ProductToggle } from './product-toggle';
 
 const STORAGE_URL = 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/product-images';
+
+function getImageUrl(path: string | null) {
+  if (!path) return null;
+  return path.startsWith('http') ? path : `${STORAGE_URL}/${path}`;
+}
 
 export default async function ProductsPage() {
   const supabase = await createAdminClient();
@@ -16,84 +21,102 @@ export default async function ProductsPage() {
     .select('*, product_categories(name)')
     .order('sort_order');
 
+  const inStockCount = products?.filter(p => p.in_stock).length ?? 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Товари</h1>
-          <p className="text-sm text-muted-foreground">{products?.length ?? 0} товарів у каталозі</p>
+          <p className="text-sm text-muted-foreground">
+            {products?.length ?? 0} товарів &middot; {inStockCount} в наявності
+          </p>
         </div>
         <Link href="/products/new">
           <Button><Plus className="mr-2 h-4 w-4" />Додати товар</Button>
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {products?.map((product) => (
-          <Card key={product.id} className="group relative overflow-hidden transition-shadow hover:shadow-md">
-            <div className="absolute top-3 right-3 z-10">
-              <ProductToggle productId={product.id} inStock={product.in_stock} />
-            </div>
-
-            <Link href={`/products/${product.id}`} className="block">
-              <div className="relative aspect-square bg-[#F3F4F6] dark:bg-muted flex items-center justify-center overflow-hidden">
-                {product.image_path ? (
-                  <img
-                    src={product.image_path.startsWith('http') ? product.image_path : `${STORAGE_URL}/${product.image_path}`}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                  />
-                ) : (
-                  <Package className="h-12 w-12 text-[#9CA3AF]" />
-                )}
-              </div>
-
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                    {product.name}
-                  </h3>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {product.product_categories?.name && (
-                    <Badge variant="secondary" className="text-xs font-normal">
-                      {product.product_categories.name}
-                    </Badge>
+      <Card>
+        <CardContent className="p-0 divide-y divide-border">
+          {products?.map((product) => {
+            const img = getImageUrl(product.image_path);
+            return (
+              <div key={product.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[#F3F4F6] dark:hover:bg-white/5 transition-colors group">
+                {/* Photo */}
+                <div className="h-14 w-14 shrink-0 rounded-xl bg-[#F3F4F6] dark:bg-muted flex items-center justify-center overflow-hidden">
+                  {img ? (
+                    <img src={img} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Package className="h-6 w-6 text-[#9CA3AF]" />
                   )}
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-lg font-bold text-foreground">
-                    {Number(product.price).toLocaleString('uk-UA')} <span className="text-sm font-medium text-muted-foreground">грн</span>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <Link href={`/products/${product.id}`} className="text-sm font-semibold text-foreground hover:text-primary transition-colors line-clamp-1">
+                    {product.name}
+                  </Link>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {product.product_categories?.name && (
+                      <span className="text-xs text-muted-foreground">{product.product_categories.name}</span>
+                    )}
+                    {product.volume && (
+                      <span className="text-xs text-[#9CA3AF]">&middot; {product.volume}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price */}
+                <div className="text-right shrink-0 w-28">
+                  <span className="text-sm font-bold text-foreground">
+                    {Number(product.price).toLocaleString('uk-UA')} грн
                   </span>
+                </div>
+
+                {/* Stock badge */}
+                <div className="shrink-0 w-24 text-center">
                   <Badge
+                    variant="outline"
                     className={
                       product.in_stock
-                        ? 'bg-[#F0FDF4] text-[#22C55E] hover:bg-[#F0FDF4] border-[#22C55E]/20'
-                        : 'bg-[#FEF2F2] text-[#EF4444] hover:bg-[#FEF2F2] border-[#EF4444]/20'
+                        ? 'bg-[#F0FDF4] text-[#16a34a] border-[#22C55E]/20 text-xs'
+                        : 'bg-[#FEF2F2] text-[#dc2626] border-[#EF4444]/20 text-xs'
                     }
-                    variant="outline"
                   >
                     {product.in_stock ? 'В наявності' : 'Немає'}
                   </Badge>
                 </div>
-              </CardContent>
-            </Link>
-          </Card>
-        ))}
 
-        {(!products || products.length === 0) && (
-          <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
-            <Package className="h-12 w-12 text-[#9CA3AF] mb-4" />
-            <p className="text-lg font-medium text-foreground">Товарів поки немає</p>
-            <p className="text-sm text-muted-foreground mb-4">Додайте перший товар до каталогу</p>
-            <Link href="/products/new">
-              <Button><Plus className="mr-2 h-4 w-4" />Додати товар</Button>
-            </Link>
-          </div>
-        )}
-      </div>
+                {/* Toggle */}
+                <div className="shrink-0">
+                  <ProductToggle productId={product.id} inStock={product.in_stock} />
+                </div>
+
+                {/* Edit */}
+                <div className="shrink-0">
+                  <Link href={`/products/${product.id}`}>
+                    <Button variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+
+          {(!products || products.length === 0) && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Package className="h-12 w-12 text-[#9CA3AF] mb-4" />
+              <p className="text-lg font-medium text-foreground">Товарів поки немає</p>
+              <p className="text-sm text-muted-foreground mb-4">Додайте перший товар до каталогу</p>
+              <Link href="/products/new">
+                <Button><Plus className="mr-2 h-4 w-4" />Додати товар</Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

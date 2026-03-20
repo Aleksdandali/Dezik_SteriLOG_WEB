@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import type { Product, ProductCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Upload, X, ImageIcon, Loader2 } from 'lucide-react';
+import { uploadProductImage, removeProductImage } from '@/app/(admin)/products/upload-action';
+import { saveProduct } from '@/app/(admin)/products/actions';
 
 const STORAGE_URL = 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/product-images';
 
@@ -22,10 +23,9 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories }: ProductFormProps) {
   const router = useRouter();
-  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, startUpload] = useTransition();
 
   const [form, setForm] = useState({
     name: product?.name ?? '',
@@ -45,65 +45,58 @@ export function ProductForm({ product, categories }: ProductFormProps) {
       : `${STORAGE_URL}/${form.image_path}`
     : null;
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
-    const ext = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    startUpload(async () => {
+      const fd = new FormData();
+      fd.append('file', file);
+      const result = await uploadProductImage(fd);
+      if (result.path) {
+        setForm((prev) => ({ ...prev, image_path: result.path! }));
+      }
+    });
 
-    const { error } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, file, { upsert: true });
-
-    if (!error) {
-      setForm({ ...form, image_path: fileName });
-    }
-    setUploading(false);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const handleRemoveImage = async () => {
-    if (form.image_path && !form.image_path.startsWith('http')) {
-      await supabase.storage.from('product-images').remove([form.image_path]);
-    }
+  const handleRemoveImage = () => {
+    const path = form.image_path;
     setForm({ ...form, image_path: '' });
+    if (path && !path.startsWith('http')) {
+      removeProductImage(path);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      name: form.name,
-      description: form.description || null,
-      price: parseFloat(form.price),
-      volume: form.volume || null,
-      category_id: form.category_id,
-      image_path: form.image_path || null,
-      in_stock: form.in_stock,
-      shelf_life_days: form.shelf_life_days ? parseInt(form.shelf_life_days) : null,
-      sort_order: parseInt(form.sort_order) || 0,
-    };
-
-    if (product) {
-      await supabase.from('products').update(payload).eq('id', product.id);
-    } else {
-      await supabase.from('products').insert(payload);
+    try {
+      await saveProduct(product?.id ?? null, {
+        name: form.name,
+        description: form.description || null,
+        price: parseFloat(form.price),
+        volume: form.volume || null,
+        category_id: form.category_id,
+        image_path: form.image_path || null,
+        in_stock: form.in_stock,
+        shelf_life_days: form.shelf_life_days ? parseInt(form.shelf_life_days) : null,
+        sort_order: parseInt(form.sort_order) || 0,
+      });
+      router.push('/products');
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-    router.push('/products');
-    router.refresh();
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Image upload card */}
+      {/* Image upload */}
       <Card>
         <CardHeader>
           <CardTitle>Фото товару</CardTitle>
@@ -172,7 +165,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         </CardContent>
       </Card>
 
-      {/* Main info card */}
+      {/* Main info */}
       <Card>
         <CardHeader>
           <CardTitle>Основна інформація</CardTitle>
@@ -223,7 +216,7 @@ export function ProductForm({ product, categories }: ProductFormProps) {
         </CardContent>
       </Card>
 
-      {/* Status card */}
+      {/* Status */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
