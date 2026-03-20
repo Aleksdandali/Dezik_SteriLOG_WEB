@@ -1,24 +1,13 @@
 'use server';
 
-import { createAdminClient, requireAdmin } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/supabase/server';
+import { OrderService } from '@/lib/services';
 import { revalidatePath } from 'next/cache';
 
-const ALLOWED_STATUSES = ['confirmed', 'canceled'];
-
 export async function updateOrderStatus(orderId: string, newStatus: string) {
-  await requireAdmin();
-
-  if (!ALLOWED_STATUSES.includes(newStatus)) {
-    throw new Error('Invalid status');
-  }
-
-  const supabase = await createAdminClient();
-  const { error } = await supabase
-    .from('orders')
-    .update({ status: newStatus })
-    .eq('id', orderId);
-
-  if (error) throw new Error(error.message);
+  const admin = await requireAdmin();
+  const service = new OrderService();
+  await service.changeStatus(orderId, newStatus, admin.id);
 
   revalidatePath(`/orders/${orderId}`);
   revalidatePath('/orders');

@@ -83,10 +83,14 @@ export interface ProductCategory {
   sort_order: number;
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'canceled';
+export type PaymentStatus = 'unpaid' | 'paid' | 'refunded';
+
 export interface Order {
   id: string;
   user_id: string;
-  status: 'pending' | 'confirmed' | 'canceled';
+  status: OrderStatus;
+  payment_status: PaymentStatus;
   total_amount: number;
   delivery_address: string | null;
   phone: string | null;
@@ -100,6 +104,12 @@ export interface Order {
   np_delivery_cost: number | null;
   notes: string | null;
   keycrm_order_id: number | null;
+  source: 'app' | 'admin' | 'import';
+  confirmed_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  canceled_at: string | null;
+  paid_at: string | null;
   created_at: string;
   profiles?: Profile;
   order_items?: OrderItem[];
@@ -109,10 +119,84 @@ export interface OrderItem {
   id: string;
   order_id: string;
   product_id: string | null;
+  variant_id: string | null;
   product_name: string;
   quantity: number;
   price_at_order: number;
   created_at: string;
+}
+
+/* ── Inventory ── */
+
+export interface ProductVariant {
+  id: string;
+  product_id: string;
+  sku: string;
+  name: string;
+  price: number;
+  cost_price: number | null;
+  barcode: string | null;
+  weight_grams: number | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+  product?: Product;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  address: string | null;
+  is_default: boolean;
+  active: boolean;
+  created_at: string;
+}
+
+export interface Stock {
+  variant_id: string;
+  warehouse_id: string;
+  quantity: number;
+  reserved: number;
+  updated_at: string;
+}
+
+export interface StockAvailable {
+  variant_id: string;
+  warehouse_id: string;
+  warehouse_name: string;
+  sku: string;
+  variant_name: string;
+  product_name: string;
+  on_hand: number;
+  reserved: number;
+  available: number;
+}
+
+export type StockMovementType = 'in' | 'out' | 'reserve' | 'unreserve' | 'write_off' | 'adjustment';
+
+export interface StockMovement {
+  id: string;
+  variant_id: string;
+  warehouse_id: string;
+  type: StockMovementType;
+  quantity: number;
+  reason: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface StockReservation {
+  id: string;
+  order_id: string;
+  variant_id: string;
+  warehouse_id: string;
+  quantity: number;
+  status: 'active' | 'fulfilled' | 'released';
+  created_at: string;
+  released_at: string | null;
 }
 
 export interface AppConfig {

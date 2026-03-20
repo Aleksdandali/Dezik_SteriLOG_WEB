@@ -43,14 +43,32 @@ interface OrderItem {
 /* ════════════════════ Helpers ════════════════════ */
 
 const STATUSES: Record<string, { label: string; dot: string }> = {
-  all:       { label: 'Всі',          dot: 'bg-[#94a3b8]' },
-  pending:   { label: 'Нові',         dot: 'bg-[#f59e0b]' },
-  confirmed: { label: 'Підтверджені', dot: 'bg-[#3b82f6]' },
-  shipped:   { label: 'Доставка',     dot: 'bg-[#8b5cf6]' },
-  canceled:  { label: 'Скасовані',    dot: 'bg-[#94a3b8]' },
+  all:        { label: 'Всі',          dot: 'bg-[#94a3b8]' },
+  pending:    { label: 'Нові',         dot: 'bg-[#f59e0b]' },
+  confirmed:  { label: 'Підтверджені', dot: 'bg-[#3b82f6]' },
+  processing: { label: 'В обробці',    dot: 'bg-[#6366f1]' },
+  shipped:    { label: 'Доставка',     dot: 'bg-[#8b5cf6]' },
+  delivered:  { label: 'Доставлено',   dot: 'bg-[#10b981]' },
+  canceled:   { label: 'Скасовані',    dot: 'bg-[#94a3b8]' },
 };
 
 const money = (n: number | string) => Number(n).toLocaleString('uk-UA');
+
+function ActionBtn({ onClick, disabled, primary, children }: {
+  onClick: () => void; disabled?: boolean; primary?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className={cn(
+        'flex-1 flex items-center justify-center gap-1.5 rounded-lg h-8 text-[12px] font-medium disabled:opacity-50 transition-colors',
+        primary
+          ? 'bg-[#0f172a] text-white hover:bg-[#1e293b]'
+          : 'border border-[#e2e8f0] bg-white text-[#64748b] hover:bg-[#f8fafc]',
+      )}>
+      {children}
+    </button>
+  );
+}
 
 function fmtDate(d: string) {
   const date = new Date(d);
@@ -142,24 +160,38 @@ function OrderDetailsCard({ order }: { order: Order }) {
             {order.notes && (
               <p className="mt-3 rounded-md bg-[#f8fafc] border border-[#e2e8f0] px-3 py-2 text-[12px] text-[#64748b] leading-relaxed">{order.notes}</p>
             )}
-            {order.status === 'pending' && (
+            {/* Status action buttons — based on current status */}
+            {order.status !== 'delivered' && order.status !== 'canceled' && (
               <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => act('confirmed')}
-                  disabled={isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#0f172a] text-white h-8 text-[12px] font-medium hover:bg-[#1e293b] disabled:opacity-50 transition-colors"
-                >
-                  {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
-                  Підтвердити
-                </button>
-                <button
-                  onClick={() => act('canceled')}
-                  disabled={isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-white text-[#64748b] h-8 text-[12px] font-medium hover:bg-[#f8fafc] disabled:opacity-50 transition-colors"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Скасувати
-                </button>
+                {order.status === 'pending' && (
+                  <ActionBtn onClick={() => act('confirmed')} disabled={isPending} primary>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    Підтвердити
+                  </ActionBtn>
+                )}
+                {order.status === 'confirmed' && (
+                  <ActionBtn onClick={() => act('processing')} disabled={isPending} primary>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                    В обробку
+                  </ActionBtn>
+                )}
+                {order.status === 'processing' && (
+                  <ActionBtn onClick={() => act('shipped')} disabled={isPending} primary>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Truck className="h-3.5 w-3.5" />}
+                    Відправлено
+                  </ActionBtn>
+                )}
+                {order.status === 'shipped' && (
+                  <ActionBtn onClick={() => act('delivered')} disabled={isPending} primary>
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                    Доставлено
+                  </ActionBtn>
+                )}
+                {(order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing') && (
+                  <ActionBtn onClick={() => act('canceled')} disabled={isPending}>
+                    <XCircle className="h-3.5 w-3.5" /> Скасувати
+                  </ActionBtn>
+                )}
               </div>
             )}
           </div>
