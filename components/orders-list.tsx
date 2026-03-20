@@ -18,6 +18,9 @@ interface Order {
   id: string;
   user_id: string;
   status: string;
+  payment_status: string;
+  source: string;
+  order_number: number;
   total_amount: number;
   delivery_address: string | null;
   phone: string | null;
@@ -28,6 +31,7 @@ interface Order {
   np_ttn: string | null;
   np_delivery_cost: number | null;
   notes: string | null;
+  manager_comment: string | null;
   keycrm_order_id: number | null;
   created_at: string;
   order_items?: OrderItem[];
@@ -53,6 +57,28 @@ const STATUSES: Record<string, { label: string; dot: string }> = {
 };
 
 const money = (n: number | string) => Number(n).toLocaleString('uk-UA');
+
+const SOURCES: Record<string, { label: string; color: string }> = {
+  app:    { label: 'Додаток', color: 'text-[#3b82f6] bg-[#eff6ff]' },
+  admin:  { label: 'Адмінка', color: 'text-[#8b5cf6] bg-[#f5f3ff]' },
+  import: { label: 'Імпорт',  color: 'text-[#64748b] bg-[#f1f5f9]' },
+};
+
+const PAYMENT: Record<string, { label: string; style: string }> = {
+  unpaid:   { label: 'Не оплачено', style: 'text-[#dc2626] bg-[#fef2f2] border-[#fecaca]' },
+  paid:     { label: 'Оплачено',    style: 'text-[#16a34a] bg-[#f0fdf4] border-[#bbf7d0]' },
+  refunded: { label: 'Повернення',  style: 'text-[#94a3b8] bg-[#f8fafc] border-[#e2e8f0]' },
+};
+
+function SourceBadge({ source }: { source: string }) {
+  const c = SOURCES[source] ?? SOURCES.app;
+  return <span className={cn('inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold', c.color)}>{c.label}</span>;
+}
+
+function PaymentBadge({ status }: { status: string }) {
+  const c = PAYMENT[status] ?? PAYMENT.unpaid;
+  return <span className={cn('inline-flex px-1.5 py-0.5 rounded border text-[10px] font-semibold', c.style)}>{c.label}</span>;
+}
 
 const STATUS_FLOW: { value: string; label: string }[] = [
   { value: 'pending',    label: 'Нове' },
@@ -164,7 +190,7 @@ function OrderDetailsCard({ order }: { order: Order }) {
   const itemsSum = order.order_items?.reduce((s, i) => s + i.quantity * Number(i.price_at_order), 0) ?? 0;
 
   return (
-    <td colSpan={7} className="p-0">
+    <td colSpan={10} className="p-0">
       <div className="bg-[#f8fafc] px-5 pt-4 pb-5 border-t border-[#e2e8f0]">
         {/* Info cards row */}
         <div className="grid grid-cols-3 gap-3">
@@ -326,7 +352,7 @@ function OrderDetailsCard({ order }: { order: Order }) {
 
 /* ════════════════════ OrderRow ════════════════════ */
 
-function OrderRow({ order, index, isOpen, onToggle }: { order: Order; index: number; isOpen: boolean; onToggle: () => void }) {
+function OrderRow({ order, isOpen, onToggle }: { order: Order; isOpen: boolean; onToggle: () => void }) {
   const name = [order.first_name, order.last_name].filter(Boolean).join(' ') || '—';
 
   return (
@@ -339,23 +365,25 @@ function OrderRow({ order, index, isOpen, onToggle }: { order: Order; index: num
           !isOpen && 'border-b border-[#f1f5f9]',
         )}
       >
-        <td className="pl-4 pr-1 py-3 w-8">
-          <ChevronRight className={cn('h-4 w-4 text-[#cbd5e1] transition-transform duration-150 group-hover:text-[#94a3b8]', isOpen && 'rotate-90')} />
+        <td className="pl-3 pr-1 py-2.5">
+          <ChevronRight className={cn('h-3.5 w-3.5 text-[#cbd5e1] transition-transform duration-150 group-hover:text-[#94a3b8]', isOpen && 'rotate-90')} />
         </td>
-        <td className="px-2 py-3 w-8 text-[12px] text-[#cbd5e1] font-mono tabular-nums">{index}</td>
-        <td className="px-3 py-3">
-          <span className="text-[13px] font-medium text-[#334155]">{fmtDate(order.created_at)}</span>
+        <td className="px-2 py-2.5 text-[12px] text-[#475569] font-mono tabular-nums">{order.order_number}</td>
+        <td className="px-2 py-2.5"><SourceBadge source={order.source} /></td>
+        <td className="px-2 py-2.5 text-[12px] text-[#334155]">{fmtDate(order.created_at)}</td>
+        <td className="px-2 py-2.5"><StatusPill status={order.status} /></td>
+        <td className="px-2 py-2.5">
+          <span className="text-[12px] text-[#334155] truncate block">{name}</span>
         </td>
-        <td className="px-3 py-3">
-          <StatusPill status={order.status} />
+        <td className="px-2 py-2.5">
+          {order.np_ttn ? (
+            <span className="text-[11px] font-mono text-[#475569] truncate block">{order.np_ttn}</span>
+          ) : <span className="text-[11px] text-[#cbd5e1]">—</span>}
         </td>
-        <td className="px-3 py-3">
-          <span className="text-[13px] text-[#334155]">{name}</span>
-          {order.city_name && <span className="ml-2 text-[12px] text-[#94a3b8]">{order.city_name}</span>}
-        </td>
-        <td className="px-3 py-3 text-[12px] font-mono text-[#94a3b8]">{order.phone ?? '—'}</td>
-        <td className="px-3 py-3 pr-5 text-right">
-          <span className="text-[14px] font-semibold text-[#0f172a] tabular-nums">{money(order.total_amount)} ₴</span>
+        <td className="px-2 py-2.5 text-[12px] font-mono text-[#94a3b8] truncate">{order.phone ?? '—'}</td>
+        <td className="px-2 py-2.5"><PaymentBadge status={order.payment_status} /></td>
+        <td className="px-2 py-2.5 pr-4 text-right">
+          <span className="text-[13px] font-semibold text-[#0f172a] tabular-nums">{money(order.total_amount)} ₴</span>
         </td>
       </tr>
       {isOpen && (
@@ -452,38 +480,43 @@ export function OrdersList({ orders }: { orders: Order[] }) {
       <div className="rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] overflow-hidden">
         <table className="w-full table-fixed">
           <colgroup>
-            <col className="w-9" />
-            <col className="w-9" />
-            <col className="w-[200px]" />
-            <col className="w-[130px]" />
-            <col />
-            <col className="w-[150px]" />
-            <col className="w-[110px]" />
+            <col className="w-8" />   {/* chevron */}
+            <col className="w-14" />  {/* № */}
+            <col className="w-20" />  {/* source */}
+            <col className="w-[160px]" /> {/* date */}
+            <col className="w-[110px]" /> {/* status */}
+            <col />                    {/* client — flex */}
+            <col className="w-[140px]" /> {/* tracking */}
+            <col className="w-[130px]" /> {/* phone */}
+            <col className="w-[95px]" />  {/* payment */}
+            <col className="w-[100px]" /> {/* amount */}
           </colgroup>
           <thead>
             <tr className="border-b border-[#e2e8f0] text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
-              <th className="pl-4 py-3"></th>
-              <th className="py-3 text-left">#</th>
-              <th className="px-3 py-3 text-left">Дата</th>
-              <th className="px-3 py-3 text-left">Статус</th>
-              <th className="px-3 py-3 text-left">Клієнт</th>
-              <th className="px-3 py-3 text-left">Телефон</th>
-              <th className="px-3 py-3 pr-5 text-right">Сума</th>
+              <th className="pl-3 py-2.5"></th>
+              <th className="px-2 py-2.5 text-left">№</th>
+              <th className="px-2 py-2.5 text-left">Джерело</th>
+              <th className="px-2 py-2.5 text-left">Дата</th>
+              <th className="px-2 py-2.5 text-left">Статус</th>
+              <th className="px-2 py-2.5 text-left">Покупець</th>
+              <th className="px-2 py-2.5 text-left">Трекінг</th>
+              <th className="px-2 py-2.5 text-left">Телефон</th>
+              <th className="px-2 py-2.5 text-left">Оплата</th>
+              <th className="px-2 py-2.5 pr-4 text-right">Сума</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((order, idx) => (
+            {filtered.map((order) => (
               <OrderRow
                 key={order.id}
                 order={order}
-                index={filtered.length - idx}
                 isOpen={expandedId === order.id}
                 onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
               />
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-20 text-center">
+                <td colSpan={10} className="py-20 text-center">
                   <ShoppingCart className="h-8 w-8 text-[#e2e8f0] mx-auto mb-3" />
                   <p className="text-[14px] text-[#94a3b8]">{searchQuery ? 'Нічого не знайдено' : 'Замовлень поки немає'}</p>
                   {searchQuery && <button onClick={() => setSearchQuery('')} className="mt-1 text-[12px] text-[#64748b] hover:text-[#334155] underline underline-offset-2">Очистити пошук</button>}
