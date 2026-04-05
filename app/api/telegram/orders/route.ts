@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaff } from '@/lib/telegram/auth';
-import { keycrmFetch } from '@/lib/keycrm';
+import { keycrmFetch, fetchAllProductsSafe } from '@/lib/keycrm';
 
 interface KOrder {
   id: number;
@@ -76,6 +76,13 @@ export async function GET(request: NextRequest) {
 
     const data = { data: filtered, total: filtered.length };
 
+    // Fetch KeyCRM product quantities for stock display
+    const keycrmProducts = await fetchAllProductsSafe();
+    const stockByName = new Map<string, number>();
+    for (const kp of keycrmProducts) {
+      stockByName.set(kp.name.toLowerCase(), kp.quantity);
+    }
+
     const orders = (data.data ?? []).map(o => ({
       id: o.id,
       status_id: o.status_id,
@@ -93,13 +100,17 @@ export async function GET(request: NextRequest) {
       region: o.shipping?.shipping_address_region ?? null,
       ttn: o.shipping?.tracking_code ?? null,
       buyer_orders_count: o.buyer?.orders_count ?? null,
-      products: (o.products ?? []).map(p => ({
-        name: p.name,
-        quantity: p.quantity,
-        price: p.price,
-        sku: p.sku,
-        thumbnail: p.picture?.thumbnail ?? null,
-      })),
+      products: (o.products ?? []).map(p => {
+        const stock = stockByName.get(p.name.toLowerCase()) ?? null;
+        return {
+          name: p.name,
+          quantity: p.quantity,
+          price: p.price,
+          sku: p.sku,
+          thumbnail: p.picture?.thumbnail ?? null,
+          in_stock: stock,
+        };
+      }),
     }));
 
     return NextResponse.json({ data: orders, total: data.total ?? 0 });

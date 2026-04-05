@@ -3606,7 +3606,7 @@ interface OrderItem {
   buyer_orders_count: number | null;
   manager_comment: string | null;
   buyer_comment: string | null;
-  products: { name: string; quantity: number; price: number; sku: string | null; thumbnail: string | null }[];
+  products: { name: string; quantity: number; price: number; sku: string | null; thumbnail: string | null; in_stock: number | null }[];
 }
 
 const ORDER_STATUSES = [
@@ -3789,18 +3789,13 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                 <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-[12px] text-[#9CA3AF]">{p.price} грн</span>
-                  {(() => {
-                    // Find stock by matching product name
-                    const stockKey = Object.keys(stockQty).find(k => p.name.includes(k) || k.includes(p.name.substring(0, 15)));
-                    const qty = stockKey ? stockQty[stockKey] : null;
-                    return qty !== null ? (
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                        qty >= p.quantity ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                      }`}>
-                        {qty >= p.quantity ? `✓ ${qty} на складі` : `⚠ ${qty} на складі`}
-                      </span>
-                    ) : null;
-                  })()}
+                  {p.in_stock !== null && p.in_stock !== undefined && (
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                      p.in_stock >= p.quantity ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                    }`}>
+                      {p.in_stock >= p.quantity ? `✓ ${p.in_stock} на складі` : `⚠ ${p.in_stock} на складі`}
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="text-[16px] font-bold text-[#4b569e] flex-shrink-0">×{p.quantity}</span>
@@ -4082,13 +4077,6 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
               window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
               setViewingOrder(o);
               setManagerComment(o.manager_comment ?? '');
-              // Load stock for products
-              api<{ data: { name: string; quantity: number }[] }>('/stock?location=afina_sklad')
-                .then(r => {
-                  const qty: Record<string, number> = {};
-                  for (const s of r.data ?? []) qty[s.name] = s.quantity;
-                  setStockQty(qty);
-                }).catch(() => {});
             }}
               className="w-full text-left bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)]
                 border border-[#F0F0F0] active:scale-[0.97] transition-all">
