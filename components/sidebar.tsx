@@ -11,6 +11,10 @@ import {
   Users,
   Settings2,
   LogOut,
+  Factory,
+  Truck,
+  Warehouse,
+  ClipboardList,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -20,6 +24,15 @@ const navigation = [
     title: null,
     items: [
       { name: 'Дашборд', href: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'ОПЕРАЦІЇ',
+    items: [
+      { name: 'Виробництво', href: '/ops/production', icon: Factory },
+      { name: 'Переміщення', href: '/ops/movements', icon: Truck },
+      { name: 'Склад', href: '/ops/stock', icon: Warehouse },
+      { name: 'Витрати', href: '/ops/expenses', icon: ClipboardList },
     ],
   },
   {

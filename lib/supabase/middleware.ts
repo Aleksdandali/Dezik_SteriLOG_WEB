@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { isAdminEmail } from '@/lib/admin-emails';
 
 export async function updateSession(request: NextRequest) {
+  // Telegram routes use their own auth (initData validation)
+  const path = request.nextUrl.pathname;
+  if (path.startsWith('/telegram') || path.startsWith('/api/telegram') || path.startsWith('/customer') || path.startsWith('/api/customer')) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
