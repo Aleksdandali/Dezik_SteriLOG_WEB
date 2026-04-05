@@ -12,7 +12,8 @@ export async function POST(request: NextRequest) {
 
     // Create order in KeyCRM
     const orderData = {
-      source_id: 8, // Telegram
+      source_id: 20, // Dezik_bot_tg
+      status_id: 1, // Новий
       buyer: {
         full_name: name,
         phone: phone.replace(/\D/g, ''),
