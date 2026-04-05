@@ -68,15 +68,18 @@ export async function GET(request: NextRequest) {
     // Build SKU → thumbnail map from products catalog (better photos than order.products.picture)
     const allProducts = await fetchAllProductsSafe();
     const skuToThumb = new Map<string, string>();
-    // Products have offers with SKUs — need to fetch offers too
+    const skuToStock = new Map<string, number>();
     try {
-      const offersPage1 = await keycrmFetch<{ data: { sku: string; product_id: number }[] }>('/offers?limit=50&page=1');
-      const offersPage2 = await keycrmFetch<{ data: { sku: string; product_id: number }[] }>('/offers?limit=50&page=2');
+      const offersPage1 = await keycrmFetch<{ data: { sku: string; product_id: number; quantity: number }[] }>('/offers?limit=50&page=1');
+      const offersPage2 = await keycrmFetch<{ data: { sku: string; product_id: number; quantity: number }[] }>('/offers?limit=50&page=2');
       const allOffers = [...(offersPage1.data ?? []), ...(offersPage2.data ?? [])];
       const prodThumb = new Map(allProducts.map(p => [p.id, p.thumbnail_url]));
       for (const offer of allOffers) {
-        if (offer.sku && prodThumb.has(offer.product_id)) {
-          skuToThumb.set(offer.sku, prodThumb.get(offer.product_id)!);
+        if (offer.sku) {
+          if (prodThumb.has(offer.product_id)) {
+            skuToThumb.set(offer.sku, prodThumb.get(offer.product_id)!);
+          }
+          skuToStock.set(offer.sku, offer.quantity);
         }
       }
     } catch { /* fallback to order pictures */ }
@@ -105,6 +108,7 @@ export async function GET(request: NextRequest) {
         quantity: p.quantity,
         sku: p.sku,
         thumbnail: (p.sku ? skuToThumb.get(p.sku) : null) ?? p.picture?.thumbnail ?? null,
+        in_stock: p.sku ? (skuToStock.get(p.sku) ?? null) : null,
       })),
     }));
 

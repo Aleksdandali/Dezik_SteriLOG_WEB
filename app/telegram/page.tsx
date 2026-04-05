@@ -1719,7 +1719,16 @@ function ShipmentsView() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-[14px] font-medium text-[#111827] leading-tight">{p.name}</p>
-                    {p.sku && <p className="text-[12px] text-[#9CA3AF] mt-0.5">SKU: {p.sku}</p>}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {p.sku && <span className="text-[12px] text-[#9CA3AF]">SKU: {p.sku}</span>}
+                      {'in_stock' in p && p.in_stock !== null && p.in_stock !== undefined && (
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                          (p.in_stock as number) >= p.quantity ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                        }`}>
+                          {(p.in_stock as number) >= p.quantity ? `✓ ${p.in_stock} на складі` : `⚠ ${p.in_stock} на складі`}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="text-[18px] font-bold text-[#4b569e] flex-shrink-0">×{p.quantity}</span>
                 </div>
