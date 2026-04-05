@@ -54,10 +54,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch real sales: status 8 (на збірку) + 12 (відправлено)
-    // Filter by status_changed_at (when order was processed), not created_at
+    // Fetch real sales: only status 12 (відправлено) — фактично відвантажені
     const allOrders: KOrder[] = [];
-    for (const statusId of [8, 12]) {
+    for (const statusId of [12]) {
       let page = 1;
       while (page <= 10) {
         const data = await keycrmFetch<{ data: KOrder[]; last_page: number }>(
