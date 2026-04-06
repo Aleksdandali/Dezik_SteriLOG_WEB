@@ -20,7 +20,7 @@ async function npCall(model: string, method: string, props: Record<string, unkno
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type'); // 'city' or 'warehouse'
-  const query = searchParams.get('q') ?? '';
+  const query = (searchParams.get('q') ?? '').trim().replace(/\s+/g, ' ');
   const cityRef = searchParams.get('city_ref') ?? '';
 
   try {
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
     if (type === 'warehouse' && cityRef) {
       const warehouses = await npCall('Address', 'getWarehouses', {
         CityRef: cityRef,
-        FindByString: query,
-        Limit: '20',
+        FindByString: query.trim(),
+        Limit: '50',
       });
       return NextResponse.json({
         data: warehouses.map((w: { Ref: string; Description: string; Number: string }) => ({
