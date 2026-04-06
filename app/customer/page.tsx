@@ -1486,10 +1486,10 @@ export default function CustomerPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-[#4b569e]/25">
-              D
+              {profile?.name ? profile.name.charAt(0).toUpperCase() : 'D'}
             </div>
             <div>
-              <h1 className="text-[18px] font-bold text-[#111827]">Мій кабінет</h1>
+              <h1 className="text-[18px] font-bold text-[#111827]">{profile?.name ? `Привіт, ${profile.name.split(' ').pop()}!` : 'Мій кабінет'}</h1>
               <p className="text-[13px] text-[#9CA3AF]">+380{phone}</p>
             </div>
           </div>
