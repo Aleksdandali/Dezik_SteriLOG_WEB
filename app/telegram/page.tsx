@@ -1059,6 +1059,22 @@ function MovementForm({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [fromStock, setFromStock] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!fromLoc) return;
+    api<{ data: { name: string; quantity: number }[] }>(`/stock?location=${fromLoc}`)
+      .then(r => {
+        const m: Record<string, number> = {};
+        for (const s of r.data ?? []) m[s.name] = s.quantity;
+        setFromStock(m);
+      }).catch(() => setFromStock({}));
+  }, [fromLoc]);
+
+  const getStockForItem = (bagSize: string, material: string) => {
+    const key = `${bagSize.replace('x', '×')} ${BAG_MATERIAL_LABELS[material as BagMaterial] ?? material}`;
+    return fromStock[key] ?? null;
+  };
 
   const addItem = () => setItems([...items, { bagSize: '100x200', material: 'transparent', packages: '' }]);
   const removeItem = (idx: number) => { if (items.length > 1) setItems(items.filter((_, i) => i !== idx)); };
@@ -1163,6 +1179,22 @@ function MovementForm({
 
           <Input type="number" inputMode="numeric" placeholder="Кількість упаковок"
             value={item.packages} onChange={(e) => updateItem(idx, 'packages', e.target.value)} />
+          {(() => {
+            const stock = getStockForItem(item.bagSize, item.material);
+            if (stock === null) return null;
+            const qty = parseInt(item.packages) || 0;
+            const remaining = stock - qty;
+            return (
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[12px] text-[#9CA3AF]">На складі: <span className="font-bold text-[#111827]">{stock}</span> уп</span>
+                {qty > 0 && (
+                  <span className={`text-[12px] font-bold ${remaining >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                    Залишок: {remaining} уп
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </div>
       ))}
 
