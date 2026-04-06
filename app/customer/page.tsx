@@ -609,11 +609,6 @@ export default function CustomerPage() {
                 <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </div>
               <p className="text-[16px] font-semibold text-[#111827] mt-4">{emptyText}</p>
-              <p className="text-[13px] text-[#9CA3AF] mt-1">Час поповнити запаси?</p>
-              <button onClick={() => { setView('shop'); loadCatalog(); }}
-                className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-[#4b569e] to-[#363f75] text-white text-[14px] font-bold active:scale-[0.97] transition-all shadow-md shadow-[#4b569e]/20">
-                Перейти в магазин
-              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -1741,7 +1736,7 @@ export default function CustomerPage() {
               {profile?.name ? profile.name.charAt(0).toUpperCase() : 'D'}
             </div>
             <div>
-              <h1 className="text-[18px] font-bold text-[#111827]">{profile?.name ? `Привіт, ${profile.name.split(' ').slice(1).join(' ') || profile.name.split(' ')[0]}!` : 'Мій кабінет'}</h1>
+              <h1 className="text-[18px] font-bold text-[#111827]">{profile?.name ? `Привіт, ${profile.name.split(' ')[0]}!` : 'Мій кабінет'}</h1>
               <p className="text-[13px] text-[#9CA3AF]">+380{phone}</p>
             </div>
           </div>
