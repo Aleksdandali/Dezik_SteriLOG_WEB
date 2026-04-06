@@ -3157,10 +3157,10 @@ function ProductionForm({
     })();
   }, [selectedStage]);
 
-  if (success) return <SuccessScreen onDone={() => { setSuccess(false); setKm(''); setRolls(''); setPackages(''); setNotes(''); setPhotoFile(null); setPhotoPreview(null); }} />;
-
   const sizes = Object.keys(BAG_SIZE_LABELS) as BagSize[];
   const materials = Object.keys(BAG_MATERIAL_LABELS) as BagMaterial[];
+
+  if (success) return <SuccessScreen onDone={() => { setSuccess(false); setKm(''); setRolls(''); setPackages(''); setNotes(''); setPhotoFile(null); setPhotoPreview(null); }} />;
 
   // Level 1: Choose stage + history feed
   if (!selectedStage) {
