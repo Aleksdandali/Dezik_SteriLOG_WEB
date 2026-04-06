@@ -30,7 +30,7 @@ interface CartItem {
   qty: number;
 }
 
-type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile';
+type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat';
 
 export default function CustomerPage() {
   const [phone, setPhone] = useState('');
@@ -66,6 +66,9 @@ export default function CustomerPage() {
   const [paymentUploading, setPaymentUploading] = useState(false);
   const [paymentSent, setPaymentSent] = useState(false);
   const [productLightbox, setProductLightbox] = useState<string | null>(null);
+  const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
+  const [aiText, setAiText] = useState('');
+  const [aiSending, setAiSending] = useState(false);
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -113,6 +116,7 @@ export default function CustomerPage() {
       if (chatOpen) { setChatOpen(false); }
       else if (viewingOrder) { setViewingOrder(null); setChatOpen(false); setView('active'); }
       else if (viewingProduct) { setViewingProduct(null); }
+      else if (view === 'ai-chat') { setView('menu'); setAiMessages([]); setAiText(''); }
       else if (view !== 'menu') setView('menu');
     };
     if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
@@ -1240,6 +1244,140 @@ export default function CustomerPage() {
   }
 
   // ═══════════════════════════════════
+  // AI Chat
+  // ═══════════════════════════════════
+  if (view === 'ai-chat') {
+    const sendAiMessage = async (text?: string) => {
+      const msg = text ?? aiText.trim();
+      if (!msg || aiSending) return;
+      setAiMessages(prev => [...prev, { role: 'user', text: msg }]);
+      setAiText('');
+      setAiSending(true);
+      try {
+        const res = await fetch('/api/customer/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg }),
+        });
+        const data = await res.json();
+        if (data.redirected) {
+          setAiMessages(prev => [...prev, { role: 'ai', text: data.reply }, { role: 'ai', text: 'Менеджер відповість найближчим часом. Ви можете написати йому у чаті замовлення.' }]);
+        } else if (data.reply) {
+          setAiMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
+        } else {
+          setAiMessages(prev => [...prev, { role: 'ai', text: 'Вибачте, сталася помилка. Спробуйте ще раз.' }]);
+        }
+      } catch {
+        setAiMessages(prev => [...prev, { role: 'ai', text: 'Вибачте, сталася помилка. Спробуйте ще раз.' }]);
+      } finally { setAiSending(false); }
+    };
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-[#E5E7EB] px-4 py-3 flex items-center gap-3">
+          <button onClick={() => { setView('menu'); setAiMessages([]); setAiText(''); }}
+            className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center shadow-md">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-[#111827]">AI Консультант Dezik</p>
+            <p className="text-[12px] text-[#9CA3AF]">Запитай про продукцію</p>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {aiMessages.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center mx-auto shadow-lg shadow-[#4b569e]/25">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                </svg>
+              </div>
+              <p className="text-[15px] font-semibold text-[#111827] mt-3">Привіт! Я AI-помічник Dezik</p>
+              <p className="text-[13px] text-[#9CA3AF] mt-1 leading-relaxed">Запитайте про продукцію, як приготувати<br/>розчини або про доставку</p>
+            </div>
+          ) : (
+            aiMessages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-[#4b569e] text-white rounded-br-md'
+                    : 'bg-white text-[#111827] border border-[#E5E7EB] rounded-bl-md shadow-sm'
+                }`}>
+                  {m.role === 'ai' && (
+                    <p className="text-[11px] font-bold bg-gradient-to-r from-[#4b569e] to-[#8B5CF6] bg-clip-text text-transparent mb-1">AI Dezik</p>
+                  )}
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                </div>
+              </div>
+            ))
+          )}
+          {aiSending && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] px-4 py-3 rounded-2xl bg-white border border-[#E5E7EB] rounded-bl-md shadow-sm">
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-2 h-2 rounded-full bg-[#4b569e] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-[#4b569e] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-[#4b569e] animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Quick questions */}
+        {aiMessages.length === 0 && (
+          <div className="px-4 pb-2">
+            <div className="flex flex-wrap gap-2">
+              {['Як розвести Деланол?', 'Які є пакети?', 'Як замовити?', 'Доставка і оплата'].map(q => (
+                <button key={q} onClick={() => sendAiMessage(q)}
+                  className="px-3.5 py-2 rounded-full bg-white border border-[#E5E7EB] text-[13px] font-medium text-[#4b569e] shadow-sm active:scale-[0.95] transition-all">
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="bg-white border-t border-[#E5E7EB] px-3 pt-3 pb-6 flex gap-2" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+          <input
+            type="text"
+            value={aiText}
+            onChange={e => setAiText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); } }}
+            placeholder="Запитайте щось..."
+            disabled={aiSending}
+            className="flex-1 px-4 py-3 rounded-2xl bg-[#F0F2F5] text-[#111827] text-[14px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#4b569e]/30 disabled:opacity-60"
+          />
+          <button
+            onClick={() => sendAiMessage()}
+            disabled={aiSending || !aiText.trim()}
+            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] text-white flex items-center justify-center active:scale-[0.95] transition-all disabled:opacity-40 shadow-md"
+          >
+            {aiSending ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
   // Main Menu
   // ═══════════════════════════════════
   return (
@@ -1322,6 +1460,23 @@ export default function CustomerPage() {
             </button>
           ))}
         </div>
+
+        {/* AI Consultant */}
+        <button onClick={() => setView('ai-chat')}
+          className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.97] transition-all">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center text-white shadow-md">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[15px] font-bold text-[#111827]">AI Консультант</p>
+            <p className="text-[12px] text-[#9CA3AF]">Запитай про продукцію</p>
+          </div>
+          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
 
         {/* Profile */}
         <button onClick={() => setView('profile')}
