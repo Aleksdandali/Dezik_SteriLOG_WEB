@@ -1071,8 +1071,9 @@ function MovementForm({
       }).catch(() => setFromStock({}));
   }, [fromLoc]);
 
+  const STOCK_ML: Record<string, string> = { transparent: 'Прозорі', white: 'Білі', brown: 'Коричневі' };
   const getStockForItem = (bagSize: string, material: string) => {
-    const key = `${bagSize.replace('x', '×')} ${BAG_MATERIAL_LABELS[material as BagMaterial] ?? material}`;
+    const key = `${bagSize.replace('x', '×')} ${STOCK_ML[material] ?? material}`;
     return fromStock[key] ?? null;
   };
 
