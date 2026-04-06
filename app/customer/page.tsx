@@ -322,8 +322,8 @@ export default function CustomerPage() {
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
                 onKeyDown={(e) => e.key === 'Enter' && searchOrders(phone)}
                 autoFocus
-                className="w-full h-[56px] pl-[76px] pr-5 rounded-2xl border-2 border-[#E5E7EB] bg-white text-[18px] font-medium
-                  focus:border-[#4b569e] focus:outline-none transition-all" />
+                className="w-full h-[56px] pl-[76px] pr-5 rounded-2xl border-2 border-[#E5E7EB] bg-white text-[#111827] text-[18px] font-medium
+                  placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none transition-all" />
             </div>
             <button onClick={() => searchOrders(phone)} disabled={phone.length < 9 || loading}
               className="w-full py-4 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white text-[16px] font-bold
@@ -469,7 +469,7 @@ export default function CustomerPage() {
                 onChange={e => setChatText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(o.id); } }}
                 placeholder="Ваше повідомлення..."
-                className="flex-1 px-4 py-3 rounded-2xl bg-[#F0F2F5] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#4b569e]/30"
+                className="flex-1 px-4 py-3 rounded-2xl bg-[#F0F2F5] text-[#111827] text-[14px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#4b569e]/30"
               />
               <button
                 onClick={() => sendChatMessage(o.id)}
@@ -687,7 +687,7 @@ export default function CustomerPage() {
               <p className="text-[12px] text-[#9CA3AF] mb-1">Ім'я та прізвище</p>
               <input type="text" value={checkoutName} onChange={(e) => setCheckoutName(e.target.value)}
                 placeholder="Введіть ваше ім'я"
-                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none" />
+                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none" />
             </div>
             <div>
               <p className="text-[12px] text-[#9CA3AF] mb-1">Телефон</p>
@@ -704,7 +704,7 @@ export default function CustomerPage() {
               <input type="text" value={checkoutCity} onChange={(e) => searchCity(e.target.value)}
                 onFocus={() => checkoutCity.length >= 2 && setShowCitySuggestions(true)}
                 placeholder="Почніть вводити місто"
-                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none" />
+                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none" />
               {showCitySuggestions && citySuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-[#E5E7EB] shadow-lg max-h-[200px] overflow-y-auto">
                   {citySuggestions.map(c => (
@@ -723,7 +723,7 @@ export default function CustomerPage() {
                 onFocus={() => checkoutCityRef && loadWarehouses(checkoutCityRef, checkoutWarehouse)}
                 placeholder={checkoutCityRef ? 'Пошук відділення' : 'Спочатку оберіть місто'}
                 disabled={!checkoutCityRef}
-                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none disabled:bg-[#F8FAFC] disabled:text-[#C5C9D1]" />
+                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none disabled:bg-[#F8FAFC] disabled:text-[#C5C9D1]" />
               {showWarehouseSuggestions && warehouseSuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-[#E5E7EB] shadow-lg max-h-[250px] overflow-y-auto">
                   {warehouseSuggestions.map(w => (
@@ -790,7 +790,7 @@ export default function CustomerPage() {
             <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Ваші дані</p>
             <input type="text" placeholder="Ваше ім'я та прізвище" value={checkoutName}
               onChange={(e) => setCheckoutName(e.target.value)}
-              className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none" />
+              className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none" />
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-[#9CA3AF]">+380</span>
               <input type="tel" value={phone} disabled
@@ -804,7 +804,7 @@ export default function CustomerPage() {
               <input type="text" placeholder="Місто" value={checkoutCity}
                 onChange={(e) => searchCity(e.target.value)}
                 onFocus={() => checkoutCity.length >= 2 && setShowCitySuggestions(true)}
-                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none" />
+                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none" />
               {showCitySuggestions && citySuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-[#E5E7EB] shadow-lg max-h-[200px] overflow-y-auto">
                   {citySuggestions.map(c => (
@@ -822,7 +822,7 @@ export default function CustomerPage() {
                 onChange={(e) => searchWarehouse(e.target.value)}
                 onFocus={() => checkoutCityRef && loadWarehouses(checkoutCityRef, checkoutWarehouse)}
                 disabled={!checkoutCityRef}
-                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[15px] focus:border-[#4b569e] focus:outline-none disabled:bg-[#F8FAFC]" />
+                className="w-full h-[48px] px-4 rounded-xl border border-[#E5E7EB] text-[#111827] text-[15px] placeholder:text-[#9CA3AF] focus:border-[#4b569e] focus:outline-none disabled:bg-[#F8FAFC]" />
               {showWarehouseSuggestions && warehouseSuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white rounded-xl border border-[#E5E7EB] shadow-lg max-h-[250px] overflow-y-auto">
                   {warehouseSuggestions.map(w => (
