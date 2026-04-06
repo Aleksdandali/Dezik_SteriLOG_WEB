@@ -54,6 +54,16 @@ export async function POST(request: NextRequest) {
     }
 
     const order = await res.json();
+
+    // Send SMS notification
+    try {
+      const { sendSMSSafe } = await import('@/lib/smsfly');
+      await sendSMSSafe(
+        phone,
+        `Dezik: замовлення #${order.id} прийнято! Дякуємо!\n\nВідстежуйте статус та спілкуйтесь з менеджером у Telegram:\nt.me/dezik_ua_bot`
+      );
+    } catch {}
+
     return NextResponse.json({ ok: true, order_id: order.id });
   } catch (err) {
     console.error('[Create Customer Order]', err);

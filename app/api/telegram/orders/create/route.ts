@@ -108,6 +108,16 @@ export async function POST(request: NextRequest) {
       }
 
       const data = await res.json() as { id: number };
+
+      // Send SMS notification to customer
+      try {
+        const { sendSMSSafe } = await import('@/lib/smsfly');
+        await sendSMSSafe(
+          buyer_phone,
+          `Dezik: замовлення #${data.id} прийнято! Дякуємо!\n\nВідстежуйте статус та спілкуйтесь з менеджером у Telegram:\nt.me/dezik_ua_bot`
+        );
+      } catch {}
+
       return NextResponse.json({ ok: true, order_id: data.id });
     } finally {
       clearTimeout(timeout);
