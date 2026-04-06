@@ -3829,7 +3829,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
             onClick={async () => {
               setCoAiParsing(true);
               try {
-                const r = await api<{ data: { last_name: string; first_name: string; phone: string; city: string; warehouse: string; comment: string } }>('/orders/parse', {
+                const r = await api<{ data: { last_name: string; first_name: string; phone: string; city: string; city_ref?: string; warehouse: string; comment: string } }>('/orders/parse', {
                   method: 'POST',
                   body: JSON.stringify({ text: coAiText }),
                 });
@@ -3837,7 +3837,15 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                 if (d.last_name) setCoLastName(d.last_name);
                 if (d.first_name) setCoFirstName(d.first_name);
                 if (d.phone) setCoPhone(d.phone);
-                if (d.city) { setCoCity(d.city); searchCity(d.city); }
+                if (d.city) setCoCity(d.city);
+                if (d.city_ref) {
+                  setCoCityRef(d.city_ref);
+                  // Auto-load warehouses
+                  fetch(`/api/customer/np-search?type=warehouse&city_ref=${d.city_ref}&q=${encodeURIComponent(d.warehouse || '')}`)
+                    .then(res => res.json())
+                    .then(wh => setCoWhSuggestions((wh.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                    .catch(() => {});
+                }
                 if (d.warehouse) setCoWarehouse(d.warehouse);
                 if (d.comment) setCoComment(d.comment);
                 window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
