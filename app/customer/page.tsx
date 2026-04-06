@@ -604,15 +604,16 @@ export default function CustomerPage() {
           <h1 className="text-[20px] font-bold text-[#111827]">{title}</h1>
 
           {list.length === 0 ? (
-            <div className="text-center py-16">
+            <div className="text-center py-10">
               <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${view === 'active' ? 'from-[#3B82F6] to-[#2563EB]' : 'from-[#8B5CF6] to-[#7C3AED]'} flex items-center justify-center mx-auto shadow-md`}>
-                {view === 'active' ? (
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" /></svg>
-                ) : (
-                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
-                )}
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               </div>
               <p className="text-[16px] font-semibold text-[#111827] mt-4">{emptyText}</p>
+              <p className="text-[13px] text-[#9CA3AF] mt-1">Час поповнити запаси?</p>
+              <button onClick={() => { setView('shop'); loadCatalog(); }}
+                className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-[#4b569e] to-[#363f75] text-white text-[14px] font-bold active:scale-[0.97] transition-all shadow-md shadow-[#4b569e]/20">
+                Перейти в магазин
+              </button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -651,6 +652,27 @@ export default function CustomerPage() {
                 );
               })}
             </div>
+          )}
+
+          {/* Upsell — shop suggestion */}
+          {view === 'active' && (
+            <button onClick={() => { setView('shop'); loadCatalog(); }}
+              className="w-full bg-gradient-to-r from-[#4b569e]/5 to-[#4b569e]/10 rounded-2xl p-4 border border-[#4b569e]/10 active:scale-[0.97] transition-all text-left">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#363f75] flex items-center justify-center shadow-md flex-shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[14px] font-bold text-[#111827]">{list.length > 0 ? 'Додати до замовлення?' : 'Час поповнити запаси!'}</p>
+                  <p className="text-[12px] text-[#9CA3AF]">Переглянути каталог продукції Dezik</p>
+                </div>
+                <svg className="w-5 h-5 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              </div>
+            </button>
           )}
         </div>
       </div>
@@ -1719,7 +1741,7 @@ export default function CustomerPage() {
               {profile?.name ? profile.name.charAt(0).toUpperCase() : 'D'}
             </div>
             <div>
-              <h1 className="text-[18px] font-bold text-[#111827]">{profile?.name ? `Привіт, ${profile.name.split(' ').pop()}!` : 'Мій кабінет'}</h1>
+              <h1 className="text-[18px] font-bold text-[#111827]">{profile?.name ? `Привіт, ${profile.name.split(' ').slice(1).join(' ') || profile.name.split(' ')[0]}!` : 'Мій кабінет'}</h1>
               <p className="text-[13px] text-[#9CA3AF]">+380{phone}</p>
             </div>
           </div>
@@ -1822,23 +1844,6 @@ export default function CustomerPage() {
           </button>
         </div>
 
-        {/* Profile */}
-        <button onClick={() => setView('profile')}
-          className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.97] transition-all">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6B7280] to-[#4B5563] flex items-center justify-center text-white shadow-md">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-            </svg>
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-[15px] font-bold text-[#111827]">Моя інформація</p>
-            <p className="text-[12px] text-[#9CA3AF]">{profile?.name || 'Адреса доставки'}</p>
-          </div>
-          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
-
         {/* Shop button */}
         <button onClick={() => { setView('shop'); loadCatalog(); }}
           className="w-full flex items-center gap-4 bg-gradient-to-r from-[#4b569e] to-[#363f75] rounded-2xl p-4 shadow-lg shadow-[#4b569e]/20 active:scale-[0.97] transition-all">
@@ -1857,6 +1862,23 @@ export default function CustomerPage() {
             </span>
           )}
           <svg className="w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+
+        {/* Profile */}
+        <button onClick={() => setView('profile')}
+          className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.97] transition-all">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6B7280] to-[#4B5563] flex items-center justify-center text-white shadow-md">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[15px] font-bold text-[#111827]">Моя інформація</p>
+            <p className="text-[12px] text-[#9CA3AF]">{profile?.name || 'Адреса доставки'}</p>
+          </div>
+          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </button>
