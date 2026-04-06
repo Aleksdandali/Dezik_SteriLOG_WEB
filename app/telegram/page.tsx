@@ -3815,9 +3815,9 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Клієнт</p>
           <div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-[#9CA3AF] font-medium">+380</span>
-              <Input placeholder="Телефон клієнта" inputMode="tel" value={coPhone}
-                className="!pl-[70px]"
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[14px] text-[#111827] font-bold select-none">+380</span>
+              <Input placeholder="XX XXX XX XX" inputMode="tel" value={coPhone}
+                className="!pl-[68px] text-[#111827]"
                 onChange={e => {
                   const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
                   setCoPhone(digits);
@@ -3850,36 +3850,72 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
 
         {/* Shipping */}
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
-          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Доставка</p>
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Доставка Нова Пошта</p>
           <div>
-            <Input placeholder="Місто" value={coCity}
-              onChange={e => { setCoCity(e.target.value); searchCity(e.target.value); }} />
+            <Input placeholder="Введіть місто..." value={coCity}
+              onChange={e => {
+                const v = e.target.value;
+                setCoCity(v);
+                setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoWhSuggestions([]);
+                if (v.trim().length >= 2) searchCity(v.trim());
+                else setCoCitySuggestions([]);
+              }} />
             {coCitySuggestions.length > 0 && (
-              <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[120px] overflow-y-auto">
+              <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[160px] overflow-y-auto shadow-lg">
                 {coCitySuggestions.map((c, i) => (
                   <button key={i} onClick={() => {
                     setCoCity(c.name); setCoCityRef(c.ref); setCoCitySuggestions([]);
                     setCoWarehouse(''); setCoWarehouseRef('');
-                    searchWh('');
-                  }} className="w-full text-left px-3 py-2 text-[13px] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5]">
+                    // Auto-load warehouses for selected city
+                    fetch(`/api/customer/np-search?type=warehouse&city_ref=${c.ref}&q=`)
+                      .then(r => r.json())
+                      .then(d => setCoWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                      .catch(() => {});
+                    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                  }} className="w-full text-left px-4 py-3 text-[14px] font-medium text-[#111827] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5] transition-colors">
                     {c.name}
                   </button>
                 ))}
               </div>
             )}
+            {coCityRef && (
+              <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
+                <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                {coCity}
+              </p>
+            )}
           </div>
           <div>
-            <Input placeholder="Відділення НП" value={coWarehouse}
-              onChange={e => { setCoWarehouse(e.target.value); searchWh(e.target.value); }} />
-            {coWhSuggestions.length > 0 && (
-              <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[120px] overflow-y-auto">
-                {coWhSuggestions.map((w, i) => (
-                  <button key={i} onClick={() => {
-                    setCoWarehouse(w.name); setCoWarehouseRef(w.ref); setCoWhSuggestions([]);
-                  }} className="w-full text-left px-3 py-2 text-[13px] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5]">
-                    {w.name}
-                  </button>
-                ))}
+            {coCityRef ? (
+              <>
+                <Input placeholder="Номер або назва відділення..." value={coWarehouse}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setCoWarehouse(v); setCoWarehouseRef('');
+                    searchWh(v);
+                  }} />
+                {coWhSuggestions.length > 0 && !coWarehouseRef && (
+                  <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[200px] overflow-y-auto shadow-lg">
+                    {coWhSuggestions.map((w, i) => (
+                      <button key={i} onClick={() => {
+                        setCoWarehouse(w.name); setCoWarehouseRef(w.ref); setCoWhSuggestions([]);
+                        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                      }} className="w-full text-left px-4 py-3 text-[13px] text-[#111827] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5] transition-colors">
+                        {w.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {coWarehouseRef && (
+                  <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
+                    <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                    {coWarehouse}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="px-4 py-3 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB]">
+                <p className="text-[13px] text-[#9CA3AF]">Спочатку оберіть місто</p>
               </div>
             )}
           </div>
