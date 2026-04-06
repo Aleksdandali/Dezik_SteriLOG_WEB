@@ -23,6 +23,7 @@ interface CreateOrderBody {
   warehouse_ref: string;
   products: ProductItem[];
   comment?: string;
+  payment_type?: 'cod' | 'prepaid';
 }
 
 export async function POST(request: NextRequest) {
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
       warehouse_ref,
       products,
       comment,
+      payment_type,
     } = body;
 
     // Validation
@@ -55,9 +57,11 @@ export async function POST(request: NextRequest) {
     const key = process.env.KEYCRM_API_KEY;
     if (!key) throw new Error('KEYCRM_API_KEY not set');
 
+    const isPrepaid = payment_type === 'prepaid';
     const orderPayload = {
       source_id: 20,         // Dezik_bot_tg
-      status_id: 1,          // Новий
+      status_id: isPrepaid ? 1 : 8,  // Новий / На збірку
+      payment_status: 'not_paid',
       buyer: {
         full_name: buyer_name,
         phone: buyer_phone,
@@ -145,7 +149,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Search by phone using filter[buyer_phone]
-    const phone = q.startsWith('380') ? q : q.startsWith('0') ? `38${q}` : q;
+    // Accept: 380XXXXXXXXX, 0XXXXXXXXX, or just digits
+    const phone = q.startsWith('380') ? q : q.startsWith('0') ? `38${q}` : `380${q}`;
     const result = await keycrmFetch<{ data: KOrderSearchItem[] }>(
       `/order?filter[buyer_phone]=${phone}&include=shipping,buyer&limit=10&sort=-id`,
     );

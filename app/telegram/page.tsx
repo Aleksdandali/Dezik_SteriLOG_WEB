@@ -3668,8 +3668,10 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
 
   // Create order state
   const [creatingOrder, setCreatingOrder] = useState(false);
-  const [coName, setCoName] = useState('');
+  const [coLastName, setCoLastName] = useState('');
+  const [coFirstName, setCoFirstName] = useState('');
   const [coPhone, setCoPhone] = useState('');
+  const [coPaymentType, setCoPaymentType] = useState<'cod' | 'prepaid'>('cod');
   const [coCity, setCoCity] = useState('');
   const [coCityRef, setCoCityRef] = useState('');
   const [coWarehouse, setCoWarehouse] = useState('');
@@ -3749,7 +3751,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         <div className="text-center py-12">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
           <p className="text-[18px] font-bold text-[#111827]">Замовлення #{coSuccess} створено!</p>
-          <button onClick={() => { setCreatingOrder(false); setCoSuccess(null); setCoName(''); setCoPhone(''); setCoCity(''); setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoProducts([]); setCoComment(''); loadOrders(); }}
+          <button onClick={() => { setCreatingOrder(false); setCoSuccess(null); setCoLastName(''); setCoFirstName(''); setCoPhone(''); setCoCity(''); setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoProducts([]); setCoComment(''); setCoPaymentType('cod'); loadOrders(); }}
             className="mt-6 px-6 py-3 rounded-xl bg-[#4b569e] text-white font-bold active:scale-[0.97] transition-all">
             До замовлень
           </button>
@@ -3758,10 +3760,12 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
     );
 
     const coTotal = coProducts.reduce((s, p) => s + p.price * p.quantity, 0);
+    const coName = `${coLastName} ${coFirstName}`.trim();
     const searchBuyer = async (q: string) => {
       if (q.length < 3) { setCoBuyerResults([]); return; }
+      const phoneQ = `380${q.replace(/\D/g, '')}`;
       try {
-        const r = await api<{ data: { name: string; phone: string; city: string; address: string }[] }>(`/orders/create?q=${encodeURIComponent(q)}`);
+        const r = await api<{ data: { name: string; phone: string; city: string; address: string }[] }>(`/orders/create?q=${encodeURIComponent(phoneQ)}`);
         setCoBuyerResults(r.data ?? []);
       } catch { setCoBuyerResults([]); }
     };
@@ -3810,13 +3814,25 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
           <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Клієнт</p>
           <div>
-            <Input placeholder="Телефон клієнта" value={coPhone}
-              onChange={e => { setCoPhone(e.target.value); searchBuyer(e.target.value); }} />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-[#9CA3AF] font-medium">+380</span>
+              <Input placeholder="Телефон клієнта" inputMode="tel" value={coPhone}
+                className="!pl-[70px]"
+                onChange={e => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  setCoPhone(digits);
+                  searchBuyer(digits);
+                }} />
+            </div>
             {coBuyerResults.length > 0 && (
               <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[150px] overflow-y-auto">
                 {coBuyerResults.map((b, i) => (
                   <button key={i} onClick={() => {
-                    setCoName(b.name); setCoPhone(b.phone);
+                    const parts = (b.name || '').split(' ');
+                    setCoLastName(parts[0] || '');
+                    setCoFirstName(parts.slice(1).join(' ') || '');
+                    const rawPhone = b.phone?.replace(/\D/g, '') || '';
+                    setCoPhone(rawPhone.startsWith('380') ? rawPhone.slice(3) : rawPhone.startsWith('0') ? rawPhone.slice(1) : rawPhone);
                     if (b.city) setCoCity(b.city);
                     if (b.address) setCoWarehouse(b.address);
                     setCoBuyerResults([]);
@@ -3828,7 +3844,8 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
               </div>
             )}
           </div>
-          <Input placeholder="Ім'я клієнта" value={coName} onChange={e => setCoName(e.target.value)} />
+          <Input placeholder="Прізвище" value={coLastName} onChange={e => setCoLastName(e.target.value)} />
+          <Input placeholder="Ім'я" value={coFirstName} onChange={e => setCoFirstName(e.target.value)} />
         </div>
 
         {/* Shipping */}
@@ -3938,6 +3955,21 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           </div>
         </div>
 
+        {/* Payment type */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Оплата</p>
+          <div className="flex gap-2">
+            <button onClick={() => setCoPaymentType('cod')}
+              className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'cod' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+              Накладний платіж
+            </button>
+            <button onClick={() => setCoPaymentType('prepaid')}
+              className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'prepaid' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+              На розрахунковий рахунок
+            </button>
+          </div>
+        </div>
+
         {/* Comment */}
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
           <textarea value={coComment} onChange={e => setCoComment(e.target.value)}
@@ -3963,11 +3995,12 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
               const r = await api<{ ok: boolean; order_id: number }>('/orders/create', {
                 method: 'POST',
                 body: JSON.stringify({
-                  buyer_name: coName, buyer_phone: coPhone.replace(/\D/g, ''),
+                  buyer_name: coName, buyer_phone: `380${coPhone}`,
                   city_name: coCity, city_ref: coCityRef,
                   warehouse_name: coWarehouse, warehouse_ref: coWarehouseRef,
                   products: coProducts.map(p => ({ ...p, offer_id: 0 })),
                   comment: coComment || undefined,
+                  payment_type: coPaymentType,
                 }),
               });
               window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
@@ -3977,7 +4010,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           }}
           className="w-full py-4 rounded-[20px] bg-[#4b569e] text-white text-[16px] font-bold active:scale-[0.97] transition-all disabled:opacity-40 shadow-lg shadow-[#4b569e]/25"
         >
-          {coSubmitting ? '⏳ Створюємо...' : '✅ Створити замовлення'}
+          {coSubmitting ? '⏳ Створюємо...' : coPaymentType === 'cod' ? '✅ Створити та на збірку' : '✅ Створити замовлення'}
         </button>
       </div>
     );
