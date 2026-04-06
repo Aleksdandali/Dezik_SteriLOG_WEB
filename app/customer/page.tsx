@@ -659,29 +659,33 @@ export default function CustomerPage() {
           </div>
 
           {[
-            { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', color: 'from-[#3B82F6] to-[#2563EB]', iconPath: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-            { title: 'Деланол', desc: 'Сертифікат на дезінфікуючий засіб', color: 'from-[#10B981] to-[#059669]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5' },
-            { title: 'Біонол', desc: 'Сертифікат на засіб для ПСО', color: 'from-[#8B5CF6] to-[#7C3AED]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5' },
-            { title: 'Інструм', desc: 'Сертифікат на очищувач інструментів', color: 'from-[#F59E0B] to-[#D97706]', iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z' },
+            { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', color: 'from-[#3B82F6] to-[#2563EB]', iconPath: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/pakety-certificate.pdf' },
+            { title: 'Деланол', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#10B981] to-[#059669]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/delanol-certificate.pdf' },
+            { title: 'Біонол Форте', desc: 'Сертифікат якості', color: 'from-[#8B5CF6] to-[#7C3AED]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/bionol-certificate.pdf' },
+            { title: 'Інструм', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#F59E0B] to-[#D97706]', iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/instrum-certificate.pdf' },
           ].map((cert, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+            <a key={i} href={cert.url} target="_blank" rel="noopener noreferrer"
+              className="block bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.97] transition-all">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cert.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
                   <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                     <path strokeLinecap="round" strokeLinejoin="round" d={cert.iconPath} />
                   </svg>
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-[16px] font-bold text-[#111827]">{cert.title}</p>
                   <p className="text-[13px] text-[#9CA3AF] mt-0.5">{cert.desc}</p>
                 </div>
+                <svg className="w-5 h-5 text-[#C5C9D1] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
               </div>
-            </div>
+            </a>
           ))}
 
           <div className="bg-[#F0FDF4] rounded-2xl p-4 border border-[#BBF7D0]">
             <p className="text-[13px] text-[#166534] text-center font-medium">
-              Для отримання копій сертифікатів зверніться до менеджера
+              Натисніть на сертифікат щоб відкрити PDF
             </p>
           </div>
         </div>
