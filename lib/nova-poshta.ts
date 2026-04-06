@@ -3,7 +3,7 @@ const NP_API = 'https://api.novaposhta.ua/v2.0/json/';
 // Sender constants (ВІЧЕВ ЮРІЙ ІВАНОВИЧ ФОП)
 const SENDER_REF = 'ab411dfd-d22c-11ee-a60f-48df37b921db';
 const SENDER_CONTACT_REF = '1ce54e78-f264-11ee-a9e3-48df37b921da';
-const SENDER_ADDRESS_REF = 'd94643dd-5583-11ef-bcd0-48df37b921da'; // Грецька площа 3/4
+const SENDER_ADDRESS_REF = '731ecf8a-e389-11e4-8a92-005056887b8d'; // Відділення №95, Грецька площа 3/4
 const SENDER_PHONE = '380735331010';
 
 function getKey(): string {
