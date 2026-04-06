@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       const { sendSMSSafe } = await import('@/lib/smsfly');
       await sendSMSSafe(
         phone,
-        `Dezik: замовлення #${order.id} прийнято! Дякуємо!\n\nВідстежуйте статус та спілкуйтесь з менеджером у Telegram:\nt.me/dezik_ua_bot`
+        `Dezik: замовлення #${order.id} прийнято! Статус та зв'язок з менеджером у боті: t.me/dezik_ua_bot`
       );
     } catch {}
 

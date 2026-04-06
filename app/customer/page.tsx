@@ -63,6 +63,8 @@ export default function CustomerPage() {
   const [chatSending, setChatSending] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<(CatalogProduct & { category?: string }) | null>(null);
+  const [paymentUploading, setPaymentUploading] = useState(false);
+  const [paymentSent, setPaymentSent] = useState(false);
   const [productLightbox, setProductLightbox] = useState<string | null>(null);
 
   useEffect(() => {
@@ -390,6 +392,52 @@ export default function CustomerPage() {
             </div>
           </div>
 
+          {o.payment !== 'paid' && !paymentSent && (
+            <button
+              disabled={paymentUploading}
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.setAttribute('capture', 'environment');
+                input.onchange = async () => {
+                  const file = input.files?.[0];
+                  if (!file) return;
+                  setPaymentUploading(true);
+                  try {
+                    const fd = new FormData();
+                    fd.append('order_id', String(o.id));
+                    fd.append('photo', file);
+                    const res = await fetch('/api/customer/payment-proof', { method: 'POST', body: fd });
+                    const data = await res.json();
+                    if (data.ok) {
+                      setPaymentSent(true);
+                      const tg = (window as unknown as { Telegram?: { WebApp: { HapticFeedback: { notificationOccurred: (s: string) => void } } } }).Telegram?.WebApp;
+                      if (tg) tg.HapticFeedback.notificationOccurred('success');
+                    }
+                  } catch {} finally { setPaymentUploading(false); }
+                };
+                input.click();
+              }}
+              className="w-full py-4 rounded-3xl bg-gradient-to-r from-[#10B981] to-[#059669] text-white text-[15px] font-bold shadow-lg shadow-green-500/20 active:scale-[0.97] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {paymentUploading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" /><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" /></svg>
+              )}
+              {paymentUploading ? 'Завантаження...' : 'Підтвердити оплату'}
+            </button>
+          )}
+          {paymentSent && (
+            <div className="w-full py-4 rounded-3xl bg-green-50 border border-green-200 text-center">
+              <span className="text-[15px] font-bold text-green-600 flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Надіслано на перевірку
+              </span>
+            </div>
+          )}
+
           <div className="bg-white rounded-3xl p-5 shadow-sm space-y-3">
             <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Товари ({o.products.length})</p>
             {o.products.map((p, i) => (
@@ -552,7 +600,7 @@ export default function CustomerPage() {
                 const s = statusStyle(o.status_id);
                 const accentColor = o.status_id === 12 ? 'bg-green-500' : o.status_id === 19 ? 'bg-red-500' : o.status_id === 8 ? 'bg-blue-500' : 'bg-[#4b569e]';
                 return (
-                  <button key={o.id} onClick={() => { setViewingOrder(o); setView('order-detail'); }}
+                  <button key={o.id} onClick={() => { setViewingOrder(o); setView('order-detail'); setPaymentSent(false); }}
                     className="w-full text-left bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] active:scale-[0.97] transition-all overflow-hidden">
                     <div className="flex">
                       <div className={`w-1 rounded-full my-3 ml-3 ${accentColor}`} />

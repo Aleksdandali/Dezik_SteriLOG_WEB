@@ -28,10 +28,111 @@ export async function POST(request: NextRequest) {
   try {
     const update = await request.json();
     const msg = update.message;
-    if (!msg?.text) return NextResponse.json({ ok: true });
+    if (!msg) return NextResponse.json({ ok: true });
 
     const chatId = msg.chat.id;
     const text = msg.text;
+
+    // Handle photo messages (payment screenshots)
+    if (msg.photo && msg.photo.length > 0) {
+      const fileId = msg.photo[msg.photo.length - 1].file_id;
+      const token = getToken();
+
+      // Get file path from Telegram
+      const fileRes = await fetch(`${BOT_API}${token}/getFile?file_id=${fileId}`);
+      const fileData = await fileRes.json();
+      const filePath = fileData.result?.file_path;
+      if (!filePath) {
+        await sendMessage(chatId, '❌ Не вдалося обробити фото. Спробуйте ще раз.');
+        return NextResponse.json({ ok: true });
+      }
+
+      // Download photo from Telegram
+      const downloadUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
+      const photoRes = await fetch(downloadUrl);
+      const photoBlob = await photoRes.blob();
+
+      // Upload to Supabase storage
+      const ext = filePath.split('.').pop() || 'jpg';
+      const fileName = `payment-proof/tg-${chatId}/${Date.now()}.${ext}`;
+
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const { error: uploadError } = await supabase.storage
+        .from('ops-photos')
+        .upload(fileName, photoBlob, {
+          contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('[Customer Webhook Photo Upload]', uploadError);
+        await sendMessage(chatId, '❌ Не вдалося завантажити фото. Спробуйте ще раз.');
+        return NextResponse.json({ ok: true });
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('ops-photos')
+        .getPublicUrl(fileName);
+      const photoUrl = urlData.publicUrl;
+
+      // Find the most recent order for this customer
+      const { data: recentMsg } = await supabase
+        .from('ops_order_messages')
+        .select('order_id')
+        .eq('sender_telegram_id', chatId)
+        .eq('sender_type', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const orderId = recentMsg?.[0]?.order_id;
+      if (!orderId) {
+        await sendMessage(chatId, '💬 Щоб надіслати фото оплати, спочатку відкрийте замовлення в додатку.', {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: '📦 Відкрити додаток', web_app: { url: 'https://dezik-admin.vercel.app/customer' } },
+            ]],
+          },
+        });
+        return NextResponse.json({ ok: true });
+      }
+
+      // Save as payment proof
+      await supabase
+        .from('ops_order_messages')
+        .insert({
+          order_id: orderId,
+          sender_type: 'customer',
+          sender_telegram_id: chatId,
+          text: `💳 Підтвердження оплати\n${photoUrl}`,
+        });
+
+      // Notify ops admins
+      const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
+      const { data: admins } = await supabase
+        .from('ops_staff')
+        .select('telegram_id')
+        .eq('role', 'admin')
+        .eq('active', true);
+
+      for (const admin of admins ?? []) {
+        try {
+          await fetch(`${BOT_API}${OPS_BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: admin.telegram_id,
+              text: `💳 Підтвердження оплати по замовленню #${orderId}\nФото: ${photoUrl}`,
+              parse_mode: 'HTML',
+            }),
+          });
+        } catch {}
+      }
+
+      await sendMessage(chatId, 'Фото отримано! Менеджер перевірить оплату.');
+      return NextResponse.json({ ok: true });
+    }
+
+    if (!text) return NextResponse.json({ ok: true });
 
     if (text === '/start') {
       const webAppUrl = 'https://dezik-admin.vercel.app/customer';
