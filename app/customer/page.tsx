@@ -962,10 +962,17 @@ export default function CustomerPage() {
           </svg>
         </div>
         <h2 className="text-[22px] font-bold text-[#111827]">Замовлення оформлено!</h2>
-        <p className="text-[15px] text-[#9CA3AF] mt-2 text-center">Замовлення #{newOrderId}<br/>Менеджер зв'яжеться з вами</p>
+        <p className="text-[15px] text-[#9CA3AF] mt-2 text-center">Замовлення #{newOrderId}<br/>Менеджер зв&#39;яжеться з вами</p>
         <button onClick={() => { setView('menu'); searchOrders(phone); }}
           className="mt-8 px-8 py-3 rounded-2xl bg-[#4b569e] text-white text-[15px] font-bold active:scale-[0.97] transition-all">
           На головну
+        </button>
+        <button onClick={() => { setView('shop'); if (catalog.length === 0) { setCatalogLoading(true); fetch('/api/customer/catalog').then(r => r.json()).then(d => { setCatalog(d.data ?? []); const cats = [...new Set((d.data ?? []).map((p: CatalogProduct & { category?: string }) => p.category).filter(Boolean))] as string[]; setCatalogCategories(cats); }).finally(() => setCatalogLoading(false)); } }}
+          className="mt-3 flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-[#E5E7EB] text-[#4b569e] text-[14px] font-semibold active:scale-[0.97] transition-all shadow-sm">
+          <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.15c0 .415.336.75.75.75z" />
+          </svg>
+          Переглянути каталог
         </button>
       </div>
     );
@@ -1076,6 +1083,41 @@ export default function CustomerPage() {
             </div>
           ) : (
             <>
+              {/* Free shipping progress bar */}
+              {(() => {
+                const FREE_SHIPPING_THRESHOLD = 1500;
+                const progress = Math.min((cartTotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
+                const remaining = FREE_SHIPPING_THRESHOLD - cartTotal;
+                const isFree = cartTotal >= FREE_SHIPPING_THRESHOLD;
+                return (
+                  <div className={`rounded-2xl p-4 shadow-sm border transition-all duration-500 ${isFree ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' : 'bg-white border-[#F0F0F0]'}`}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-500 ${isFree ? 'bg-green-100' : 'bg-[#eceef5]'}`}>
+                        <svg className={`w-5 h-5 transition-colors duration-500 ${isFree ? 'text-green-600' : 'text-[#4b569e]'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {isFree ? (
+                          <p className="text-[14px] font-bold text-green-700">Безкоштовна доставка!</p>
+                        ) : (
+                          <p className="text-[13px] font-semibold text-[#111827]">
+                            До безкоштовної доставки <span className="text-[#4b569e] font-bold">{remaining.toLocaleString('uk-UA')} грн</span>
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-[12px] font-bold flex-shrink-0 ${isFree ? 'text-green-600' : 'text-[#9CA3AF]'}`}>{Math.round(progress)}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-[#E5E7EB] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${isFree ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-[#4b569e] to-[#6b7ac7]'}`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="space-y-3">
                 {cart.map(item => (
                   <div key={item.product.id} className="bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0]">
@@ -1104,6 +1146,61 @@ export default function CustomerPage() {
                 <span className="text-[16px] font-bold text-[#111827]">Разом</span>
                 <span className="text-[22px] font-bold text-[#4b569e]">{cartTotal.toLocaleString('uk-UA')} грн</span>
               </div>
+
+              {/* Cross-sell: Часто купують разом */}
+              {(() => {
+                const cartProductIds = new Set(cart.map(i => i.product.id));
+                const priorityKeywords = ['Деланол', 'Біонол', 'Інструм', 'Пакет'];
+                const suggestions = catalog
+                  .filter(p => !cartProductIds.has(p.id) && p.in_stock)
+                  .sort((a, b) => {
+                    const aP = priorityKeywords.some(k => a.name.includes(k)) ? 0 : 1;
+                    const bP = priorityKeywords.some(k => b.name.includes(k)) ? 0 : 1;
+                    return aP - bP;
+                  })
+                  .slice(0, 5);
+                if (suggestions.length === 0) return null;
+                return (
+                  <div>
+                    <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-3">Часто купують разом</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+                      {suggestions.map(product => (
+                        <div key={product.id} className="flex-shrink-0 w-[148px] bg-white rounded-2xl border border-[#F0F0F0] shadow-sm overflow-hidden" style={{ scrollSnapAlign: 'start' }}>
+                          {product.thumbnail ? (
+                            <div className="w-full h-[100px] bg-white flex items-center justify-center p-2 border-b border-[#F5F5F5]">
+                              <img src={product.thumbnail} alt="" className="max-w-full max-h-full object-contain" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-[100px] bg-[#F8FAFC] flex items-center justify-center border-b border-[#F5F5F5]">
+                              <svg className="w-8 h-8 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                              </svg>
+                            </div>
+                          )}
+                          <div className="p-3">
+                            <p className="text-[12px] font-medium text-[#111827] leading-snug line-clamp-2 h-[32px]">{product.name}</p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-[13px] font-bold text-[#4b569e]">{product.price} грн</span>
+                              <button
+                                onClick={() => {
+                                  addToCart(product);
+                                  const tg = (window as unknown as { Telegram?: { WebApp: { HapticFeedback: { impactOccurred: (s: string) => void } } } }).Telegram?.WebApp;
+                                  if (tg) tg.HapticFeedback.impactOccurred('light');
+                                }}
+                                className="w-8 h-8 rounded-xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white flex items-center justify-center active:scale-[0.85] transition-all shadow-sm shadow-[#4b569e]/20"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <button onClick={() => setView('checkout')}
                 className="w-full py-4 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white text-[16px] font-bold
