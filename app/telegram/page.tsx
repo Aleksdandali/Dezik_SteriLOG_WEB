@@ -3668,6 +3668,8 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
 
   // Create order state
   const [creatingOrder, setCreatingOrder] = useState(false);
+  const [coAiText, setCoAiText] = useState('');
+  const [coAiParsing, setCoAiParsing] = useState(false);
   const [coLastName, setCoLastName] = useState('');
   const [coFirstName, setCoFirstName] = useState('');
   const [coPhone, setCoPhone] = useState('');
@@ -3751,7 +3753,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         <div className="text-center py-12">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
           <p className="text-[18px] font-bold text-[#111827]">Замовлення #{coSuccess} створено!</p>
-          <button onClick={() => { setCreatingOrder(false); setCoSuccess(null); setCoLastName(''); setCoFirstName(''); setCoPhone(''); setCoCity(''); setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoProducts([]); setCoComment(''); setCoPaymentType('cod'); loadOrders(); }}
+          <button onClick={() => { setCreatingOrder(false); setCoSuccess(null); setCoLastName(''); setCoFirstName(''); setCoPhone(''); setCoCity(''); setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoProducts([]); setCoComment(''); setCoPaymentType('cod'); setCoAiText(''); loadOrders(); }}
             className="mt-6 px-6 py-3 rounded-xl bg-[#4b569e] text-white font-bold active:scale-[0.97] transition-all">
             До замовлень
           </button>
@@ -3808,6 +3810,50 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
             </svg>
           </button>
           <h2 className="text-[17px] font-bold text-[#111827]">Нове замовлення</h2>
+        </div>
+
+        {/* AI paste */}
+        <div className="bg-gradient-to-br from-[#4b569e]/5 to-[#4b569e]/10 rounded-[20px] p-4 border border-[#4b569e]/15 space-y-2">
+          <p className="text-[12px] font-bold text-[#4b569e]">
+            <svg className="w-4 h-4 inline mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            AI — вставте дані клієнта
+          </p>
+          <textarea
+            value={coAiText}
+            onChange={e => setCoAiText(e.target.value)}
+            placeholder="Іванов Іван 0637443889 Одеса 95"
+            className="w-full h-16 px-3 py-2 rounded-xl border border-[#4b569e]/20 bg-white text-[14px] text-[#111827] placeholder:text-[#9CA3AF] resize-none focus:border-[#4b569e] focus:outline-none"
+          />
+          <button
+            disabled={coAiParsing || coAiText.trim().length < 5}
+            onClick={async () => {
+              setCoAiParsing(true);
+              try {
+                const r = await api<{ data: { last_name: string; first_name: string; phone: string; city: string; warehouse: string; comment: string } }>('/orders/parse', {
+                  method: 'POST',
+                  body: JSON.stringify({ text: coAiText }),
+                });
+                const d = r.data;
+                if (d.last_name) setCoLastName(d.last_name);
+                if (d.first_name) setCoFirstName(d.first_name);
+                if (d.phone) setCoPhone(d.phone);
+                if (d.city) { setCoCity(d.city); searchCity(d.city); }
+                if (d.warehouse) setCoWarehouse(d.warehouse);
+                if (d.comment) setCoComment(d.comment);
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                setCoAiText('');
+              } catch (err) {
+                alert(err instanceof Error ? err.message : 'Помилка AI');
+              } finally { setCoAiParsing(false); }
+            }}
+            className="w-full py-2.5 rounded-xl bg-[#4b569e] text-white text-[13px] font-bold active:scale-[0.97] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            {coAiParsing ? (
+              <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Розбираю...</>
+            ) : (
+              <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg> Розібрати AI</>
+            )}
+          </button>
         </div>
 
         {/* Buyer */}
