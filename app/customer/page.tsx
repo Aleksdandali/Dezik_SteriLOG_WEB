@@ -30,7 +30,7 @@ interface CartItem {
   qty: number;
 }
 
-type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat';
+type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat' | 'manager-chat';
 
 export default function CustomerPage() {
   const [phone, setPhone] = useState('');
@@ -71,6 +71,10 @@ export default function CustomerPage() {
   const [aiText, setAiText] = useState('');
   const [aiSending, setAiSending] = useState(false);
   const [viewingRecipe, setViewingRecipe] = useState<string | null>(null);
+  const [managerMessages, setManagerMessages] = useState<{ id: string; sender_type: string; text: string; created_at: string }[]>([]);
+  const [managerText, setManagerText] = useState('');
+  const [managerSending, setManagerSending] = useState(false);
+  const [managerChatLoading, setManagerChatLoading] = useState(false);
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -121,6 +125,7 @@ export default function CustomerPage() {
       else if (viewingProduct) { setViewingProduct(null); }
       else if (viewingRecipe) { setViewingRecipe(null); }
       else if (view === 'ai-chat') { setView('menu'); setAiMessages([]); setAiText(''); }
+      else if (view === 'manager-chat') { setView('menu'); }
       else if (view !== 'menu') setView('menu');
     };
     if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct || viewingCert || viewingRecipe) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
@@ -1343,6 +1348,130 @@ export default function CustomerPage() {
   }
 
   // ═══════════════════════════════════
+  // Manager Chat
+  // ═══════════════════════════════════
+  if (view === 'manager-chat') {
+    const loadManagerMessages = async () => {
+      setManagerChatLoading(true);
+      try {
+        const res = await fetch('/api/customer/messages?order_id=0');
+        const data = await res.json();
+        setManagerMessages(data.data ?? []);
+      } catch {} finally { setManagerChatLoading(false); }
+    };
+
+    const sendManagerMessage = async () => {
+      if (!managerText.trim() || managerSending) return;
+      setManagerSending(true);
+      try {
+        await fetch('/api/customer/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            order_id: 0,
+            sender_type: 'customer',
+            sender_telegram_id: telegramUserId,
+            text: managerText.trim(),
+          }),
+        });
+        setManagerText('');
+        loadManagerMessages();
+      } catch {} finally { setManagerSending(false); }
+    };
+
+    // Load messages on mount
+    if (managerMessages.length === 0 && !managerChatLoading) {
+      loadManagerMessages();
+    }
+
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-[#E5E7EB] px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setView('menu')}
+            className="w-9 h-9 rounded-xl bg-[#EBF0FF] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#3B82F6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center shadow-md">
+            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-[#111827]">Чат з менеджером</p>
+            <p className="text-[12px] text-[#9CA3AF]">Напишіть нам</p>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {managerChatLoading ? (
+            <div className="text-center py-12">
+              <div className="w-6 h-6 border-2 border-[#3B82F6] border-t-transparent rounded-full animate-spin mx-auto" />
+            </div>
+          ) : managerMessages.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center mx-auto shadow-lg shadow-[#3B82F6]/25">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                </svg>
+              </div>
+              <p className="text-[15px] font-semibold text-[#111827] mt-3">Чат з менеджером</p>
+              <p className="text-[13px] text-[#9CA3AF] mt-1 leading-relaxed">Напишіть нам і ми відповімо<br/>якнайшвидше</p>
+            </div>
+          ) : (
+            managerMessages.map((m, i) => (
+              <div key={m.id || i} className={`flex ${m.sender_type === 'customer' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-[14px] leading-relaxed ${
+                  m.sender_type === 'customer'
+                    ? 'bg-[#3B82F6] text-white rounded-br-md'
+                    : 'bg-white text-[#111827] border border-[#E5E7EB] rounded-bl-md shadow-sm'
+                }`}>
+                  {m.sender_type !== 'customer' && (
+                    <p className="text-[11px] font-bold text-[#3B82F6] mb-1">Менеджер</p>
+                  )}
+                  <p className="whitespace-pre-wrap">{m.text}</p>
+                  <p className={`text-[10px] mt-1 ${m.sender_type === 'customer' ? 'text-white/60' : 'text-[#9CA3AF]'}`}>
+                    {new Date(m.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Input */}
+        <div className="bg-white border-t border-[#E5E7EB] px-3 pt-3 pb-6 flex gap-2" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+          <input
+            type="text"
+            value={managerText}
+            onChange={e => setManagerText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendManagerMessage(); } }}
+            placeholder="Напишіть повідомлення..."
+            disabled={managerSending}
+            className="flex-1 px-4 py-3 rounded-2xl bg-[#F0F2F5] text-[#111827] text-[14px] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]/30 disabled:opacity-60"
+          />
+          <button
+            onClick={sendManagerMessage}
+            disabled={managerSending || !managerText.trim()}
+            className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-white flex items-center justify-center active:scale-[0.95] transition-all disabled:opacity-40 shadow-md"
+          >
+            {managerSending ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
   // AI Chat
   // ═══════════════════════════════════
   if (view === 'ai-chat') {
@@ -1560,22 +1689,33 @@ export default function CustomerPage() {
           ))}
         </div>
 
-        {/* AI Consultant */}
-        <button onClick={() => setView('ai-chat')}
-          className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.97] transition-all">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center text-white shadow-md">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-            </svg>
-          </div>
-          <div className="flex-1 text-left">
-            <p className="text-[15px] font-bold text-[#111827]">AI Консультант</p>
-            <p className="text-[12px] text-[#9CA3AF]">Запитай про продукцію</p>
-          </div>
-          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
-        </button>
+        {/* AI Consultant + Manager Chat */}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => setView('ai-chat')}
+            className="flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.96] transition-all text-left">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center text-white shadow-md">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[14px] font-bold text-[#111827] leading-tight">AI Консультант</p>
+              <p className="text-[12px] text-[#9CA3AF] mt-0.5">Запитай про продукцію</p>
+            </div>
+          </button>
+          <button onClick={() => { setView('manager-chat'); setManagerMessages([]); }}
+            className="flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.96] transition-all text-left">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center text-white shadow-md">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[14px] font-bold text-[#111827] leading-tight">Чат з менеджером</p>
+              <p className="text-[12px] text-[#9CA3AF] mt-0.5">Напишіть нам</p>
+            </div>
+          </button>
+        </div>
 
         {/* Profile */}
         <button onClick={() => setView('profile')}
