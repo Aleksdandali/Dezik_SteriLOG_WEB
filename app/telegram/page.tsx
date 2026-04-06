@@ -3905,24 +3905,29 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Каталог товарів</p>
           <div className="grid grid-cols-2 gap-2">
             {coCatalog.filter(p => !coProducts.some(cp => cp.sku === String(p.id))).map(p => (
-              <button key={p.id} onClick={() => {
+              <button key={p.id} onClick={(e) => {
                 if (p.quantity <= 0) {
                   if (!confirm(`⚠️ "${p.name}" немає на складі (0 шт).\n\nВсе одно додати?`)) return;
                 }
                 setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
-                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-              }} className="text-left rounded-2xl bg-white border border-[#F0F0F0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:scale-[0.96] transition-all overflow-hidden">
-                <div className="aspect-square bg-[#F8FAFC] flex items-center justify-center p-2">
+                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                const btn = e.currentTarget;
+                btn.style.backgroundColor = '#D1FAE5';
+                setTimeout(() => { btn.style.backgroundColor = ''; }, 400);
+              }} className="text-left rounded-2xl bg-white border border-[#F0F0F0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:scale-[0.95] transition-all overflow-hidden">
+                <div className="aspect-[4/3] bg-[#F8FAFC] flex items-center justify-center p-2">
                   {p.thumbnail ? (
                     <img src={p.thumbnail} alt="" className="w-full h-full object-contain" />
                   ) : (
-                    <span className="text-[36px]">📦</span>
+                    <div className="w-12 h-12 rounded-xl bg-[#eceef5] flex items-center justify-center">
+                      <svg className="w-6 h-6 text-[#4b569e]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    </div>
                   )}
                 </div>
                 <div className="p-2.5">
-                  <p className="text-[12px] font-medium text-[#111827] leading-tight line-clamp-2 h-[32px]">{p.name}</p>
+                  <p className="text-[11px] font-medium text-[#111827] leading-snug">{p.name}</p>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-[15px] font-bold text-[#4b569e]">{p.price} грн</span>
+                    <span className="text-[14px] font-bold text-[#4b569e]">{p.price} грн</span>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                       {p.quantity > 0 ? `${p.quantity}` : '0'}
                     </span>
