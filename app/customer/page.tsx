@@ -1324,15 +1324,9 @@ export default function CustomerPage() {
 
           {/* AI quick question */}
           <button onClick={() => {
-            setAiMessages([{ role: 'user', text: `Розкажи про ${p.name}` }]);
-            setAiSending(true);
+            setAiMessages([]);
+            setAiText(`${p.name} — `);
             setView('ai-chat');
-            fetch('/api/customer/ai-chat', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: `Розкажи детально про ${p.name}. Як використовувати, дозування, для чого призначений.` }),
-            }).then(r => r.json()).then(d => {
-              if (d.reply) setAiMessages(prev => [...prev, { role: 'ai', text: d.reply }]);
-            }).catch(() => {}).finally(() => setAiSending(false));
           }}
             className="bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0] active:scale-[0.97] transition-all flex items-center gap-3 w-full text-left">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4b569e] to-[#8B5CF6] flex items-center justify-center flex-shrink-0 shadow-md">
