@@ -3204,108 +3204,65 @@ function ProductionForm({
           <div className="flex justify-center py-6">
             <div className="w-5 h-5 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : dates.length > 0 && (
+        ) : history.length > 0 && (
           <div>
             <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-3 px-1">Історія виробництва</p>
-            <div className="space-y-3">
-              {dates.map(date => {
-                const items = byDate[date];
-                const isExpanded = expandedDate === date;
-                const dateObj = new Date(date);
-                const isToday = date === new Date().toISOString().slice(0, 10);
-                const totalPrint = items.filter(i => i.stage === 'print').reduce((s: number, i: HistoryItem) => s + (i.rolls ?? 0), 0);
-                const totalPack = items.filter(i => i.stage === 'pack').reduce((s: number, i: HistoryItem) => s + (i.packages ?? 0), 0);
-
+            <div className="space-y-2">
+              {history.map(item => {
+                const d = new Date(item.created_at);
+                const isToday = item.created_at.slice(0, 10) === new Date().toISOString().slice(0, 10);
+                const isPrint = item.stage === 'print';
                 return (
-                  <div key={date} className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
-                    <button
-                      onClick={() => setExpandedDate(isExpanded ? null : date)}
-                      className="w-full text-left px-4 py-4 flex items-center justify-between active:bg-[#F8FAFC]"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-[17px] font-black ${
-                          isToday ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-[#eceef5] text-[#4b569e]'
-                        }`}>
-                          {dateObj.getDate()}
-                        </div>
-                        <div>
-                          <p className="text-[16px] font-bold text-[#111827]">
-                            {isToday ? 'Сьогодні' : dateObj.toLocaleDateString('uk-UA', { weekday: 'long', day: 'numeric', month: 'long' })}
-                          </p>
-                          <div className="flex gap-3 mt-1">
-                            {totalPrint > 0 && <span className="text-[14px] font-bold text-[#4b569e]">🖨 {totalPrint} рул</span>}
-                            {totalPack > 0 && <span className="text-[14px] font-bold text-[#10B981]">📦 {totalPack} уп</span>}
-                            <span className="text-[13px] text-[#9CA3AF]">{items.length} зап.</span>
-                          </div>
-                        </div>
+                  <div key={item.id} className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 ${
+                        isPrint ? 'bg-[#eceef5]' : 'bg-[#D1FAE5]'
+                      }`}>
+                        {isPrint ? '🖨' : '📦'}
                       </div>
-                      <svg className={`w-5 h-5 text-[#C5C9D1] transition-transform ${isExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                      </svg>
-                    </button>
-
-                    {isExpanded && (() => {
-                      const printItems = items.filter((i: HistoryItem) => i.stage === 'print');
-                      const packItems = items.filter((i: HistoryItem) => i.stage === 'pack');
-
-                      const renderItem = (item: HistoryItem) => (
-                        <div key={item.id} className="bg-[#F8FAFC] rounded-xl p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-[15px] font-bold text-[#111827]">
-                                {item.bag_size} {BAG_MATERIAL_LABELS[item.material as BagMaterial] ?? ''}
-                              </p>
-                              <p className="text-[15px] font-bold mt-0.5" style={{ color: item.stage === 'print' ? '#4b569e' : '#10B981' }}>
-                                {item.stage === 'print'
-                                  ? `${item.km ?? '—'} км · ${item.rolls ?? '—'} рулонів`
-                                  : `${item.packages ?? '—'} упаковок`
-                                }
-                              </p>
-                            </div>
-                            <span className="text-[13px] text-[#9CA3AF]">
-                              {new Date(item.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-[14px] font-bold text-[#111827]">
+                              {item.bag_size} {BAG_MATERIAL_LABELS[item.material as BagMaterial] ?? ''}
+                            </p>
+                            <p className="text-[15px] font-bold mt-0.5" style={{ color: isPrint ? '#4b569e' : '#10B981' }}>
+                              {isPrint
+                                ? `${item.km ?? '—'} км · ${item.rolls ?? '—'} рулонів`
+                                : `${item.packages ?? '—'} упаковок`
+                              }
+                            </p>
                           </div>
-                          <p className="text-[13px] text-[#9CA3AF] mt-1">{item.ops_staff?.name ?? ''}</p>
-                          {item.notes && <p className="text-[13px] text-[#6B7280] mt-1">{item.notes}</p>}
-                          {item.photo_url && (
-                            <button onClick={(e) => { e.stopPropagation(); setHistoryLightbox(item.photo_url); }} className="mt-2 w-full">
-                              <img src={item.photo_url} alt="" className="w-full h-28 object-cover rounded-xl" />
-                            </button>
-                          )}
-                          <button onClick={(e) => {
-                            e.stopPropagation();
-                            const pwd = prompt('Введіть пароль для видалення:');
-                            if (!pwd) return;
-                            api(`/production?id=${item.id}&password=${pwd}`, { method: 'DELETE' })
-                              .then(() => {
-                                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-                                setHistory(prev => prev.filter(h => h.id !== item.id));
-                              })
-                              .catch((err: Error) => alert(err.message || 'Помилка'));
-                          }} className="text-[11px] text-red-400 mt-1 active:text-red-600">
-                            Видалити
+                          <div className="text-right flex-shrink-0">
+                            <p className="text-[12px] text-[#9CA3AF]">
+                              {isToday ? 'Сьогодні' : d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}
+                            </p>
+                            <p className="text-[12px] text-[#9CA3AF]">
+                              {d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-[12px] text-[#9CA3AF] mt-1">{item.ops_staff?.name ?? ''}</p>
+                        {item.notes && <p className="text-[12px] text-[#6B7280] mt-1">{item.notes}</p>}
+                        {item.photo_url && (
+                          <button onClick={() => setHistoryLightbox(item.photo_url)} className="mt-2 w-full">
+                            <img src={item.photo_url} alt="" className="w-full h-24 object-cover rounded-xl" />
                           </button>
-                        </div>
-                      );
-
-                      return (
-                        <div className="px-4 pb-4 border-t border-[#F5F5F5] pt-3 space-y-4">
-                          {printItems.length > 0 && (
-                            <div>
-                              <p className="text-[12px] font-bold text-[#4b569e] uppercase tracking-wider mb-2">🖨 Друк</p>
-                              <div className="space-y-2">{printItems.map(renderItem)}</div>
-                            </div>
-                          )}
-                          {packItems.length > 0 && (
-                            <div>
-                              <p className="text-[12px] font-bold text-[#10B981] uppercase tracking-wider mb-2">📦 Упаковка</p>
-                              <div className="space-y-2">{packItems.map(renderItem)}</div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
+                        )}
+                        <button onClick={() => {
+                          const pwd = prompt('Введіть пароль для видалення:');
+                          if (!pwd) return;
+                          api(`/production?id=${item.id}&password=${pwd}`, { method: 'DELETE' })
+                            .then(() => {
+                              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                              setHistory(prev => prev.filter(h => h.id !== item.id));
+                            })
+                            .catch((err: Error) => alert(err.message || 'Помилка'));
+                        }} className="text-[11px] text-red-400 mt-2 active:text-red-600">
+                          Видалити
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
