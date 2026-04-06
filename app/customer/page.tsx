@@ -75,6 +75,7 @@ export default function CustomerPage() {
   const [managerText, setManagerText] = useState('');
   const [managerSending, setManagerSending] = useState(false);
   const [managerChatLoading, setManagerChatLoading] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -85,6 +86,12 @@ export default function CustomerPage() {
     const saved = localStorage.getItem('dezik_phone');
     if (saved) { setPhone(saved); searchOrders(saved); }
   }, []);
+
+  useEffect(() => {
+    if (authorized && view === 'menu' && !localStorage.getItem('dezik_onboarding_done')) {
+      setOnboardingStep(0);
+    }
+  }, [authorized]);
 
   const loadChatMessages = useCallback(async (orderId: number) => {
     setChatLoading(true);
@@ -1861,6 +1868,126 @@ export default function CustomerPage() {
 
         <p className="text-center text-[11px] text-[#C5C9D1] pt-1 pb-4">Dezik Ukraine · dezik.com.ua</p>
       </div>
+
+      {/* Onboarding overlay */}
+      {onboardingStep !== null && (() => {
+        const onboardingSteps = [
+          {
+            label: 'Активні замовлення',
+            text: 'Тут відображаються ваші поточні замовлення та їх статус',
+            color: 'from-[#3B82F6] to-[#2563EB]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Історія замовлень',
+            text: 'Перегляд усіх попередніх замовлень з деталями',
+            color: 'from-[#8B5CF6] to-[#7C3AED]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Сертифікати',
+            text: 'Офіційні сертифікати на всю продукцію Dezik',
+            color: 'from-[#10B981] to-[#059669]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'AI Консультант',
+            text: 'AI допоможе з питаннями про продукцію та розчини',
+            color: 'from-[#4b569e] to-[#8B5CF6]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Чат з менеджером',
+            text: 'Напишіть менеджеру напряму — історія зберігається',
+            color: 'from-[#3B82F6] to-[#2563EB]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+              </svg>
+            ),
+          },
+          {
+            label: 'Магазин',
+            text: 'Замовте продукцію з доставкою Новою Поштою',
+            color: 'from-[#4b569e] to-[#363f75]',
+            icon: (
+              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+              </svg>
+            ),
+          },
+        ];
+        const step = onboardingSteps[onboardingStep];
+        const isLast = onboardingStep === onboardingSteps.length - 1;
+        const finishOnboarding = () => {
+          localStorage.setItem('dezik_onboarding_done', 'true');
+          setOnboardingStep(null);
+        };
+        return (
+          <div className="fixed inset-0 z-[9999] flex items-end justify-center" style={{ animation: 'fadeIn 300ms ease' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={finishOnboarding} />
+            <div className="relative w-full max-w-md mx-auto" style={{ animation: 'slideUp 400ms cubic-bezier(0.16,1,0.3,1)' }}>
+              <div className="bg-white rounded-t-3xl px-6 pt-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.15)]">
+                {/* Top row: skip + step counter */}
+                <div className="flex items-center justify-between mb-5">
+                  <button onClick={finishOnboarding} className="text-[13px] text-[#9CA3AF] active:text-[#6B7280] transition-colors">
+                    Пропустити
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {onboardingSteps.map((_, i) => (
+                      <div key={i} className={`h-[6px] rounded-full transition-all duration-300 ${i === onboardingStep ? 'w-5 bg-gradient-to-r from-[#4b569e] to-[#8B5CF6]' : 'w-[6px] bg-[#E5E7EB]'}`} />
+                    ))}
+                  </div>
+                  <span className="text-[13px] text-[#9CA3AF] font-medium">{onboardingStep + 1} / {onboardingSteps.length}</span>
+                </div>
+
+                {/* Icon + label */}
+                <div className="flex flex-col items-center text-center">
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${step.color} flex items-center justify-center text-white shadow-lg`}>
+                    {step.icon}
+                  </div>
+                  <p className="text-[18px] font-bold text-[#111827] mt-4">{step.label}</p>
+                  <p className="text-[15px] text-[#6B7280] mt-2 leading-relaxed max-w-[280px]">{step.text}</p>
+                </div>
+
+                {/* Action button */}
+                <button
+                  onClick={() => {
+                    if (isLast) {
+                      finishOnboarding();
+                    } else {
+                      setOnboardingStep(onboardingStep + 1);
+                    }
+                  }}
+                  className="w-full mt-6 py-3.5 rounded-2xl bg-gradient-to-r from-[#4b569e] to-[#363f75] text-white text-[15px] font-bold shadow-lg shadow-[#4b569e]/25 active:scale-[0.97] transition-all"
+                >
+                  {isLast ? 'Готово' : 'Далі'}
+                </button>
+              </div>
+            </div>
+            <style>{`
+              @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+              @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}</style>
+          </div>
+        );
+      })()}
     </div>
   );
 }
