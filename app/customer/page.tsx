@@ -508,31 +508,42 @@ export default function CustomerPage() {
     return (
       <div className="min-h-screen bg-[#F8FAFC]">
         <div className="max-w-md mx-auto px-4 py-5 space-y-4">
-          <h1 className="text-[20px] font-bold text-[#111827]">Сертифікати</h1>
-          <p className="text-[14px] text-[#9CA3AF]">Уся продукція Dezik сертифікована в Україні</p>
+          <div className="text-center">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center mx-auto shadow-lg shadow-[#10B981]/25">
+              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            </div>
+            <h1 className="text-[22px] font-bold text-[#111827] mt-4">Сертифікати</h1>
+            <p className="text-[14px] text-[#9CA3AF] mt-1">Уся продукція Dezik сертифікована в Україні</p>
+          </div>
 
           {[
-            { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', icon: '📋' },
-            { title: 'Деланол', desc: 'Сертифікат на дезінфікуючий засіб', icon: '🧪' },
-            { title: 'Біонол', desc: 'Сертифікат на засіб для ПСО', icon: '🧴' },
-            { title: 'Інструм', desc: 'Сертифікат на очищувач інструментів', icon: '✨' },
+            { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', color: 'from-[#3B82F6] to-[#2563EB]', iconPath: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+            { title: 'Деланол', desc: 'Сертифікат на дезінфікуючий засіб', color: 'from-[#10B981] to-[#059669]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5' },
+            { title: 'Біонол', desc: 'Сертифікат на засіб для ПСО', color: 'from-[#8B5CF6] to-[#7C3AED]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5' },
+            { title: 'Інструм', desc: 'Сертифікат на очищувач інструментів', color: 'from-[#F59E0B] to-[#D97706]', iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z' },
           ].map((cert, i) => (
-            <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0]">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#eceef5] flex items-center justify-center text-xl flex-shrink-0">
-                  {cert.icon}
+            <div key={i} className="bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <div className="flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cert.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={cert.iconPath} />
+                  </svg>
                 </div>
                 <div>
-                  <p className="text-[15px] font-bold text-[#111827]">{cert.title}</p>
+                  <p className="text-[16px] font-bold text-[#111827]">{cert.title}</p>
                   <p className="text-[13px] text-[#9CA3AF] mt-0.5">{cert.desc}</p>
                 </div>
               </div>
             </div>
           ))}
 
-          <p className="text-[13px] text-[#9CA3AF] text-center pt-4">
-            Для отримання копій сертифікатів зверніться до менеджера
-          </p>
+          <div className="bg-[#F0FDF4] rounded-2xl p-4 border border-[#BBF7D0]">
+            <p className="text-[13px] text-[#166534] text-center font-medium">
+              Для отримання копій сертифікатів зверніться до менеджера
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -999,22 +1010,39 @@ export default function CustomerPage() {
         {/* Menu buttons */}
         <div className="grid grid-cols-2 gap-3">
           {[
-            { icon: '📦', label: 'Активні замовлення', desc: activeOrders.length > 0 ? `${activeOrders.length} замовлень` : 'Немає', view: 'active' as View, badge: activeOrders.length },
-            { icon: '📋', label: 'Історія замовлень', desc: `${historyOrders.length} замовлень`, view: 'history' as View },
-            { icon: '📜', label: 'Сертифікати', desc: 'Якість продукції', view: 'certificates' as View },
-            { icon: '🧪', label: 'Як приготувати розчин?', desc: 'Інструкції', view: 'solution' as View },
-            { icon: '👤', label: 'Моя інформація', desc: 'Адреса доставки', view: 'profile' as View },
-          ].map(item => (
-            <button key={item.view} onClick={() => setView(item.view)}
-              className="relative flex flex-col items-start gap-2 bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0]
-                active:scale-[0.97] transition-all text-left">
-              <span className="text-[28px]">{item.icon}</span>
+            { icon: (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+            ), color: 'from-[#3B82F6] to-[#2563EB]', label: 'Активні замовлення', desc: activeOrders.length > 0 ? `${activeOrders.length} замовлень` : 'Немає', view: 'active' as View, badge: activeOrders.length },
+            { icon: (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+              </svg>
+            ), color: 'from-[#8B5CF6] to-[#7C3AED]', label: 'Історія замовлень', desc: `${historyOrders.length} замовлень`, view: 'history' as View },
+            { icon: (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+            ), color: 'from-[#10B981] to-[#059669]', label: 'Сертифікати', desc: 'Якість продукції', view: 'certificates' as View },
+            { icon: (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+              </svg>
+            ), color: 'from-[#F59E0B] to-[#D97706]', label: 'Як приготувати розчин?', desc: 'Інструкції', view: 'solution' as View },
+          ].map((item, idx) => (
+            <button key={idx} onClick={() => setView(item.view)}
+              className="relative flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0]
+                active:scale-[0.96] transition-all text-left">
+              <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-md`}>
+                {item.icon}
+              </div>
               <div>
                 <p className="text-[14px] font-bold text-[#111827] leading-tight">{item.label}</p>
-                <p className="text-[11px] text-[#9CA3AF] mt-0.5">{item.desc}</p>
+                <p className="text-[12px] text-[#9CA3AF] mt-0.5">{item.desc}</p>
               </div>
               {item.badge && item.badge > 0 && (
-                <span className="absolute top-3 right-3 min-w-[20px] h-[20px] rounded-full bg-[#EF4444] text-white text-[11px] font-bold flex items-center justify-center px-1">
+                <span className="absolute top-3 right-3 min-w-[22px] h-[22px] rounded-full bg-[#EF4444] text-white text-[11px] font-bold flex items-center justify-center px-1.5 shadow-sm shadow-red-500/30">
                   {item.badge}
                 </span>
               )}
@@ -1022,33 +1050,52 @@ export default function CustomerPage() {
           ))}
         </div>
 
+        {/* Profile */}
+        <button onClick={() => setView('profile')}
+          className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.97] transition-all">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#6B7280] to-[#4B5563] flex items-center justify-center text-white shadow-md">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[15px] font-bold text-[#111827]">Моя інформація</p>
+            <p className="text-[12px] text-[#9CA3AF]">{profile?.name || 'Адреса доставки'}</p>
+          </div>
+          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+
         {/* Shop button */}
         <button onClick={() => { setView('shop'); loadCatalog(); }}
-          className="w-full flex items-center justify-between bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0] active:scale-[0.97] transition-all">
-          <div className="flex items-center gap-3">
-            <span className="text-[24px]">🛒</span>
-            <div className="text-left">
-              <p className="text-[15px] font-bold text-[#111827]">Магазин</p>
-              <p className="text-[12px] text-[#9CA3AF]">Замовити з доставкою НП</p>
-            </div>
+          className="w-full flex items-center gap-4 bg-gradient-to-r from-[#4b569e] to-[#363f75] rounded-2xl p-4 shadow-lg shadow-[#4b569e]/20 active:scale-[0.97] transition-all">
+          <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center">
+            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+            </svg>
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-[16px] font-bold text-white">Магазин</p>
+            <p className="text-[12px] text-white/70">Замовити з доставкою НП</p>
           </div>
           {cartCount > 0 && (
-            <span className="min-w-[24px] h-[24px] rounded-full bg-[#EF4444] text-white text-[12px] font-bold flex items-center justify-center px-1.5">
+            <span className="min-w-[24px] h-[24px] rounded-full bg-white text-[#4b569e] text-[12px] font-bold flex items-center justify-center px-1.5">
               {cartCount}
             </span>
           )}
-          <svg className="w-5 h-5 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="w-5 h-5 text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
           </svg>
         </button>
 
         {/* Links */}
-        <div className="flex justify-center gap-6">
-          <a href="https://dezik.com.ua" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#4b569e] font-medium">dezik.com.ua</a>
-          <a href="https://www.instagram.com/dezik_ua/" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#4b569e] font-medium">Instagram</a>
+        <div className="flex justify-center gap-6 pt-2">
+          <a href="https://dezik.com.ua" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#4b569e] font-semibold hover:underline">dezik.com.ua</a>
+          <a href="https://www.instagram.com/dezik_ua/" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#4b569e] font-semibold hover:underline">Instagram</a>
         </div>
 
-        <p className="text-center text-[12px] text-[#C5C9D1] pt-2">Dezik Ukraine · dezik.com.ua</p>
+        <p className="text-center text-[11px] text-[#C5C9D1] pt-1 pb-4">Dezik Ukraine · dezik.com.ua</p>
       </div>
     </div>
   );
