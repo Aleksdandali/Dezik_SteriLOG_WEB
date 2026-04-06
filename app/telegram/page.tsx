@@ -3865,6 +3865,9 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           <div className="grid grid-cols-2 gap-2">
             {coCatalog.filter(p => !coProducts.some(cp => cp.sku === String(p.id))).map(p => (
               <button key={p.id} onClick={() => {
+                if (p.quantity <= 0) {
+                  if (!confirm(`⚠️ "${p.name}" немає на складі (0 шт).\n\nВсе одно додати?`)) return;
+                }
                 setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
               }} className="text-left rounded-2xl bg-white border border-[#F0F0F0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:scale-[0.96] transition-all overflow-hidden">
