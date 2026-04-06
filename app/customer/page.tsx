@@ -62,6 +62,8 @@ export default function CustomerPage() {
   const [chatText, setChatText] = useState('');
   const [chatSending, setChatSending] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<(CatalogProduct & { category?: string }) | null>(null);
+  const [productLightbox, setProductLightbox] = useState<string | null>(null);
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -108,12 +110,13 @@ export default function CustomerPage() {
     const handleBack = () => {
       if (chatOpen) { setChatOpen(false); }
       else if (viewingOrder) { setViewingOrder(null); setChatOpen(false); setView('active'); }
+      else if (viewingProduct) { setViewingProduct(null); }
       else if (view !== 'menu') setView('menu');
     };
-    if (view !== 'menu' || viewingOrder || chatOpen) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
+    if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
     else { tg.BackButton.hide(); }
     return () => { tg.BackButton.offClick(handleBack); };
-  }, [view, viewingOrder, chatOpen]);
+  }, [view, viewingOrder, chatOpen, viewingProduct]);
 
   const searchOrders = async (p: string) => {
     if (p.length < 9) return;
@@ -279,6 +282,19 @@ export default function CustomerPage() {
     if (id === 19) return { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' };
     if (id === 4 || id === 10) return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' };
     return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+  };
+
+  const getProductDescription = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes('пакет')) return 'Самоклеючі пакети для парової та газової стерилізації з індикаторами. Щільний медичний папір та прозора плівка.';
+    if (lower.includes('деланол') || lower.includes('delanol')) return 'Засіб для дезінфекції, передстерилізаційної очистки та стерилізації інструментів. Готовий до використання.';
+    if (lower.includes('біонол') || lower.includes('bionol')) return 'Засіб для дезінфекції інструментів та передстерилізаційної очистки. Ефективний проти бактерій, вірусів та грибків.';
+    if (lower.includes('інструм') || lower.includes('instrum')) return 'Професійний засіб для очищення інструментів від нагару, іржі та забруднень.';
+    if (lower.includes('контейнер')) return 'Ємність для замочування та дезінфекції інструментів. Зручна кришка з фіксатором.';
+    if (lower.includes('антисептик') || lower.includes('септональ')) return 'Антисептичний засіб для обробки рук. Містить зволожуючі компоненти.';
+    if (lower.includes('бокс') || lower.includes('box')) return 'Готовий набір для стерилізації. Все необхідне в одній коробці.';
+    if (lower.includes('набор пилка') || lower.includes('набір пилка') || lower.includes('пилка+баф') || lower.includes('пилка + баф')) return 'Одноразовий набір для манікюру.';
+    return 'Професійна продукція Dezik для салонів краси.';
   };
 
   const activeOrders = orders.filter(o => [1, 4, 8, 10].includes(o.status_id));
@@ -908,6 +924,142 @@ export default function CustomerPage() {
   }
 
   // ═══════════════════════════════════
+  // Shop / Product Detail
+  // ═══════════════════════════════════
+  if (view === 'shop' && viewingProduct) {
+    const p = viewingProduct;
+    const inCart = cart.find(i => i.product.id === p.id);
+    const description = getProductDescription(p.name);
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+          {/* Back button */}
+          <button onClick={() => setViewingProduct(null)}
+            className="flex items-center gap-2 text-[14px] font-semibold text-[#4b569e] active:opacity-70 transition-opacity">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+            Назад до каталогу
+          </button>
+
+          {/* Product image */}
+          <div className="bg-white rounded-3xl shadow-sm border border-[#F0F0F0] overflow-hidden">
+            {p.thumbnail ? (
+              <button onClick={() => setProductLightbox(p.thumbnail)} className="w-full">
+                <img src={p.thumbnail} alt={p.name}
+                  className="w-full aspect-square object-contain bg-white p-6" />
+              </button>
+            ) : (
+              <div className="w-full aspect-square bg-[#eceef5] flex items-center justify-center">
+                <svg className="w-20 h-20 text-[#4b569e]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          {/* Photo lightbox */}
+          {productLightbox && (
+            <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setProductLightbox(null)}>
+              <img src={productLightbox} alt="" className="max-w-full max-h-[85vh] rounded-2xl object-contain" />
+              <button className="absolute top-4 right-4 w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-white" onClick={() => setProductLightbox(null)}>
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Product info */}
+          <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#F0F0F0] space-y-4">
+            <h1 className="text-[20px] font-bold text-[#111827] leading-snug">{p.name}</h1>
+
+            <div className="flex items-center justify-between">
+              <p className="text-[28px] font-bold text-[#4b569e]">{p.price.toLocaleString('uk-UA')} <span className="text-[16px]">грн</span></p>
+              {p.in_stock ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-[12px] font-bold text-green-700">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  В наявності
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 border border-red-200 text-[12px] font-bold text-red-600">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Немає
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="pt-2 border-t border-[#F0F0F0]">
+              <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2">Опис</p>
+              <p className="text-[14px] text-[#6B7280] leading-relaxed">{description}</p>
+            </div>
+
+            {/* Category badge */}
+            {p.category && (
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 rounded-xl bg-[#eceef5] text-[12px] font-semibold text-[#4b569e]">{p.category}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Add to cart / Quantity controls */}
+          <div className="pb-4">
+            {p.in_stock ? (
+              inCart ? (
+                <div className="bg-white rounded-3xl p-5 shadow-sm border border-[#4b569e]/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[14px] font-semibold text-[#6B7280]">В кошику</span>
+                    <span className="text-[16px] font-bold text-[#111827]">{(p.price * inCart.qty).toLocaleString('uk-UA')} грн</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-4">
+                    <button onClick={() => updateCartQty(p.id, inCart.qty - 1)}
+                      className="w-12 h-12 rounded-2xl bg-[#F0F0F0] flex items-center justify-center text-[20px] font-bold text-[#111827] active:scale-[0.93] transition-transform">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                      </svg>
+                    </button>
+                    <span className="text-[24px] font-bold text-[#111827] w-12 text-center">{inCart.qty}</span>
+                    <button onClick={() => updateCartQty(p.id, inCart.qty + 1)}
+                      className="w-12 h-12 rounded-2xl bg-[#4b569e] text-white flex items-center justify-center active:scale-[0.93] transition-transform">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    </button>
+                  </div>
+                  <button onClick={() => setView('cart')}
+                    className="w-full py-3 rounded-2xl bg-[#eceef5] text-[#4b569e] text-[14px] font-bold active:scale-[0.97] transition-all flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+                    Перейти до кошика
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => addToCart(p)}
+                  className="w-full py-4 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white text-[16px] font-bold
+                    shadow-xl shadow-[#4b569e]/30 active:scale-[0.97] transition-all flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                  </svg>
+                  Додати в кошик
+                </button>
+              )
+            ) : (
+              <button disabled
+                className="w-full py-4 rounded-2xl bg-[#E5E7EB] text-[#9CA3AF] text-[16px] font-bold cursor-not-allowed">
+                Немає в наявності
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
   // Shop / Catalog
   // ═══════════════════════════════════
   if (view === 'shop') {
@@ -949,7 +1101,8 @@ export default function CustomerPage() {
               {catalog.filter(p => !selectedCategory || p.category === selectedCategory).map(p => {
                 const inCart = cart.find(i => i.product.id === p.id);
                 return (
-                  <div key={p.id} className={`bg-white rounded-2xl p-4 shadow-sm border ${inCart ? 'border-[#4b569e]/30' : 'border-[#F0F0F0]'}`}>
+                  <div key={p.id} className={`bg-white rounded-2xl p-4 shadow-sm border ${inCart ? 'border-[#4b569e]/30' : 'border-[#F0F0F0]'} active:scale-[0.98] transition-transform cursor-pointer`}
+                    onClick={() => setViewingProduct(p)}>
                     <div className="flex gap-3">
                       {p.thumbnail ? (
                         <img src={p.thumbnail} alt="" className="w-20 h-20 rounded-xl object-contain bg-white border border-[#E5E7EB] p-1 flex-shrink-0" />
@@ -963,28 +1116,21 @@ export default function CustomerPage() {
                         <p className="text-[16px] font-bold text-[#4b569e] mt-1">{p.price} грн</p>
                         <div className="flex items-center justify-between mt-2">
                           {p.in_stock ? (
-                            <span className="text-[11px] text-green-600 font-medium">✓ В наявності</span>
+                            <span className="text-[11px] text-green-600 font-medium flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                              В наявності
+                            </span>
                           ) : (
                             <span className="text-[11px] text-red-500 font-medium">Немає в наявності</span>
                           )}
-                          {p.in_stock && (
-                            inCart ? (
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => updateCartQty(p.id, inCart.qty - 1)}
-                                  className="w-7 h-7 rounded-lg bg-[#F0F0F0] flex items-center justify-center text-[14px] font-bold">−</button>
-                                <span className="text-[14px] font-bold w-5 text-center">{inCart.qty}</span>
-                                <button onClick={() => updateCartQty(p.id, inCart.qty + 1)}
-                                  className="w-7 h-7 rounded-lg bg-[#4b569e] text-white flex items-center justify-center text-[14px] font-bold">+</button>
-                              </div>
-                            ) : (
-                              <button onClick={() => addToCart(p)}
-                                className="px-4 py-1.5 rounded-xl bg-[#4b569e] text-white text-[13px] font-bold active:scale-[0.95] transition-all">
-                                В кошик
-                              </button>
-                            )
+                          {inCart && (
+                            <span className="text-[11px] font-bold text-[#4b569e] bg-[#eceef5] px-2 py-0.5 rounded-lg">{inCart.qty} в кошику</span>
                           )}
                         </div>
                       </div>
+                      <svg className="w-4 h-4 text-[#C5C9D1] self-center flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
                     </div>
                   </div>
                 );
