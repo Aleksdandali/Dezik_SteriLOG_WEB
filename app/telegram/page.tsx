@@ -3636,7 +3636,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
   const [coComment, setCoComment] = useState('');
   const [coProducts, setCoProducts] = useState<{ name: string; sku: string; price: number; quantity: number }[]>([]);
   const [coSubmitting, setCoSubmitting] = useState(false);
-  const [coCatalog, setCoCatalog] = useState<{ id: number; name: string; price: number; quantity: number; sku: string }[]>([]);
+  const [coCatalog, setCoCatalog] = useState<{ id: number; name: string; price: number; quantity: number; sku: string; thumbnail: string | null }[]>([]);
   const [coCatalogSearch, setCoCatalogSearch] = useState('');
   const [coBuyerResults, setCoBuyerResults] = useState<{ name: string; phone: string; city: string; address: string }[]>([]);
   const [coCitySuggestions, setCoCitySuggestions] = useState<{ ref: string; name: string }[]>([]);
@@ -3744,7 +3744,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
       try {
         const r = await fetch('/api/customer/catalog');
         const d = await r.json();
-        setCoCatalog((d.data ?? []).map((p: { id: number; name: string; price: number; quantity: number }) => ({ ...p, sku: String(p.id) })));
+        setCoCatalog((d.data ?? []).map((p: { id: number; name: string; price: number; quantity: number; thumbnail: string | null }) => ({ ...p, sku: String(p.id) })));
       } catch {}
     };
     if (coCatalog.length === 0) loadCatalog();
@@ -3827,43 +3827,62 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           </div>
         </div>
 
-        {/* Products */}
-        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
-          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Товари</p>
-          {coProducts.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 bg-[#F8FAFC] rounded-xl p-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
-                <p className="text-[12px] text-[#9CA3AF]">{p.price} грн</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => {
-                  if (p.quantity <= 1) { setCoProducts(prev => prev.filter((_, j) => j !== i)); return; }
-                  setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity - 1 } : pp));
-                }} className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">−</button>
-                <span className="w-8 text-center text-[15px] font-bold">{p.quantity}</span>
-                <button onClick={() => setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity + 1 } : pp))}
-                  className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">+</button>
-              </div>
-              <button onClick={() => setCoProducts(prev => prev.filter((_, j) => j !== i))}
-                className="text-red-400 text-[16px] ml-1 active:text-red-600">✕</button>
-            </div>
-          ))}
+        {/* Selected products */}
+        {coProducts.length > 0 && (
+          <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">В замовленні ({coProducts.length})</p>
+            {coProducts.map((p, i) => {
+              const cat = coCatalog.find(c => String(c.id) === p.sku);
+              return (
+                <div key={i} className="flex items-center gap-3 bg-[#F8FAFC] rounded-xl p-3">
+                  {cat?.thumbnail ? (
+                    <img src={cat.thumbnail} alt="" className="w-12 h-12 rounded-xl object-contain bg-white border border-[#E5E7EB] p-0.5 flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-[#eceef5] flex items-center justify-center flex-shrink-0 text-lg">📦</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
+                    <p className="text-[13px] font-bold text-[#4b569e] mt-0.5">{(p.price * p.quantity).toLocaleString('uk-UA')} грн</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button onClick={() => {
+                      if (p.quantity <= 1) { setCoProducts(prev => prev.filter((_, j) => j !== i)); return; }
+                      setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity - 1 } : pp));
+                    }} className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">−</button>
+                    <span className="w-8 text-center text-[15px] font-bold">{p.quantity}</span>
+                    <button onClick={() => setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity + 1 } : pp))}
+                      className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">+</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          <div className="space-y-1.5">
+        {/* Product catalog */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Каталог товарів</p>
+          <div className="space-y-2">
             {coCatalog.filter(p => !coProducts.some(cp => cp.sku === String(p.id))).map(p => (
               <button key={p.id} onClick={() => {
                 setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-              }} className="w-full text-left px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:bg-[#eceef5] transition-all flex justify-between items-center">
+              }} className="w-full text-left rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:scale-[0.98] transition-all flex items-center gap-3 p-2.5">
+                {p.thumbnail ? (
+                  <img src={p.thumbnail} alt="" className="w-14 h-14 rounded-xl object-contain bg-white border border-[#E5E7EB] p-0.5 flex-shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl bg-[#eceef5] flex items-center justify-center flex-shrink-0 text-xl">📦</div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
-                  <p className="text-[11px] text-[#9CA3AF]">На складі: {p.quantity}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[14px] font-bold text-[#4b569e]">{p.price} грн</span>
+                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                      {p.quantity > 0 ? `${p.quantity} шт` : 'Немає'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[13px] font-bold text-[#4b569e]">{p.price} грн</span>
-                  <span className="w-7 h-7 rounded-lg bg-[#4b569e] text-white flex items-center justify-center text-[16px] font-bold">+</span>
-                </div>
+                <div className="w-9 h-9 rounded-xl bg-[#4b569e] text-white flex items-center justify-center text-[18px] font-bold flex-shrink-0 shadow-md shadow-[#4b569e]/20">+</div>
               </button>
             ))}
           </div>
