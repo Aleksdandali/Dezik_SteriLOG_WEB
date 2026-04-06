@@ -136,10 +136,10 @@ export async function POST(request: NextRequest) {
 
     if (text === '/start') {
       const webAppUrl = 'https://dezik-admin.vercel.app/customer';
-      await sendMessage(chatId, '👋 Вітаємо в <b>Dezik</b>!\n\nПеревіряйте статус замовлень та переглядайте каталог.', {
+      await sendMessage(chatId, 'Вітаємо в Dezik! 👋\n\nТут ви можете:\n— переглядати статус замовлень\n— підтвердити оплату\n— отримати консультацію AI\n— переглянути сертифікати та інструкції\n\nНатисніть кнопку нижче, введіть номер телефону і ви побачите всі ваші замовлення.', {
         reply_markup: {
           inline_keyboard: [[
-            { text: '📦 Мої замовлення', web_app: { url: webAppUrl } },
+            { text: '📦 Мій кабінет', web_app: { url: webAppUrl } },
           ], [
             { text: '🛒 Каталог на сайті', url: 'https://dezik.com.ua' },
           ]],
