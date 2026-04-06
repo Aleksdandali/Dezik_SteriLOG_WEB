@@ -3140,12 +3140,7 @@ function ProductionForm({
     }
   };
 
-  if (success) return <SuccessScreen onDone={() => { setSuccess(false); setKm(''); setRolls(''); setPackages(''); setNotes(''); setPhotoFile(null); setPhotoPreview(null); }} />;
-
-  const sizes = Object.keys(BAG_SIZE_LABELS) as BagSize[];
-  const materials = Object.keys(BAG_MATERIAL_LABELS) as BagMaterial[];
-
-  // History state
+  // History state (must be before any early return to satisfy React hooks rules)
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
@@ -3161,6 +3156,11 @@ function ProductionForm({
       } catch {} finally { setHistoryLoading(false); }
     })();
   }, [selectedStage]);
+
+  if (success) return <SuccessScreen onDone={() => { setSuccess(false); setKm(''); setRolls(''); setPackages(''); setNotes(''); setPhotoFile(null); setPhotoPreview(null); }} />;
+
+  const sizes = Object.keys(BAG_SIZE_LABELS) as BagSize[];
+  const materials = Object.keys(BAG_MATERIAL_LABELS) as BagMaterial[];
 
   // Level 1: Choose stage + history feed
   if (!selectedStage) {
