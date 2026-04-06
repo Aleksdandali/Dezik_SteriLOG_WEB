@@ -3850,30 +3850,23 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
             </div>
           ))}
 
-          <Input placeholder="Пошук товару..." value={coCatalogSearch} onChange={e => setCoCatalogSearch(e.target.value)} />
-          {coCatalogSearch && (
-            <div className="max-h-[200px] overflow-y-auto space-y-1">
-              {filteredCatalog.map(p => (
-                <button key={p.id} onClick={() => {
-                  const existing = coProducts.findIndex(cp => cp.sku === String(p.id));
-                  if (existing >= 0) {
-                    setCoProducts(prev => prev.map((pp, j) => j === existing ? { ...pp, quantity: pp.quantity + 1 } : pp));
-                  } else {
-                    setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
-                  }
-                  setCoCatalogSearch('');
-                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-                }} className="w-full text-left px-3 py-2 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:bg-[#eceef5] transition-all">
-                  <div className="flex justify-between items-center">
-                    <p className="text-[13px] font-medium text-[#111827]">{p.name}</p>
-                    <p className="text-[13px] font-bold text-[#4b569e]">{p.price} грн</p>
-                  </div>
+          <div className="space-y-1.5">
+            {coCatalog.filter(p => !coProducts.some(cp => cp.sku === String(p.id))).map(p => (
+              <button key={p.id} onClick={() => {
+                setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+              }} className="w-full text-left px-3 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:bg-[#eceef5] transition-all flex justify-between items-center">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
                   <p className="text-[11px] text-[#9CA3AF]">На складі: {p.quantity}</p>
-                </button>
-              ))}
-              {filteredCatalog.length === 0 && <p className="text-center text-[13px] text-[#9CA3AF] py-3">Не знайдено</p>}
-            </div>
-          )}
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[13px] font-bold text-[#4b569e]">{p.price} грн</span>
+                  <span className="w-7 h-7 rounded-lg bg-[#4b569e] text-white flex items-center justify-center text-[16px] font-bold">+</span>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Comment */}
