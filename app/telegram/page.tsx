@@ -515,11 +515,15 @@ function MainMenu({
   const [shipmentCount, setShipmentCount] = useState(0);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [cashToday, setCashToday] = useState(0);
+  const [pendingAuditsCount, setPendingAuditsCount] = useState(0);
 
   useEffect(() => {
     api<{ count: number }>('/shipments/count').then(r => setShipmentCount(r.count)).catch(() => {});
     api<{ total: number }>('/orders?status=1').then(r => setNewOrdersCount(r.total ?? 0)).catch(() => {});
     api<{ total_sum: number }>('/cash?period=today').then(r => setCashToday(r.total_sum ?? 0)).catch(() => {});
+    api<{ data: { status: string }[] }>('/inventory-audit?days=30').then(r => {
+      setPendingAuditsCount((r.data ?? []).filter(a => a.status === 'pending').length);
+    }).catch(() => {});
   }, []);
 
   const sections = staff.visible_sections ?? [];
@@ -536,9 +540,9 @@ function MainMenu({
     { icon: '💰', label: 'Витрати', desc: 'Записати витрату', view: 'expense', color: '#EF4444' },
   ];
 
-  const secondaryItems: { icon: string; label: string; view: View; adminOnly?: boolean }[] = [
+  const secondaryItems: { icon: string; label: string; view: View; adminOnly?: boolean; badge?: number }[] = [
     { icon: '🏦', label: 'Оплати постач.', view: 'supplier-payment' },
-    { icon: '📝', label: 'Переоблік', view: 'inventory-audit' },
+    { icon: '📝', label: 'Переоблік', view: 'inventory-audit', badge: pendingAuditsCount },
     { icon: '📋', label: 'Історія', view: 'history' },
     { icon: '💵', label: 'Зарплати', view: 'salary', adminOnly: true },
     { icon: '👥', label: 'Команда', view: 'team', adminOnly: true },
@@ -615,9 +619,13 @@ function MainMenu({
             >
               <span className="text-xl w-8 text-center">{item.icon}</span>
               <span className="text-[15px] font-medium text-[#111827] flex-1 text-left">{item.label}</span>
-              <svg className="w-4 h-4 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
+              {item.badge && item.badge > 0 ? (
+                <span className="min-w-[22px] h-[22px] px-1.5 rounded-full bg-red-500 text-white text-[12px] font-bold flex items-center justify-center">{item.badge}</span>
+              ) : (
+                <svg className="w-4 h-4 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+              )}
             </button>
           ))}
         </div>
