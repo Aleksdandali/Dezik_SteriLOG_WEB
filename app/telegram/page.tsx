@@ -3844,7 +3844,17 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                   setCoCityRef(d.city_ref);
                   fetch(`/api/customer/np-search?type=warehouse&city_ref=${d.city_ref}&q=${encodeURIComponent(d.warehouse || '')}`)
                     .then(res => res.json())
-                    .then(wh => setCoWhSuggestions((wh.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                    .then(wh => {
+                      const list = (wh.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }));
+                      setCoWhSuggestions(list);
+                      if (d.warehouse && list.length === 0) {
+                        alert(`Відділення "${d.warehouse}" не знайдено в ${d.city}. Оберіть вручну.`);
+                      } else if (d.warehouse && list.length === 1) {
+                        setCoWarehouse(list[0].name);
+                        setCoWarehouseRef(list[0].ref);
+                        setCoWhSuggestions([]);
+                      }
+                    })
                     .catch(() => {});
                 }
                 window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
