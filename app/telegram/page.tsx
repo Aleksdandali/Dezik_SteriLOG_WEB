@@ -290,7 +290,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full h-[52px] px-4 rounded-2xl border border-[#E5E7EB] bg-white text-base
+      className={`w-full h-[52px] px-4 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-base
         focus:border-[#4b569e] focus:ring-2 focus:ring-[#4b569e]/10 focus:outline-none transition-all placeholder:text-[#C5C9D1] ${props.className ?? ''}`}
     />
   );
@@ -924,7 +924,7 @@ function ReceivingForm({
                       <input type="number" inputMode="numeric" placeholder="—" value={qty}
                         onChange={(e) => setQuantities(prev => ({ ...prev, [p.id]: e.target.value }))}
                         className={`w-[65px] h-10 px-2 rounded-xl text-center text-[15px] font-bold border transition-all focus:outline-none ${
-                          hasValue ? 'border-[#4b569e] bg-[#eceef5]/50 text-[#4b569e]' : 'border-[#E5E7EB] bg-white focus:border-[#4b569e]'
+                          hasValue ? 'border-[#4b569e] bg-[#eceef5]/50 text-[#4b569e]' : 'border-[#E5E7EB] bg-white text-[#111827] focus:border-[#4b569e]'
                         }`} />
                       <span className="text-[11px] text-[#9CA3AF] w-[20px]">{p.unit}</span>
                     </div>
@@ -3937,7 +3937,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
           <textarea value={coComment} onChange={e => setCoComment(e.target.value)}
             placeholder="Коментар до замовлення..."
-            className="w-full h-16 px-3 py-2 rounded-xl border border-[#E5E7EB] text-[14px] resize-none focus:border-[#4b569e] focus:outline-none" />
+            className="w-full h-16 px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] resize-none focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]" />
         </div>
 
         {/* Total & Submit */}
@@ -4106,7 +4106,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
             value={managerComment}
             onChange={(e) => setManagerComment(e.target.value)}
             placeholder="Нотатка до замовлення..."
-            className="w-full h-20 px-3 py-2 rounded-xl border border-[#E5E7EB] text-[14px] resize-none focus:border-[#4b569e] focus:outline-none"
+            className="w-full h-20 px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] resize-none focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]"
           />
           {managerComment !== (o.manager_comment ?? '') && (
             <Btn variant="secondary" onClick={async () => {
