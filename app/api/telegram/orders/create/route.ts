@@ -139,14 +139,15 @@ export async function GET(request: NextRequest) {
   try {
     await requireStaff(request);
 
-    const q = request.nextUrl.searchParams.get('q')?.trim();
-    if (!q || q.length < 2) {
+    const q = request.nextUrl.searchParams.get('q')?.trim()?.replace(/\D/g, '');
+    if (!q || q.length < 5) {
       return NextResponse.json({ data: [] });
     }
 
-    const encoded = encodeURIComponent(q);
+    // Search by phone using filter[buyer_phone]
+    const phone = q.startsWith('380') ? q : q.startsWith('0') ? `38${q}` : q;
     const result = await keycrmFetch<{ data: KOrderSearchItem[] }>(
-      `/order?filter[search]=${encoded}&include=shipping,buyer&limit=10&sort=-id`,
+      `/order?filter[buyer_phone]=${phone}&include=shipping,buyer&limit=10&sort=-id`,
     );
 
     // Extract unique buyers by phone
@@ -154,13 +155,13 @@ export async function GET(request: NextRequest) {
     const buyers: { name: string; phone: string; city: string; address: string }[] = [];
 
     for (const order of result.data) {
-      const phone = order.buyer?.phone;
-      if (!phone || seen.has(phone)) continue;
-      seen.add(phone);
+      const buyerPhone = order.buyer?.phone;
+      if (!buyerPhone || seen.has(buyerPhone)) continue;
+      seen.add(buyerPhone);
 
       buyers.push({
         name: order.buyer?.full_name ?? '',
-        phone,
+        phone: buyerPhone,
         city: order.shipping?.shipping_address_city ?? '',
         address: order.shipping?.shipping_receive_point ?? '',
       });
