@@ -47,8 +47,8 @@ export async function POST(request: NextRequest) {
     if (!buyer_name || !buyer_phone) {
       return NextResponse.json({ error: "Вкажіть ім'я та телефон покупця" }, { status: 400 });
     }
-    if (!city_ref || !warehouse_ref) {
-      return NextResponse.json({ error: 'Вкажіть місто та відділення' }, { status: 400 });
+    if (!city_name) {
+      return NextResponse.json({ error: 'Вкажіть місто' }, { status: 400 });
     }
     if (!products || products.length === 0) {
       return NextResponse.json({ error: 'Додайте хоча б один товар' }, { status: 400 });

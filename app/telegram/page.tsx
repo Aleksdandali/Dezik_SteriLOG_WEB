@@ -3960,12 +3960,12 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Оплата</p>
           <div className="flex gap-2">
             <button onClick={() => setCoPaymentType('cod')}
-              className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'cod' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+              className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'cod' ? 'bg-gradient-to-b from-[#F59E0B] to-[#D97706] text-white shadow-md shadow-[#F59E0B]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
               Накладний платіж
             </button>
             <button onClick={() => setCoPaymentType('prepaid')}
-              className={`flex-1 py-2.5 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'prepaid' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
-              На розрахунковий рахунок
+              className={`flex-1 py-3 rounded-xl text-[13px] font-bold transition-all ${coPaymentType === 'prepaid' ? 'bg-gradient-to-b from-[#10B981] to-[#059669] text-white shadow-md shadow-[#10B981]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+              На рахунок
             </button>
           </div>
         </div>
@@ -3988,7 +3988,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         )}
 
         <button
-          disabled={coSubmitting || !coName || !coPhone || !coCityRef || !coWarehouseRef || coProducts.length === 0}
+          disabled={coSubmitting || !coName || !coPhone || !coCity || !coWarehouse || coProducts.length === 0}
           onClick={async () => {
             setCoSubmitting(true);
             try {
