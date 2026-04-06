@@ -3625,6 +3625,24 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
   const [chatSending, setChatSending] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
+  // Create order state
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [coName, setCoName] = useState('');
+  const [coPhone, setCoPhone] = useState('');
+  const [coCity, setCoCity] = useState('');
+  const [coCityRef, setCoCityRef] = useState('');
+  const [coWarehouse, setCoWarehouse] = useState('');
+  const [coWarehouseRef, setCoWarehouseRef] = useState('');
+  const [coComment, setCoComment] = useState('');
+  const [coProducts, setCoProducts] = useState<{ name: string; sku: string; price: number; quantity: number }[]>([]);
+  const [coSubmitting, setCoSubmitting] = useState(false);
+  const [coCatalog, setCoCatalog] = useState<{ id: number; name: string; price: number; quantity: number; sku: string }[]>([]);
+  const [coCatalogSearch, setCoCatalogSearch] = useState('');
+  const [coBuyerResults, setCoBuyerResults] = useState<{ name: string; phone: string; city: string; address: string }[]>([]);
+  const [coCitySuggestions, setCoCitySuggestions] = useState<{ ref: string; name: string }[]>([]);
+  const [coWhSuggestions, setCoWhSuggestions] = useState<{ ref: string; name: string }[]>([]);
+  const [coSuccess, setCoSuccess] = useState<number | null>(null);
+
   const loadChatMessages = useCallback(async (orderId: number) => {
     try {
       const res = await fetch(`/api/customer/messages?order_id=${orderId}`);
@@ -3682,6 +3700,226 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
       alert(err instanceof Error ? err.message : 'Помилка');
     }
   };
+
+  // Create order screen
+  if (creatingOrder) {
+    if (coSuccess) return (
+      <div className="space-y-4">
+        <div className="text-center py-12">
+          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 text-3xl">✅</div>
+          <p className="text-[18px] font-bold text-[#111827]">Замовлення #{coSuccess} створено!</p>
+          <button onClick={() => { setCreatingOrder(false); setCoSuccess(null); setCoName(''); setCoPhone(''); setCoCity(''); setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoProducts([]); setCoComment(''); loadOrders(); }}
+            className="mt-6 px-6 py-3 rounded-xl bg-[#4b569e] text-white font-bold active:scale-[0.97] transition-all">
+            До замовлень
+          </button>
+        </div>
+      </div>
+    );
+
+    const coTotal = coProducts.reduce((s, p) => s + p.price * p.quantity, 0);
+    const searchBuyer = async (q: string) => {
+      if (q.length < 3) { setCoBuyerResults([]); return; }
+      try {
+        const r = await api<{ data: { name: string; phone: string; city: string; address: string }[] }>(`/orders/create?q=${encodeURIComponent(q)}`);
+        setCoBuyerResults(r.data ?? []);
+      } catch { setCoBuyerResults([]); }
+    };
+    const searchCity = async (q: string) => {
+      if (q.length < 2) { setCoCitySuggestions([]); return; }
+      try {
+        const r = await fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        setCoCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name })));
+      } catch {}
+    };
+    const searchWh = async (q: string) => {
+      if (!coCityRef) return;
+      try {
+        const r = await fetch(`/api/customer/np-search?type=warehouse&city_ref=${coCityRef}&q=${encodeURIComponent(q)}`);
+        const d = await r.json();
+        setCoWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name })));
+      } catch {}
+    };
+    const loadCatalog = async () => {
+      try {
+        const r = await fetch('/api/customer/catalog');
+        const d = await r.json();
+        setCoCatalog((d.data ?? []).map((p: { id: number; name: string; price: number; quantity: number }) => ({ ...p, sku: String(p.id) })));
+      } catch {}
+    };
+    if (coCatalog.length === 0) loadCatalog();
+
+    const filteredCatalog = coCatalogSearch
+      ? coCatalog.filter(p => p.name.toLowerCase().includes(coCatalogSearch.toLowerCase()))
+      : coCatalog;
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setCreatingOrder(false)}
+            className="w-10 h-10 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.97] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <h2 className="text-[17px] font-bold text-[#111827]">Нове замовлення</h2>
+        </div>
+
+        {/* Buyer */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Клієнт</p>
+          <div>
+            <Input placeholder="Телефон клієнта" value={coPhone}
+              onChange={e => { setCoPhone(e.target.value); searchBuyer(e.target.value); }} />
+            {coBuyerResults.length > 0 && (
+              <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[150px] overflow-y-auto">
+                {coBuyerResults.map((b, i) => (
+                  <button key={i} onClick={() => {
+                    setCoName(b.name); setCoPhone(b.phone);
+                    if (b.city) setCoCity(b.city);
+                    if (b.address) setCoWarehouse(b.address);
+                    setCoBuyerResults([]);
+                  }} className="w-full text-left px-3 py-2 text-[13px] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5]">
+                    <p className="font-bold text-[#111827]">{b.name}</p>
+                    <p className="text-[#9CA3AF]">{b.phone} · {b.city}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Input placeholder="Ім'я клієнта" value={coName} onChange={e => setCoName(e.target.value)} />
+        </div>
+
+        {/* Shipping */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Доставка</p>
+          <div>
+            <Input placeholder="Місто" value={coCity}
+              onChange={e => { setCoCity(e.target.value); searchCity(e.target.value); }} />
+            {coCitySuggestions.length > 0 && (
+              <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[120px] overflow-y-auto">
+                {coCitySuggestions.map((c, i) => (
+                  <button key={i} onClick={() => {
+                    setCoCity(c.name); setCoCityRef(c.ref); setCoCitySuggestions([]);
+                    setCoWarehouse(''); setCoWarehouseRef('');
+                    searchWh('');
+                  }} className="w-full text-left px-3 py-2 text-[13px] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5]">
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <Input placeholder="Відділення НП" value={coWarehouse}
+              onChange={e => { setCoWarehouse(e.target.value); searchWh(e.target.value); }} />
+            {coWhSuggestions.length > 0 && (
+              <div className="mt-1 bg-[#F8FAFC] rounded-xl border border-[#E5E7EB] max-h-[120px] overflow-y-auto">
+                {coWhSuggestions.map((w, i) => (
+                  <button key={i} onClick={() => {
+                    setCoWarehouse(w.name); setCoWarehouseRef(w.ref); setCoWhSuggestions([]);
+                  }} className="w-full text-left px-3 py-2 text-[13px] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5]">
+                    {w.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Products */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Товари</p>
+          {coProducts.map((p, i) => (
+            <div key={i} className="flex items-center gap-2 bg-[#F8FAFC] rounded-xl p-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
+                <p className="text-[12px] text-[#9CA3AF]">{p.price} грн</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => {
+                  if (p.quantity <= 1) { setCoProducts(prev => prev.filter((_, j) => j !== i)); return; }
+                  setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity - 1 } : pp));
+                }} className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">−</button>
+                <span className="w-8 text-center text-[15px] font-bold">{p.quantity}</span>
+                <button onClick={() => setCoProducts(prev => prev.map((pp, j) => j === i ? { ...pp, quantity: pp.quantity + 1 } : pp))}
+                  className="w-8 h-8 rounded-lg bg-white border border-[#E5E7EB] flex items-center justify-center text-[16px] font-bold active:bg-[#F0F0F0]">+</button>
+              </div>
+              <button onClick={() => setCoProducts(prev => prev.filter((_, j) => j !== i))}
+                className="text-red-400 text-[16px] ml-1 active:text-red-600">✕</button>
+            </div>
+          ))}
+
+          <Input placeholder="Пошук товару..." value={coCatalogSearch} onChange={e => setCoCatalogSearch(e.target.value)} />
+          {coCatalogSearch && (
+            <div className="max-h-[200px] overflow-y-auto space-y-1">
+              {filteredCatalog.map(p => (
+                <button key={p.id} onClick={() => {
+                  const existing = coProducts.findIndex(cp => cp.sku === String(p.id));
+                  if (existing >= 0) {
+                    setCoProducts(prev => prev.map((pp, j) => j === existing ? { ...pp, quantity: pp.quantity + 1 } : pp));
+                  } else {
+                    setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
+                  }
+                  setCoCatalogSearch('');
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                }} className="w-full text-left px-3 py-2 rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:bg-[#eceef5] transition-all">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[13px] font-medium text-[#111827]">{p.name}</p>
+                    <p className="text-[13px] font-bold text-[#4b569e]">{p.price} грн</p>
+                  </div>
+                  <p className="text-[11px] text-[#9CA3AF]">На складі: {p.quantity}</p>
+                </button>
+              ))}
+              {filteredCatalog.length === 0 && <p className="text-center text-[13px] text-[#9CA3AF] py-3">Не знайдено</p>}
+            </div>
+          )}
+        </div>
+
+        {/* Comment */}
+        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+          <textarea value={coComment} onChange={e => setCoComment(e.target.value)}
+            placeholder="Коментар до замовлення..."
+            className="w-full h-16 px-3 py-2 rounded-xl border border-[#E5E7EB] text-[14px] resize-none focus:border-[#4b569e] focus:outline-none" />
+        </div>
+
+        {/* Total & Submit */}
+        {coProducts.length > 0 && (
+          <div className="bg-gradient-to-b from-[#4b569e] to-[#363f75] rounded-[20px] p-4 text-white">
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] opacity-80">{coProducts.reduce((s, p) => s + p.quantity, 0)} товарів</span>
+              <span className="text-[22px] font-bold">{coTotal.toLocaleString('uk-UA')} грн</span>
+            </div>
+          </div>
+        )}
+
+        <button
+          disabled={coSubmitting || !coName || !coPhone || !coCityRef || !coWarehouseRef || coProducts.length === 0}
+          onClick={async () => {
+            setCoSubmitting(true);
+            try {
+              const r = await api<{ ok: boolean; order_id: number }>('/orders/create', {
+                method: 'POST',
+                body: JSON.stringify({
+                  buyer_name: coName, buyer_phone: coPhone.replace(/\D/g, ''),
+                  city_name: coCity, city_ref: coCityRef,
+                  warehouse_name: coWarehouse, warehouse_ref: coWarehouseRef,
+                  products: coProducts.map(p => ({ ...p, offer_id: 0 })),
+                  comment: coComment || undefined,
+                }),
+              });
+              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+              setCoSuccess(r.order_id);
+            } catch (err) { alert(err instanceof Error ? err.message : 'Помилка'); }
+            finally { setCoSubmitting(false); }
+          }}
+          className="w-full py-4 rounded-[20px] bg-[#4b569e] text-white text-[16px] font-bold active:scale-[0.97] transition-all disabled:opacity-40 shadow-lg shadow-[#4b569e]/25"
+        >
+          {coSubmitting ? '⏳ Створюємо...' : '✅ Створити замовлення'}
+        </button>
+      </div>
+    );
+  }
 
   // Order detail screen
   if (viewingOrder) {
@@ -4038,6 +4276,12 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           </button>
         ))}
       </div>
+
+      {/* Create order button */}
+      <button onClick={() => { setCreatingOrder(true); window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium'); }}
+        className="w-full py-3 rounded-[16px] bg-[#4b569e] text-white text-[14px] font-bold active:scale-[0.97] transition-all shadow-md shadow-[#4b569e]/20">
+        + Створити замовлення
+      </button>
 
       {/* List */}
       {loading ? (
