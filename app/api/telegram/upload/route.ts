@@ -12,7 +12,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No photo provided' }, { status: 400 });
     }
 
-    const ext = file.name.split('.').pop() ?? 'jpg';
+    // Validate file size (10MB max)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 });
+    }
+
+    // Validate MIME type — only allow images
+    const ALLOWED_TYPES: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/heic': 'heic',
+    };
+    const ext = ALLOWED_TYPES[file.type];
+    if (!ext) {
+      return NextResponse.json({ error: 'Only JPEG, PNG, WebP, HEIC images allowed' }, { status: 400 });
+    }
+
     const fileName = `${staff.id}/${Date.now()}.${ext}`;
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

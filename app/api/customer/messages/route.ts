@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { validateInitData } from '@/lib/telegram/validate';
 
 const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const CUSTOMER_BOT_TOKEN = process.env.TELEGRAM_CUSTOMER_BOT_TOKEN ?? '';
@@ -32,10 +33,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { order_id, sender_type, sender_telegram_id, text } = body;
+    const { order_id, sender_telegram_id, text } = body;
 
-    if (!order_id || !sender_type || !text) {
+    if (!order_id || !text) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
+    }
+
+    // Determine sender_type from authentication, not client input
+    let sender_type = 'customer';
+    const initData = request.headers.get('x-telegram-init-data');
+    if (initData) {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+      if (botToken) {
+        const tgUser = await validateInitData(initData, botToken);
+        if (tgUser) {
+          sender_type = 'manager';
+        }
+      }
     }
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

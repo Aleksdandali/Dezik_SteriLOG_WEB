@@ -16,6 +16,15 @@ async function sendMessage(chatId: number, text: string, options?: { reply_marku
 }
 
 export async function POST(request: NextRequest) {
+  // Verify webhook secret if configured
+  const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const secretHeader = request.headers.get('x-telegram-bot-api-secret-token');
+    if (secretHeader !== webhookSecret) {
+      return NextResponse.json({ ok: false }, { status: 403 });
+    }
+  }
+
   try {
     const update = await request.json();
     const msg = update.message;

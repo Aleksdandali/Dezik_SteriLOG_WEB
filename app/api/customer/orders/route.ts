@@ -6,8 +6,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const phone = searchParams.get('phone');
 
-  if (!phone || phone.length < 9) {
+  if (!phone || phone.length < 10 || phone.length > 20) {
     return NextResponse.json({ error: 'Вкажіть номер телефону' }, { status: 400 });
+  }
+
+  // Phone must contain only digits, spaces, dashes, parens, or leading +
+  if (!/^\+?[\d\s\-()]+$/.test(phone)) {
+    return NextResponse.json({ error: 'Невірний формат телефону' }, { status: 400 });
   }
 
   try {

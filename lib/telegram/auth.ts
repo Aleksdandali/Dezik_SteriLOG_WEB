@@ -37,7 +37,7 @@ async function findStaff(telegramId: number): Promise<OpsStaff | null> {
 
 /**
  * Authenticate with full HMAC validation (for POST/mutations).
- * Falls back to ID-only lookup if HMAC fails (Edge runtime quirks).
+ * Returns null if HMAC validation fails — no fallback.
  */
 export async function authenticateTelegram(
   request: NextRequest
@@ -48,7 +48,6 @@ export async function authenticateTelegram(
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   if (!botToken) return null;
 
-  // Try HMAC validation first
   try {
     const tgUser = await validateInitData(initData, botToken);
     if (tgUser) return findStaff(tgUser.id);
@@ -56,11 +55,7 @@ export async function authenticateTelegram(
     console.error('[Auth] HMAC validation error:', e);
   }
 
-  // Fallback: extract user ID directly (still safe in Mini App context)
-  const telegramId = extractTelegramId(initData);
-  if (!telegramId) return null;
-
-  return findStaff(telegramId);
+  return null;
 }
 
 export async function requireStaff(request: NextRequest): Promise<OpsStaff> {

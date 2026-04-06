@@ -14,10 +14,13 @@ interface KOrder {
 }
 
 export async function GET(request: NextRequest) {
-  // Auth: cron secret or open (for testing)
-  const authHeader = request.headers.get('authorization');
+  // Auth: require cron secret — fail closed if not configured
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
+  }
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

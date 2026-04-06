@@ -10,6 +10,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Заповніть всі поля' }, { status: 400 });
     }
 
+    if (!Array.isArray(products) || products.length > 20) {
+      return NextResponse.json({ error: 'Забагато товарів (максимум 20)' }, { status: 400 });
+    }
+
     // Create order in KeyCRM
     const orderData = {
       source_id: 20, // Dezik_bot_tg
