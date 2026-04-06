@@ -3273,6 +3273,19 @@ function ProductionForm({
                               <img src={item.photo_url} alt="" className="w-full h-28 object-cover rounded-xl" />
                             </button>
                           )}
+                          <button onClick={(e) => {
+                            e.stopPropagation();
+                            const pwd = prompt('Введіть пароль для видалення:');
+                            if (!pwd) return;
+                            api(`/production?id=${item.id}&password=${pwd}`, { method: 'DELETE' })
+                              .then(() => {
+                                window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                                setHistory(prev => prev.filter(h => h.id !== item.id));
+                              })
+                              .catch((err: Error) => alert(err.message || 'Помилка'));
+                          }} className="text-[11px] text-red-400 mt-1 active:text-red-600">
+                            Видалити
+                          </button>
                         </div>
                       );
 
