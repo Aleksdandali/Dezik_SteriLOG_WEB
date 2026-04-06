@@ -70,6 +70,7 @@ export default function CustomerPage() {
   const [aiMessages, setAiMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [aiText, setAiText] = useState('');
   const [aiSending, setAiSending] = useState(false);
+  const [viewingRecipe, setViewingRecipe] = useState<string | null>(null);
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -118,13 +119,14 @@ export default function CustomerPage() {
       else if (viewingOrder) { setViewingOrder(null); setChatOpen(false); setView('active'); }
       else if (viewingCert) { setViewingCert(null); }
       else if (viewingProduct) { setViewingProduct(null); }
+      else if (viewingRecipe) { setViewingRecipe(null); }
       else if (view === 'ai-chat') { setView('menu'); setAiMessages([]); setAiText(''); }
       else if (view !== 'menu') setView('menu');
     };
-    if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct || viewingCert) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
+    if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct || viewingCert || viewingRecipe) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
     else { tg.BackButton.hide(); }
     return () => { tg.BackButton.offClick(handleBack); };
-  }, [view, viewingOrder, chatOpen, viewingProduct, viewingCert]);
+  }, [view, viewingOrder, chatOpen, viewingProduct, viewingCert, viewingRecipe]);
 
   const searchOrders = async (p: string) => {
     if (p.length < 9) return;
@@ -713,70 +715,150 @@ export default function CustomerPage() {
   // Solution preparation
   // ═══════════════════════════════════
   if (view === 'solution') {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC]">
-        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
-          <h1 className="text-[20px] font-bold text-[#111827]">Як приготувати розчин?</h1>
+    const recipes = [
+      {
+        id: 'delanol',
+        title: 'Деланол',
+        subtitle: 'Суміщення дезінфекції з передстерилізаційним очищенням',
+        shortDesc: 'Дезінфекція та ПСО інструментів',
+        color: '#10B981',
+        colorLight: '#D1FAE5',
+        gradient: 'from-[#10B981] to-[#059669]',
+        iconPath: 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z',
+        steps: [
+          'Надягніть рукавички',
+          'Приготуйте розчин: 2 мл Деланолу на 1 л води (0.2% концентрація)',
+          'Занурте інструменти у розчин на 15 хвилин при температурі 20\u00B0C',
+          'Помийте кожен інструмент щіткою у розчині протягом 30 секунд',
+          'Промийте проточною водою протягом 3 хвилин',
+          'Висушіть та упакуйте в пакет для стерилізації',
+        ],
+        note: 'Робочий розчин можна зберігати до 35 діб у закритій тарі',
+      },
+      {
+        id: 'bionol',
+        title: 'Біонол Форте',
+        subtitle: 'Суміщення дезінфекції з передстерилізаційним очищенням',
+        shortDesc: 'Дезінфекція та ПСО інструментів',
+        color: '#8B5CF6',
+        colorLight: '#EDE9FE',
+        gradient: 'from-[#8B5CF6] to-[#7C3AED]',
+        iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
+        steps: [
+          'Надягніть рукавички',
+          'Приготуйте розчин: 5 мл Біонолу на 1 л води (0.5% концентрація)',
+          'Занурте інструменти у розчин на 30 хвилин при температурі 20\u00B0C',
+          'Помийте кожен інструмент щіткою у розчині протягом 30 секунд',
+          'Промийте проточною водою протягом 3 хвилин',
+          'Висушіть при 85\u00B0C або при кімнатній температурі',
+        ],
+        note: 'Робочий розчин можна зберігати до 35 діб у закритій тарі',
+      },
+      {
+        id: 'instrum',
+        title: 'Інструм',
+        subtitle: 'Очищення після стерилізації (НЕ дезінфектант)',
+        shortDesc: 'Видалення нальоту з інструментів',
+        color: '#F59E0B',
+        colorLight: '#FEF3C7',
+        gradient: 'from-[#F59E0B] to-[#D97706]',
+        iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z',
+        steps: [
+          'Переконайтесь що інструменти вже продезінфіковані',
+          'Розведіть 20 мл Інструму на 1 л гарячої води (80-90\u00B0C)',
+          'Занурте інструменти на 15-20 хвилин',
+          'Промийте під проточною водою',
+          'Ретельно висушіть',
+        ],
+        note: 'Використовується ПІСЛЯ дезінфекції для видалення темного нальоту',
+      },
+    ];
 
-          {[
-            {
-              title: 'Деланол — дезінфекція інструментів',
-              iconPath: 'M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418',
-              gradient: 'from-[#4b569e] to-[#363f75]',
-              steps: [
-                'Надягніть рукавички',
-                'Розведіть 20 мл Деланолу на 1 л води',
-                'Занурте інструменти на 60 хвилин',
-                'Промийте під проточною водою',
-                'Висушіть та упакуйте в пакет для стерилізації',
-              ],
-              color: '#4b569e',
-            },
-            {
-              title: 'Біонол — ПСО інструментів',
-              iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
-              gradient: 'from-[#10B981] to-[#059669]',
-              steps: [
-                'Приготуйте розчин: 20 мл Біонолу на 1 л води',
-                'Занурте інструменти на 15 хвилин',
-                'Очистіть щіткою під розчином',
-                'Промийте під водою 30 секунд',
-                'Висушіть',
-              ],
-              color: '#10B981',
-            },
-            {
-              title: 'Інструм — очистка від нагару',
-              iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z',
-              gradient: 'from-[#F59E0B] to-[#D97706]',
-              steps: [
-                'Нанесіть Інструм на забруднену поверхню',
-                'Залиште на 5-10 хвилин',
-                'Протріть щіткою або серветкою',
-                'Промийте водою',
-              ],
-              color: '#F59E0B',
-            },
-          ].map((recipe, i) => (
-            <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-[#F0F0F0]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${recipe.gradient} flex items-center justify-center shadow-md`}>
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d={recipe.iconPath} /></svg>
-                </div>
-                <p className="text-[16px] font-bold text-[#111827]">{recipe.title}</p>
+    const activeRecipe = viewingRecipe ? recipes.find(r => r.id === viewingRecipe) : null;
+
+    if (activeRecipe) {
+      return (
+        <div className="min-h-screen bg-[#F8FAFC]">
+          <div className="max-w-md mx-auto">
+            {/* Header with gradient */}
+            <div className={`bg-gradient-to-br ${activeRecipe.gradient} px-5 pt-5 pb-8 relative overflow-hidden`}>
+              <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-10 bg-white -translate-y-10 translate-x-10" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full opacity-10 bg-white translate-y-8 -translate-x-8" />
+              <button onClick={() => setViewingRecipe(null)}
+                className="flex items-center gap-1.5 text-white/80 text-[14px] mb-4 active:opacity-60 transition-opacity">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Назад
+              </button>
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 shadow-lg">
+                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={activeRecipe.iconPath} /></svg>
               </div>
-              <div className="space-y-3">
-                {recipe.steps.map((step, j) => (
-                  <div key={j} className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0 mt-0.5"
-                      style={{ backgroundColor: recipe.color }}>
-                      {j + 1}
+              <h1 className="text-[24px] font-bold text-white leading-tight">{activeRecipe.title}</h1>
+              <p className="text-[14px] text-white/75 mt-1.5 leading-snug">{activeRecipe.subtitle}</p>
+            </div>
+
+            {/* Steps timeline */}
+            <div className="px-5 -mt-4">
+              <div className="bg-white rounded-3xl shadow-lg border border-[#F0F0F0] p-5">
+                <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-5">Покрокова інструкція</p>
+                <div className="relative">
+                  {activeRecipe.steps.map((step, j) => (
+                    <div key={j} className="flex gap-4 relative" style={{ paddingBottom: j < activeRecipe.steps.length - 1 ? '24px' : '0' }}>
+                      {/* Timeline line */}
+                      {j < activeRecipe.steps.length - 1 && (
+                        <div className="absolute left-[11px] top-[24px] w-[2px] bottom-0" style={{ backgroundColor: `${activeRecipe.color}20` }} />
+                      )}
+                      {/* Timeline dot */}
+                      <div className="relative z-10 flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center shadow-md"
+                          style={{ backgroundColor: activeRecipe.color }}>
+                          <span className="text-[11px] font-bold text-white">{j + 1}</span>
+                        </div>
+                      </div>
+                      {/* Step text */}
+                      <p className="text-[14px] text-[#374151] leading-relaxed pt-0.5">{step}</p>
                     </div>
-                    <p className="text-[14px] text-[#111827] leading-relaxed">{step}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+
+              {/* Note card */}
+              <div className="mt-4 mb-6 rounded-2xl p-4 flex items-start gap-3"
+                style={{ backgroundColor: activeRecipe.colorLight }}>
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: `${activeRecipe.color}30` }}>
+                  <svg className="w-4 h-4" style={{ color: activeRecipe.color }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-[13px] leading-relaxed" style={{ color: activeRecipe.color }}>{activeRecipe.note}</p>
               </div>
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Recipe list view
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-3">
+          <div className="mb-2">
+            <h1 className="text-[22px] font-bold text-[#111827]">Як приготувати розчин?</h1>
+            <p className="text-[13px] text-[#9CA3AF] mt-1">Оберіть засіб для перегляду інструкції</p>
+          </div>
+
+          {recipes.map((recipe) => (
+            <button key={recipe.id} onClick={() => setViewingRecipe(recipe.id)}
+              className="w-full bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0] flex items-center gap-4 active:scale-[0.98] transition-all text-left hover:shadow-md">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${recipe.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={recipe.iconPath} /></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[16px] font-bold text-[#111827]">{recipe.title}</p>
+                <p className="text-[13px] text-[#9CA3AF] mt-0.5 truncate">{recipe.shortDesc}</p>
+              </div>
+              <svg className="w-5 h-5 text-[#D1D5DB] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
           ))}
         </div>
       </div>
