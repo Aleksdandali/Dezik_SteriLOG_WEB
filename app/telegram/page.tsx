@@ -3666,6 +3666,17 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
   const [chatSending, setChatSending] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
+  // Edit address state for TTN creation
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [editRecipient, setEditRecipient] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editCityRef, setEditCityRef] = useState('');
+  const [editWarehouse, setEditWarehouse] = useState('');
+  const [editWarehouseRef, setEditWarehouseRef] = useState('');
+  const [editCitySuggestions, setEditCitySuggestions] = useState<{ ref: string; name: string }[]>([]);
+  const [editWhSuggestions, setEditWhSuggestions] = useState<{ ref: string; name: string }[]>([]);
+
   // Create order state
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [coAiText, setCoAiText] = useState('');
@@ -4121,7 +4132,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => { setViewingOrder(null); setChangingStatus(false); }}
+          <button onClick={() => { setViewingOrder(null); setChangingStatus(false); setEditingAddress(false); }}
             className="w-10 h-10 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.97] transition-transform">
             <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -4162,26 +4173,139 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
 
         {/* Recipient */}
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-2">
-          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Клієнт</p>
           <div className="flex justify-between items-center">
-            <p className="text-[16px] font-bold text-[#111827]">{o.recipient ?? 'Не вказано'}</p>
-            {o.buyer_orders_count && o.buyer_orders_count > 1 && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#eceef5] text-[#4b569e]">{o.buyer_orders_count} замовлень</span>
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Клієнт</p>
+            {!o.ttn && (
+              <button onClick={() => {
+                if (!editingAddress) {
+                  setEditRecipient(o.recipient ?? '');
+                  setEditPhone(o.phone ?? '');
+                  setEditCity(o.city ?? '');
+                  setEditCityRef('');
+                  setEditWarehouse(o.address ?? '');
+                  setEditWarehouseRef('');
+                  setEditCitySuggestions([]);
+                  setEditWhSuggestions([]);
+                }
+                setEditingAddress(!editingAddress);
+              }} className="text-[12px] font-bold text-[#4b569e] active:opacity-70 transition-opacity">
+                {editingAddress ? 'Скасувати' : '✏️ Змінити адресу'}
+              </button>
             )}
           </div>
-          {o.phone && (
-            <div className="flex gap-2 mt-1">
-              <a href={`tel:${o.phone}`} className="flex-1 py-2 rounded-xl bg-[#4b569e] text-white text-center text-[13px] font-bold active:scale-[0.97] transition-all">
-                📞 {o.phone}
-              </a>
-              <a href={`viber://chat?number=${(o.phone || '').replace(/\+/g, '').replace(/^380/, '%2B380')}`}
-                className="px-4 py-2 rounded-xl bg-[#7360F2] text-white text-[13px] font-bold active:scale-[0.97] transition-all">
-                Viber
-              </a>
+          {!editingAddress ? (
+            <>
+              <div className="flex justify-between items-center">
+                <p className="text-[16px] font-bold text-[#111827]">{o.recipient ?? 'Не вказано'}</p>
+                {o.buyer_orders_count && o.buyer_orders_count > 1 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#eceef5] text-[#4b569e]">{o.buyer_orders_count} замовлень</span>
+                )}
+              </div>
+              {o.phone && (
+                <div className="flex gap-2 mt-1">
+                  <a href={`tel:${o.phone}`} className="flex-1 py-2 rounded-xl bg-[#4b569e] text-white text-center text-[13px] font-bold active:scale-[0.97] transition-all">
+                    📞 {o.phone}
+                  </a>
+                  <a href={`viber://chat?number=${(o.phone || '').replace(/\+/g, '').replace(/^380/, '%2B380')}`}
+                    className="px-4 py-2 rounded-xl bg-[#7360F2] text-white text-[13px] font-bold active:scale-[0.97] transition-all">
+                    Viber
+                  </a>
+                </div>
+              )}
+              {o.address && <p className="text-[14px] text-[#111827] mt-2">📍 {o.address}</p>}
+              {o.city && <p className="text-[13px] text-[#9CA3AF]">{o.city}{o.region ? `, ${o.region}` : ''}</p>}
+              {!o.address && !o.city && (
+                <p className="text-[13px] text-orange-500 font-medium mt-1">⚠️ Адреса не вказана — натисніть "Змінити адресу"</p>
+              )}
+            </>
+          ) : (
+            <div className="space-y-3 mt-2">
+              <div>
+                <p className="text-[12px] text-[#9CA3AF] mb-1">ПІБ отримувача</p>
+                <Input value={editRecipient} onChange={e => setEditRecipient(e.target.value)} placeholder="Прізвище Ім'я По-батькові" />
+              </div>
+              <div>
+                <p className="text-[12px] text-[#9CA3AF] mb-1">Телефон</p>
+                <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+380..." inputMode="tel" />
+              </div>
+              <div>
+                <p className="text-[12px] text-[#9CA3AF] mb-1">Місто</p>
+                <Input placeholder="Введіть місто..." value={editCity}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setEditCity(v);
+                    setEditCityRef(''); setEditWarehouse(''); setEditWarehouseRef(''); setEditWhSuggestions([]);
+                    if (v.trim().length >= 2) {
+                      fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(v.trim())}`)
+                        .then(r => r.json())
+                        .then(d => setEditCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name }))))
+                        .catch(() => {});
+                    } else {
+                      setEditCitySuggestions([]);
+                    }
+                  }} />
+                {editCitySuggestions.length > 0 && (
+                  <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[160px] overflow-y-auto shadow-lg">
+                    {editCitySuggestions.map((c, i) => (
+                      <button key={i} onClick={() => {
+                        setEditCity(c.name); setEditCityRef(c.ref); setEditCitySuggestions([]);
+                        setEditWarehouse(''); setEditWarehouseRef('');
+                        fetch(`/api/customer/np-search?type=warehouse&city_ref=${c.ref}&q=`)
+                          .then(r => r.json())
+                          .then(d => setEditWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                          .catch(() => {});
+                        window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                      }} className="w-full text-left px-4 py-3 text-[14px] font-medium text-[#111827] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5] transition-colors">
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {editCityRef && (
+                  <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
+                    <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                    {editCity}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-[12px] text-[#9CA3AF] mb-1">Відділення НП</p>
+                {editCityRef ? (
+                  <>
+                    <Input placeholder="Номер або назва відділення..." value={editWarehouse}
+                      onChange={e => {
+                        const v = e.target.value;
+                        setEditWarehouse(v); setEditWarehouseRef('');
+                        fetch(`/api/customer/np-search?type=warehouse&city_ref=${editCityRef}&q=${encodeURIComponent(v)}`)
+                          .then(r => r.json())
+                          .then(d => setEditWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                          .catch(() => {});
+                      }} />
+                    {editWhSuggestions.length > 0 && !editWarehouseRef && (
+                      <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[200px] overflow-y-auto shadow-lg">
+                        {editWhSuggestions.map((w, i) => (
+                          <button key={i} onClick={() => {
+                            setEditWarehouse(w.name); setEditWarehouseRef(w.ref); setEditWhSuggestions([]);
+                            window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                          }} className="w-full text-left px-4 py-3 text-[13px] text-[#111827] border-b border-[#F0F0F0] last:border-0 active:bg-[#eceef5] transition-colors">
+                            {w.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {editWarehouseRef && (
+                      <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
+                        <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        {editWarehouse}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[13px] text-[#9CA3AF] italic">Спочатку оберіть місто</p>
+                )}
+              </div>
             </div>
           )}
-          {o.address && <p className="text-[14px] text-[#111827] mt-2">📍 {o.address}</p>}
-          {o.city && <p className="text-[13px] text-[#9CA3AF]">{o.city}{o.region ? `, ${o.region}` : ''}</p>}
         </div>
 
         {/* Products */}
@@ -4280,11 +4404,13 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                 <p className="text-[13px] text-[#9CA3AF]">Одеса · Грецька площа 3/4</p>
               </div>
 
-              <div className="bg-[#F8FAFC] rounded-xl p-3 space-y-1.5">
-                <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Отримувач</p>
-                <p className="text-[14px] font-bold text-[#111827]">{o.recipient ?? '—'}</p>
-                <p className="text-[13px] text-[#4b569e]">{o.phone ?? '—'}</p>
-                <p className="text-[13px] text-[#111827]">📍 {o.address ?? o.city ?? '—'}</p>
+              <div className={`rounded-xl p-3 space-y-1.5 ${editingAddress && editCityRef && editWarehouseRef ? 'bg-green-50 border border-green-200' : 'bg-[#F8FAFC]'}`}>
+                <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">
+                  Отримувач {editingAddress && editCityRef && editWarehouseRef ? '(змінено)' : ''}
+                </p>
+                <p className="text-[14px] font-bold text-[#111827]">{editingAddress && editRecipient ? editRecipient : (o.recipient ?? '—')}</p>
+                <p className="text-[13px] text-[#4b569e]">{editingAddress && editPhone ? editPhone : (o.phone ?? '—')}</p>
+                <p className="text-[13px] text-[#111827]">📍 {editingAddress && editWarehouseRef ? `${editCity}, ${editWarehouse}` : (o.address ?? o.city ?? '—')}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -4320,7 +4446,15 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                   try {
                     const res = await api<{ ttn: string; delivery_cost: number; estimated_delivery: string }>('/orders/create-ttn', {
                       method: 'POST',
-                      body: JSON.stringify({ order_id: o.id, weight: parseFloat(ttnWeight) || 1, payer_type: ttnPayer }),
+                      body: JSON.stringify({
+                        order_id: o.id,
+                        weight: parseFloat(ttnWeight) || 1,
+                        payer_type: ttnPayer,
+                        ...(editingAddress && editRecipient ? { override_recipient: editRecipient } : {}),
+                        ...(editingAddress && editPhone ? { override_phone: editPhone } : {}),
+                        ...(editingAddress && editCityRef ? { override_city_ref: editCityRef } : {}),
+                        ...(editingAddress && editWarehouseRef ? { override_warehouse_ref: editWarehouseRef } : {}),
+                      }),
                     });
                     setTtnResult(res);
                     setShowTTNConfirm(false);

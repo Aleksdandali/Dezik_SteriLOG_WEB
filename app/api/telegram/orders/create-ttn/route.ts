@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     await requireStaff(request);
     const body = await request.json();
-    const { order_id, weight, payer_type } = body;
+    const { order_id, weight, payer_type, override_recipient, override_phone, override_city_ref, override_warehouse_ref } = body;
 
     if (!order_id) return NextResponse.json({ error: 'Missing order_id' }, { status: 400 });
 
@@ -27,12 +27,16 @@ export async function POST(request: NextRequest) {
     const shipping = order.shipping;
     const address = shipping?.address_payload;
 
-    if (!address?.city_ref || !address?.warehouse_ref) {
+    // Use override values if provided, otherwise fall back to order data
+    const cityRef = override_city_ref || address?.city_ref;
+    const warehouseRef = override_warehouse_ref || address?.warehouse_ref;
+
+    if (!cityRef || !warehouseRef) {
       return NextResponse.json({ error: 'Замовлення не має адреси доставки НП' }, { status: 400 });
     }
 
-    const recipientName = shipping?.recipient_full_name || order.buyer?.full_name;
-    const recipientPhone = shipping?.recipient_phone || order.buyer?.phone;
+    const recipientName = override_recipient || shipping?.recipient_full_name || order.buyer?.full_name;
+    const recipientPhone = override_phone || shipping?.recipient_phone || order.buyer?.phone;
 
     if (!recipientName || !recipientPhone) {
       return NextResponse.json({ error: 'Немає імені або телефону отримувача' }, { status: 400 });
@@ -42,8 +46,8 @@ export async function POST(request: NextRequest) {
     const result = await createTTN({
       recipientName,
       recipientPhone,
-      cityRef: address.city_ref,
-      warehouseRef: address.warehouse_ref,
+      cityRef,
+      warehouseRef,
       weight: weight ?? 1,
       cost: order.grand_total,
       description: 'Товари Dezik',
