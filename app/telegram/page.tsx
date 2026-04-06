@@ -4690,6 +4690,21 @@ function HistoryView({ staff }: { staff: OpsStaff }) {
                   className="mt-3 w-full h-24 object-cover rounded-xl"
                 />
               )}
+              {staff.role === 'admin' && (
+                <button onClick={() => {
+                  const pwd = prompt('Введіть пароль для видалення:');
+                  if (!pwd) return;
+                  const endpoint = tab === 'production' ? 'production' : tab === 'expenses' ? 'expenses' : tab === 'receivings' ? 'receivings' : 'movements';
+                  api(`/${endpoint}?id=${item.id}&password=${pwd}`, { method: 'DELETE' })
+                    .then(() => {
+                      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                      setItems(prev => prev.filter(h => h.id !== item.id));
+                    })
+                    .catch((err: Error) => alert(err.message || 'Помилка'));
+                }} className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-500 text-[12px] font-bold active:bg-red-100 transition-all">
+                  🗑 Видалити
+                </button>
+              )}
             </div>
           ))}
         </div>

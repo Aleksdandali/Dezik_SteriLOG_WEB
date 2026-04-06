@@ -74,3 +74,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message || 'Internal error' }, { status: message === 'Unauthorized' ? 401 : 500 });
   }
 }
+
+
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireStaff(request);
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    const password = searchParams.get("password");
+    if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+    if (password !== "300683") return NextResponse.json({ error: "Невірний пароль" }, { status: 403 });
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const { error } = await supabase.from("ops_movements").delete().eq("id", id);
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: message }, { status: message === "Unauthorized" ? 401 : 500 });
+  }
+}
