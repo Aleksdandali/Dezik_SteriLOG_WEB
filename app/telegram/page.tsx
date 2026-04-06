@@ -3258,8 +3258,8 @@ function ProductionForm({
                               setHistory(prev => prev.filter(h => h.id !== item.id));
                             })
                             .catch((err: Error) => alert(err.message || 'Помилка'));
-                        }} className="text-[11px] text-red-400 mt-2 active:text-red-600">
-                          Видалити
+                        }} className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-500 text-[12px] font-bold active:bg-red-100 transition-all">
+                          🗑 Видалити
                         </button>
                       </div>
                     </div>
