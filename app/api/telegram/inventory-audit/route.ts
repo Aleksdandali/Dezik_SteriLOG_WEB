@@ -43,13 +43,15 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Create audit header
+    // Create audit header (auto-approve if admin)
+    const isAdmin = staff.role === 'admin';
     const { data: audit, error: auditError } = await supabase
       .from('ops_inventory_audits')
       .insert({
         staff_id: staff.id,
         location,
         audit_date: audit_date || new Date().toISOString().slice(0, 10),
+        ...(isAdmin ? { status: 'approved', approved_by: staff.id, approved_at: new Date().toISOString() } : {}),
       })
       .select()
       .single();
