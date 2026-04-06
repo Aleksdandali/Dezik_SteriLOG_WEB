@@ -1483,10 +1483,7 @@ export default function CustomerPage() {
       } catch {} finally { setManagerSending(false); }
     };
 
-    // Load messages on mount
-    if (managerMessages.length === 0 && !managerChatLoading) {
-      loadManagerMessages();
-    }
+    // Load is triggered from menu button onClick
 
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
@@ -1807,7 +1804,11 @@ export default function CustomerPage() {
               <p className="text-[12px] text-[#9CA3AF] mt-0.5">Запитай про продукцію</p>
             </div>
           </button>
-          <button onClick={() => { setView('manager-chat'); setManagerMessages([]); }}
+          <button onClick={() => {
+            setView('manager-chat');
+            setManagerChatLoading(true);
+            fetch('/api/customer/messages?order_id=0').then(r => r.json()).then(d => setManagerMessages(d.data ?? [])).catch(() => {}).finally(() => setManagerChatLoading(false));
+          }}
             className="flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.96] transition-all text-left">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center text-white shadow-md">
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
