@@ -141,7 +141,7 @@ DEZIK INSTRUM — повна інструкція:
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, order_id } = await request.json();
+    const { message, order_id, history } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });
@@ -164,7 +164,13 @@ export async function POST(request: NextRequest) {
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 512,
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: message }],
+        messages: [
+          ...((history ?? []) as { role: string; text: string }[]).map((m: { role: string; text: string }) => ({
+            role: m.role === 'ai' ? 'assistant' : 'user',
+            content: m.text,
+          })),
+          { role: 'user', content: message },
+        ],
       }),
     });
 

@@ -1257,7 +1257,7 @@ export default function CustomerPage() {
         const res = await fetch('/api/customer/ai-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg }),
+          body: JSON.stringify({ message: msg, history: aiMessages }),
         });
         const data = await res.json();
         if (data.redirected) {
