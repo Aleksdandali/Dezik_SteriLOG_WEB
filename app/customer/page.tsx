@@ -650,20 +650,17 @@ export default function CustomerPage() {
   // ═══════════════════════════════════
   if (view === 'certificates' && viewingCert) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC]">
-        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+      <div className="fixed inset-0 bg-[#F8FAFC] z-40 flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E5E7EB]">
           <button onClick={() => setViewingCert(null)}
-            className="flex items-center gap-2 text-[14px] font-semibold text-[#4b569e] active:opacity-70 transition-opacity">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
-            Назад
           </button>
-          <h1 className="text-[20px] font-bold text-[#111827]">{viewingCert.title}</h1>
-          <div className="bg-white rounded-2xl shadow-sm border border-[#F0F0F0] overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
-            <iframe src={`${viewingCert.url}#toolbar=0`} className="w-full h-full" title={viewingCert.title} />
-          </div>
+          <h1 className="text-[16px] font-bold text-[#111827]">{viewingCert.title}</h1>
         </div>
+        <iframe src={viewingCert.url} className="flex-1 w-full" title={viewingCert.title} />
       </div>
     );
   }
