@@ -4095,7 +4095,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           <div className={`py-3 rounded-xl text-center text-[15px] font-bold ${
             o.payment_status === 'paid' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-orange-50 text-orange-700 border border-orange-200'
           }`}>
-            {o.payment_status === 'paid' ? '✅ Оплачено' : '💳 Наложний платіж'}
+            {o.payment_status === 'paid' ? '✅ Оплачено' : '💳 Накладний платіж'}
           </div>
         </div>
 
