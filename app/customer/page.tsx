@@ -246,12 +246,39 @@ export default function CustomerPage() {
     } finally { setOrdering(false); }
   };
 
+  const statusIcon = (id: number) => {
+    if (id === 12) return (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+    if (id === 8) return (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
+      </svg>
+    );
+    if (id === 19) return (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+    if (id === 4 || id === 10) return (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+      </svg>
+    );
+    return (
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+  };
   const statusStyle = (id: number) => {
-    if (id === 12) return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200', icon: '✅' };
-    if (id === 8) return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: '📦' };
-    if (id === 19) return { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', icon: '❌' };
-    if (id === 4 || id === 10) return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', icon: '💳' };
-    return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: '🆕' };
+    if (id === 12) return { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' };
+    if (id === 8) return { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' };
+    if (id === 19) return { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200' };
+    if (id === 4 || id === 10) return { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' };
+    return { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
   };
 
   const activeOrders = orders.filter(o => [1, 4, 8, 10].includes(o.status_id));
@@ -314,7 +341,7 @@ export default function CustomerPage() {
             <p className="text-[13px] text-[#9CA3AF]">Замовлення</p>
             <p className="text-[28px] font-bold text-[#111827] mt-1">#{o.id}</p>
             <div className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[14px] font-bold border mt-3 ${s.bg} ${s.text} ${s.border}`}>
-              {s.icon} {o.status}
+              {statusIcon(o.status_id)} {o.status}
             </div>
             <p className="text-[14px] text-[#9CA3AF] mt-3">
               {new Date(o.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -325,11 +352,11 @@ export default function CustomerPage() {
             <div className="bg-gradient-to-br from-[#4b569e] to-[#363f75] rounded-3xl p-5 text-white shadow-lg shadow-[#4b569e]/20">
               <p className="text-[12px] uppercase tracking-wider opacity-70">Трекінг Нова Пошта</p>
               <p className="text-[22px] font-mono font-bold mt-2">{o.ttn}</p>
-              {o.address && <p className="text-[13px] opacity-80 mt-2">📍 {o.address}</p>}
+              {o.address && <p className="text-[13px] opacity-80 mt-2 flex items-center gap-1.5"><svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>{o.address}</p>}
               <a href={`https://novaposhta.ua/tracking/?cargo_number=${o.ttn}`}
                 target="_blank" rel="noopener noreferrer"
                 className="block w-full py-3 rounded-2xl bg-white/20 text-center text-[14px] font-bold mt-4 active:bg-white/30 transition-all">
-                🔍 Відстежити посилку
+                <svg className="w-4 h-4 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>Відстежити посилку
               </a>
             </div>
           )}
@@ -365,7 +392,7 @@ export default function CustomerPage() {
             onClick={() => { setChatOpen(true); loadChatMessages(o.id); }}
             className="w-full py-4 rounded-3xl bg-white shadow-sm border border-[#E5E7EB] text-[15px] font-bold text-[#4b569e] active:scale-[0.97] transition-all flex items-center justify-center gap-2"
           >
-            💬 Написати менеджеру
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-11.883 4.744a23.394 23.394 0 01-.032-.258c-.178-1.57-.178-3.403 0-4.972.217-1.909 1.792-3.367 3.699-3.566a36.703 36.703 0 016.872 0c1.907.199 3.482 1.657 3.699 3.566.178 1.569.178 3.402 0 4.972-.217 1.909-1.792 3.367-3.699 3.566a36.68 36.68 0 01-6.872 0 3.834 3.834 0 01-1.775-.618l-2.8.788.788-2.8a3.834 3.834 0 01-.618-1.775 23.47 23.47 0 01-.262-1.903z" /></svg> Написати менеджеру
           </button>
         </div>
 
@@ -392,7 +419,9 @@ export default function CustomerPage() {
                 </div>
               ) : chatMessages.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-[40px]">💬</p>
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#363f75] flex items-center justify-center mx-auto shadow-lg shadow-[#4b569e]/25">
+                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" /></svg>
+                  </div>
                   <p className="text-[15px] font-semibold text-[#111827] mt-3">Напишіть нам</p>
                   <p className="text-[13px] text-[#9CA3AF] mt-1">Ми відповімо якнайшвидше</p>
                 </div>
@@ -452,7 +481,6 @@ export default function CustomerPage() {
   if (view === 'active' || view === 'history') {
     const list = view === 'active' ? activeOrders : historyOrders;
     const title = view === 'active' ? 'Активні замовлення' : 'Історія замовлень';
-    const emptyIcon = view === 'active' ? '✨' : '📋';
     const emptyText = view === 'active' ? 'Немає активних замовлень' : 'Історія порожня';
 
     return (
@@ -462,7 +490,13 @@ export default function CustomerPage() {
 
           {list.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-[48px]">{emptyIcon}</p>
+              <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${view === 'active' ? 'from-[#3B82F6] to-[#2563EB]' : 'from-[#8B5CF6] to-[#7C3AED]'} flex items-center justify-center mx-auto shadow-md`}>
+                {view === 'active' ? (
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" /></svg>
+                ) : (
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" /></svg>
+                )}
+              </div>
               <p className="text-[16px] font-semibold text-[#111827] mt-4">{emptyText}</p>
             </div>
           ) : (
@@ -476,8 +510,8 @@ export default function CustomerPage() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-[16px] font-bold text-[#111827]">#{o.id}</span>
-                          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${s.bg} ${s.text} ${s.border}`}>
-                            {s.icon} {o.status}
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${s.bg} ${s.text} ${s.border}`}>
+                            {statusIcon(o.status_id)} {o.status}
                           </span>
                         </div>
                         <p className="text-[13px] text-[#9CA3AF] mt-1.5">
@@ -561,7 +595,8 @@ export default function CustomerPage() {
           {[
             {
               title: 'Деланол — дезінфекція інструментів',
-              icon: '💧',
+              iconPath: 'M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418',
+              gradient: 'from-[#4b569e] to-[#363f75]',
               steps: [
                 'Надягніть рукавички',
                 'Розведіть 20 мл Деланолу на 1 л води',
@@ -573,7 +608,8 @@ export default function CustomerPage() {
             },
             {
               title: 'Біонол — ПСО інструментів',
-              icon: '🧴',
+              iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5',
+              gradient: 'from-[#10B981] to-[#059669]',
               steps: [
                 'Приготуйте розчин: 20 мл Біонолу на 1 л води',
                 'Занурте інструменти на 15 хвилин',
@@ -585,7 +621,8 @@ export default function CustomerPage() {
             },
             {
               title: 'Інструм — очистка від нагару',
-              icon: '✨',
+              iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z',
+              gradient: 'from-[#F59E0B] to-[#D97706]',
               steps: [
                 'Нанесіть Інструм на забруднену поверхню',
                 'Залиште на 5-10 хвилин',
@@ -597,8 +634,8 @@ export default function CustomerPage() {
           ].map((recipe, i) => (
             <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-[#F0F0F0]">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${recipe.color}15` }}>
-                  {recipe.icon}
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${recipe.gradient} flex items-center justify-center shadow-md`}>
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d={recipe.iconPath} /></svg>
                 </div>
                 <p className="text-[16px] font-bold text-[#111827]">{recipe.title}</p>
               </div>
@@ -645,7 +682,7 @@ export default function CustomerPage() {
           </div>
 
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#F0F0F0] space-y-4">
-            <p className="text-[14px] font-bold text-[#111827]">📍 Адреса доставки</p>
+            <p className="text-[14px] font-bold text-[#111827] flex items-center gap-1.5"><svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>Адреса доставки</p>
             <div className="relative">
               <p className="text-[12px] text-[#9CA3AF] mb-1">Місто</p>
               <input type="text" value={checkoutCity} onChange={(e) => searchCity(e.target.value)}
@@ -821,7 +858,9 @@ export default function CustomerPage() {
 
           {cart.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-[48px]">🛒</p>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#363f75] flex items-center justify-center mx-auto shadow-md">
+                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>
+              </div>
               <p className="text-[16px] font-semibold text-[#111827] mt-4">Кошик порожній</p>
               <button onClick={() => setView('shop')} className="mt-4 text-[14px] text-[#4b569e] font-semibold">← До каталогу</button>
             </div>
@@ -880,7 +919,7 @@ export default function CustomerPage() {
             {cartCount > 0 && (
               <button onClick={() => setView('cart')}
                 className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#4b569e] text-white text-[13px] font-bold active:scale-[0.97] transition-all">
-                🛒 {cartCount} · {cartTotal.toLocaleString('uk-UA')} грн
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg> {cartCount} · {cartTotal.toLocaleString('uk-UA')} грн
               </button>
             )}
           </div>
@@ -915,7 +954,9 @@ export default function CustomerPage() {
                       {p.thumbnail ? (
                         <img src={p.thumbnail} alt="" className="w-20 h-20 rounded-xl object-contain bg-white border border-[#E5E7EB] p-1 flex-shrink-0" />
                       ) : (
-                        <div className="w-20 h-20 rounded-xl bg-[#eceef5] flex items-center justify-center text-2xl flex-shrink-0">📦</div>
+                        <div className="w-20 h-20 rounded-xl bg-[#eceef5] flex items-center justify-center flex-shrink-0">
+                          <svg className="w-8 h-8 text-[#4b569e]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                        </div>
                       )}
                       <div className="flex-1">
                         <p className="text-[14px] font-medium text-[#111827] leading-snug">{p.name}</p>
@@ -957,7 +998,7 @@ export default function CustomerPage() {
               <button onClick={() => setView('cart')}
                 className="w-full py-4 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white text-[16px] font-bold
                   shadow-xl shadow-[#4b569e]/30 active:scale-[0.97] transition-all">
-                🛒 Кошик · {cartCount} товарів · {cartTotal.toLocaleString('uk-UA')} грн
+                <svg className="w-5 h-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" /></svg>Кошик · {cartCount} товарів · {cartTotal.toLocaleString('uk-UA')} грн
               </button>
             </div>
           )}
