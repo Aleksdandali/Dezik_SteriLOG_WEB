@@ -393,12 +393,17 @@ export default function CustomerPage() {
           <div className="bg-white rounded-3xl p-5 shadow-sm space-y-3">
             <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Товари ({o.products.length})</p>
             {o.products.map((p, i) => (
-              <div key={i} className="flex justify-between items-start py-2">
-                <div className="flex-1 pr-3">
-                  <p className="text-[14px] font-medium text-[#111827] leading-snug">{p.name}</p>
-                  <p className="text-[13px] text-[#9CA3AF] mt-0.5">{p.price.toLocaleString('uk-UA')} грн × {p.qty}</p>
+              <div key={i} className="flex items-start gap-3 py-2">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#eceef5] to-[#dde0f0] flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  </svg>
                 </div>
-                <span className="text-[15px] font-bold text-[#111827]">{(p.price * p.qty).toLocaleString('uk-UA')} грн</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#111827] leading-snug">{p.name}</p>
+                  <p className="text-[13px] text-[#9CA3AF] mt-0.5">{p.price.toLocaleString('uk-UA')} грн x {p.qty}</p>
+                </div>
+                <span className="text-[15px] font-bold text-[#111827] flex-shrink-0">{(p.price * p.qty).toLocaleString('uk-UA')} грн</span>
               </div>
             ))}
           </div>
@@ -409,6 +414,32 @@ export default function CustomerPage() {
             className="w-full py-4 rounded-3xl bg-white shadow-sm border border-[#E5E7EB] text-[15px] font-bold text-[#4b569e] active:scale-[0.97] transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-11.883 4.744a23.394 23.394 0 01-.032-.258c-.178-1.57-.178-3.403 0-4.972.217-1.909 1.792-3.367 3.699-3.566a36.703 36.703 0 016.872 0c1.907.199 3.482 1.657 3.699 3.566.178 1.569.178 3.402 0 4.972-.217 1.909-1.792 3.367-3.699 3.566a36.68 36.68 0 01-6.872 0 3.834 3.834 0 01-1.775-.618l-2.8.788.788-2.8a3.834 3.834 0 01-.618-1.775 23.47 23.47 0 01-.262-1.903z" /></svg> Написати менеджеру
+          </button>
+
+          {/* Repeat order button */}
+          <button
+            onClick={() => {
+              const tg = (window as unknown as { Telegram?: { WebApp: { HapticFeedback: { impactOccurred: (s: string) => void } } } }).Telegram?.WebApp;
+              if (tg) tg.HapticFeedback.impactOccurred('medium');
+              const newCart: CartItem[] = o.products.map(p => {
+                const found = catalog.find(c => c.name.toLowerCase().includes(p.name.toLowerCase().slice(0, 15)));
+                return {
+                  product: found ?? { id: 0, name: p.name, price: p.price, quantity: 999, thumbnail: null, in_stock: true },
+                  qty: p.qty,
+                };
+              });
+              setCart(newCart);
+              if (o.city) setCheckoutCity(o.city);
+              if (o.address) setCheckoutWarehouse(o.address);
+              setViewingOrder(null);
+              setView('checkout');
+            }}
+            className="w-full py-4 rounded-3xl bg-[#eceef5] border border-[#d8dbe8] text-[15px] font-bold text-[#4b569e] active:scale-[0.97] transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+            </svg>
+            Повторити замовлення
           </button>
         </div>
 
@@ -462,7 +493,7 @@ export default function CustomerPage() {
               )}
             </div>
 
-            <div className="bg-white border-t border-[#E5E7EB] p-3 flex gap-2">
+            <div className="bg-white border-t border-[#E5E7EB] px-3 pt-3 pb-6 pb-[env(safe-area-inset-bottom)] flex gap-2">
               <input
                 type="text"
                 value={chatText}
@@ -519,26 +550,33 @@ export default function CustomerPage() {
             <div className="space-y-3">
               {list.map(o => {
                 const s = statusStyle(o.status_id);
+                const accentColor = o.status_id === 12 ? 'bg-green-500' : o.status_id === 19 ? 'bg-red-500' : o.status_id === 8 ? 'bg-blue-500' : 'bg-[#4b569e]';
                 return (
                   <button key={o.id} onClick={() => { setViewingOrder(o); setView('order-detail'); }}
-                    className="w-full text-left bg-white rounded-2xl p-4 shadow-sm border border-[#F0F0F0] active:scale-[0.97] transition-all">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[16px] font-bold text-[#111827]">#{o.id}</span>
-                          <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${s.bg} ${s.text} ${s.border}`}>
-                            {statusIcon(o.status_id)} {o.status}
-                          </span>
+                    className="w-full text-left bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] active:scale-[0.97] transition-all overflow-hidden">
+                    <div className="flex">
+                      <div className={`w-1 rounded-full my-3 ml-3 ${accentColor}`} />
+                      <div className="flex-1 p-4 pl-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[16px] font-bold text-[#111827]">#{o.id}</span>
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full border ${s.bg} ${s.text} ${s.border}`}>
+                              {statusIcon(o.status_id)} {o.status}
+                            </span>
+                          </div>
+                          <p className="text-[13px] text-[#9CA3AF] mt-1.5">
+                            {new Date(o.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}
+                            {' \u00b7 '}{o.products.length} товарів
+                          </p>
+                          {o.ttn && <p className="text-[12px] text-[#4b569e] font-mono font-medium mt-1 truncate">TTH: {o.ttn}</p>}
                         </div>
-                        <p className="text-[13px] text-[#9CA3AF] mt-1.5">
-                          {new Date(o.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })}
-                          {' · '}{o.products.length} товарів
-                        </p>
-                        {o.ttn && <p className="text-[12px] text-[#4b569e] font-mono font-medium mt-1">ТТН: {o.ttn}</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[18px] font-bold text-[#111827]">{o.total.toLocaleString('uk-UA')}</p>
-                        <p className="text-[12px] text-[#9CA3AF]">грн</p>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[20px] font-bold text-[#111827]">{o.total.toLocaleString('uk-UA')}</p>
+                          <p className="text-[12px] text-[#9CA3AF]">грн</p>
+                        </div>
+                        <svg className="w-4 h-4 text-[#C0C4CC] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                       </div>
                     </div>
                   </button>
