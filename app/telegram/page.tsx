@@ -3860,29 +3860,30 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         )}
 
         {/* Product catalog */}
-        <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
-          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Каталог товарів</p>
-          <div className="space-y-2">
+        <div className="space-y-3">
+          <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Каталог товарів</p>
+          <div className="grid grid-cols-2 gap-2">
             {coCatalog.filter(p => !coProducts.some(cp => cp.sku === String(p.id))).map(p => (
               <button key={p.id} onClick={() => {
                 setCoProducts(prev => [...prev, { name: p.name, sku: String(p.id), price: p.price, quantity: 1 }]);
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
-              }} className="w-full text-left rounded-xl bg-[#F8FAFC] border border-[#E5E7EB] active:scale-[0.98] transition-all flex items-center gap-3 p-2.5">
-                {p.thumbnail ? (
-                  <img src={p.thumbnail} alt="" className="w-14 h-14 rounded-xl object-contain bg-white border border-[#E5E7EB] p-0.5 flex-shrink-0" />
-                ) : (
-                  <div className="w-14 h-14 rounded-xl bg-[#eceef5] flex items-center justify-center flex-shrink-0 text-xl">📦</div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13px] font-medium text-[#111827] leading-tight">{p.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[14px] font-bold text-[#4b569e]">{p.price} грн</span>
-                    <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                      {p.quantity > 0 ? `${p.quantity} шт` : 'Немає'}
+              }} className="text-left rounded-2xl bg-white border border-[#F0F0F0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] active:scale-[0.96] transition-all overflow-hidden">
+                <div className="aspect-square bg-[#F8FAFC] flex items-center justify-center p-2">
+                  {p.thumbnail ? (
+                    <img src={p.thumbnail} alt="" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-[36px]">📦</span>
+                  )}
+                </div>
+                <div className="p-2.5">
+                  <p className="text-[12px] font-medium text-[#111827] leading-tight line-clamp-2 h-[32px]">{p.name}</p>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[15px] font-bold text-[#4b569e]">{p.price} грн</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${p.quantity > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                      {p.quantity > 0 ? `${p.quantity}` : '0'}
                     </span>
                   </div>
                 </div>
-                <div className="w-9 h-9 rounded-xl bg-[#4b569e] text-white flex items-center justify-center text-[18px] font-bold flex-shrink-0 shadow-md shadow-[#4b569e]/20">+</div>
               </button>
             ))}
           </div>
