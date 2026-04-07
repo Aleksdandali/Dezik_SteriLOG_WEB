@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { keycrmFetch } from '@/lib/keycrm';
+import { createClient } from '@supabase/supabase-js';
 
 /** GET customer orders by phone number */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const phone = searchParams.get('phone');
+  const telegramId = searchParams.get('telegram_id');
 
   if (!phone || phone.length < 9 || phone.length > 20) {
     return NextResponse.json({ error: 'Вкажіть номер телефону' }, { status: 400 });
@@ -18,6 +20,17 @@ export async function GET(request: NextRequest) {
   try {
     // Clean phone number
     const cleanPhone = phone.replace(/\D/g, '').replace(/^38/, '').replace(/^0/, '');
+
+    // Fire-and-forget: upsert telegram link if telegram_id provided
+    if (telegramId) {
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      supabase.from('customer_telegram_links').upsert(
+        { phone: cleanPhone, telegram_id: telegramId, last_seen_at: new Date().toISOString() },
+        { onConflict: 'phone' }
+      ).then(({ error }) => {
+        if (error) console.error('[TelegramLink upsert]', error.message);
+      });
+    }
 
     const data = await keycrmFetch<{ data: {
       id: number;

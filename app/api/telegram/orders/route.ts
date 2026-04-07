@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaff } from '@/lib/telegram/auth';
 import { keycrmFetch } from '@/lib/keycrm';
+import { createClient } from '@supabase/supabase-js';
 
 interface KOrder {
   id: number;
@@ -90,6 +91,20 @@ export async function GET(request: NextRequest) {
       }
     } catch {}
 
+    // Batch query customer_telegram_links for in_bot flag
+    const normalizePhone = (p: string | null | undefined) => p ? p.replace(/\D/g, '').replace(/^38/, '').replace(/^0/, '') : '';
+    const allPhones = [...new Set(
+      (data.data ?? []).map(o => normalizePhone(o.shipping?.recipient_phone || o.buyer?.phone)).filter(Boolean)
+    )];
+    const inBotPhones = new Set<string>();
+    if (allPhones.length > 0) {
+      try {
+        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+        const { data: links } = await supabase.from('customer_telegram_links').select('phone').in('phone', allPhones);
+        for (const l of links ?? []) inBotPhones.add(l.phone);
+      } catch {}
+    }
+
     const orders = (data.data ?? []).map(o => ({
       id: o.id,
       status_id: o.status_id,
@@ -107,6 +122,7 @@ export async function GET(request: NextRequest) {
       region: o.shipping?.shipping_address_region ?? null,
       ttn: o.shipping?.tracking_code ?? null,
       buyer_orders_count: o.buyer?.orders_count ?? null,
+      in_bot: inBotPhones.has(normalizePhone(o.shipping?.recipient_phone || o.buyer?.phone)),
       products: (o.products ?? []).map(p => ({
         name: p.name,
         quantity: p.quantity,

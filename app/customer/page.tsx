@@ -144,7 +144,8 @@ export default function CustomerPage() {
     if (p.length < 9) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/customer/orders?phone=${encodeURIComponent(p)}`);
+      const url = `/api/customer/orders?phone=${encodeURIComponent(p)}${telegramUserId ? `&telegram_id=${telegramUserId}` : ''}`;
+      const res = await fetch(url);
       const data = await res.json();
       if ((data.data ?? []).length > 0) {
         setOrders(data.data);

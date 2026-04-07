@@ -1614,6 +1614,7 @@ interface ShipmentOrder {
   total: number;
   ordered_at: string;
   manager_comment: string | null;
+  in_bot?: boolean;
   products: { name: string; quantity: number; sku: string | null; thumbnail: string | null }[];
 }
 
@@ -1739,7 +1740,12 @@ function ShipmentsView() {
             <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-2">
               <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Отримувач</p>
               <div className="flex justify-between items-center">
-                <p className="text-[16px] font-bold text-[#111827]">{o.recipient}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[16px] font-bold text-[#111827]">{o.recipient}</p>
+                  {'in_bot' in o && (o as ShipmentOrder).in_bot && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#d1fae5] text-[#065f46]">В боті</span>
+                  )}
+                </div>
                 {'buyer_orders_count' in o && (o as ArchiveOrder).buyer_orders_count && (o as ArchiveOrder).buyer_orders_count! > 1 && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#eceef5] text-[#4b569e]">
                     {(o as ArchiveOrder).buyer_orders_count} замовлень
@@ -2016,6 +2022,7 @@ function ShipmentsView() {
                         }`}>
                           {order.payment_status === 'paid' ? 'Оплачено' : order.payment_status === 'not_paid' ? 'Наложка' : order.payment_status}
                         </span>
+                        {order.in_bot && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="В боті" />}
                       </div>
                       <p className="text-[14px] font-medium text-[#111827] mt-0.5">{order.recipient ?? 'Клієнт'}</p>
                       <p className="text-[12px] text-[#9CA3AF]">
@@ -3631,6 +3638,7 @@ interface OrderItem {
   buyer_orders_count: number | null;
   manager_comment: string | null;
   buyer_comment: string | null;
+  in_bot?: boolean;
   products: { name: string; quantity: number; price: number; sku: string | null; thumbnail: string | null; in_stock: number | null }[];
 }
 
@@ -4201,7 +4209,12 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
           {!editingAddress ? (
             <>
               <div className="flex justify-between items-center">
-                <p className="text-[16px] font-bold text-[#111827]">{o.recipient ?? 'Не вказано'}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[16px] font-bold text-[#111827]">{o.recipient ?? 'Не вказано'}</p>
+                  {o.in_bot && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#d1fae5] text-[#065f46]">В боті</span>
+                  )}
+                </div>
                 {o.buyer_orders_count && o.buyer_orders_count > 1 && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[#eceef5] text-[#4b569e]">{o.buyer_orders_count} замовлень</span>
                 )}
@@ -4645,6 +4658,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                     }`}>
                       {o.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                     </span>
+                    {o.in_bot && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="В боті" />}
                   </div>
                   <p className="text-[14px] font-medium text-[#111827] mt-1">{o.recipient ?? 'Клієнт'}</p>
                   <p className="text-[12px] text-[#9CA3AF]">{o.city ?? ''} · {o.total.toLocaleString('uk-UA')} грн · {o.products.length} поз.</p>
