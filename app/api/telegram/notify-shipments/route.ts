@@ -14,7 +14,6 @@ interface KOrder {
 }
 
 export async function GET(request: NextRequest) {
-  // Auth: require cron secret — fail closed if not configured
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
@@ -27,7 +26,6 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-    // Fetch today's status=8 orders
     const today = new Date().toISOString().slice(0, 10);
     const allOrders: KOrder[] = [];
     let page = 1;
@@ -66,62 +64,30 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // If too many — send summary instead of individual messages
-    if (newOrders.length > 5) {
-      const summary =
-        `📬 <b>${newOrders.length} нових замовлень на збірку</b>\n\n` +
-        newOrders.slice(0, 15).map(o => {
-          const n = o.shipping?.recipient_full_name || o.buyer?.full_name || '?';
-          const city = o.shipping?.shipping_address_city || '';
-          return `#${o.id} · ${n} · ${city} · ${o.grand_total} грн`;
-        }).join('\n') +
-        (newOrders.length > 15 ? `\n\n… і ще ${newOrders.length - 15}` : '');
+    // Send one summary message (not individual — less spam)
+    const summary =
+      `📬 <b>${newOrders.length} нов${newOrders.length === 1 ? 'е замовлення' : 'их замовлень'} на збірку</b>\n\n` +
+      newOrders.slice(0, 10).map(o => {
+        const n = o.shipping?.recipient_full_name || o.buyer?.full_name || '?';
+        const city = o.shipping?.shipping_address_city || '';
+        const pay = o.payment_status === 'paid' ? '✅' : '💳';
+        return `#${o.id} · ${n} · ${city} · ${o.grand_total} грн ${pay}`;
+      }).join('\n') +
+      (newOrders.length > 10 ? `\n\n… і ще ${newOrders.length - 10}` : '');
 
-      for (const chatId of chatIds) {
-        try { await sendMessage(chatId, summary); } catch {}
-      }
-
-      for (const o of newOrders) {
-        await supabase.from('ops_notifications').upsert({ order_id: o.id }, { onConflict: 'order_id' });
-      }
-
-      return NextResponse.json({ new: newOrders.length, sent: chatIds.size, mode: 'summary' });
+    for (const chatId of chatIds) {
+      try { await sendMessage(chatId, summary); } catch {}
     }
 
-    // Few orders — send individual messages
-    let sent = 0;
-    for (const order of newOrders) {
-      const name = order.shipping?.recipient_full_name || order.buyer?.full_name || 'Клієнт';
-      const city = order.shipping?.shipping_address_city || '';
-      const ttn = order.shipping?.tracking_code;
-      const payment = order.payment_status === 'paid' ? '✅' : '💳 Наложка';
-      const items = (order.products ?? []).map(p => {
-        // Shorten product name
-        let n = p.name.replace(/Dezik\s*/gi, '').replace(/\s*100шт\.?/g, '').replace(/\s*\(.*?\)/g, '').trim();
-        if (n.length > 35) n = n.substring(0, 35) + '…';
-        return `${n} ×${p.quantity}`;
-      }).join('\n');
-
-      const msg =
-        `📬 <b>#${order.id}</b> · ${name}\n` +
-        `${city}${order.grand_total > 0 ? ' · ' + order.grand_total + ' грн' : ''} ${payment}\n` +
-        (ttn ? `ТТН: <code>${ttn}</code>\n` : '') +
-        `\n${items}`;
-
-      for (const chatId of chatIds) {
-        try {
-          await sendMessage(chatId, msg);
-          sent++;
-        } catch (e) {
-          console.error(`[Notify] Send failed ${chatId}:`, e);
-        }
-      }
-
-      // Mark as notified
-      await supabase.from('ops_notifications').upsert({ order_id: order.id }, { onConflict: 'order_id' });
+    for (const o of newOrders) {
+      await supabase.from('ops_notifications').upsert({ order_id: o.id }, { onConflict: 'order_id' });
     }
 
-    return NextResponse.json({ new: newOrders.length, sent, today_total: todayOrders.length });
+    // Clean old notifications (older than 7 days) to prevent table bloat
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    await supabase.from('ops_notifications').delete().lt('notified_at', weekAgo);
+
+    return NextResponse.json({ new: newOrders.length, sent: chatIds.size });
   } catch (err) {
     console.error('[Notify Error]', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
