@@ -5018,15 +5018,12 @@ interface AnalyticsData {
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  'Хорошоп': '#6366f1',
-  'Instagram': '#ec4899',
-  'Telegram': '#0ea5e9',
-  'Dezik Bot': '#8b5cf6',
-  'Rozetka': '#22c55e',
-  'Prom.ua': '#f59e0b',
-  'OLX': '#14b8a6',
-  'Вайбер': '#a855f7',
-  'Інше': '#94a3b8',
+  'Хорошоп': '#10B981',
+  'Вайбер': '#8B5CF6',
+  'Instagram': '#F59E0B',
+  'Telegram': '#3B82F6',
+  'Dezik Bot': '#4b569e',
+  'Інше': '#9CA3AF',
 };
 
 function AnalyticsView() {
@@ -5051,131 +5048,116 @@ function AnalyticsView() {
   }, [period, loadAnalytics]);
 
   const fmt = (n: number) => (n || 0).toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  const fmtShort = (n: number) => {
-    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
-    return String(n);
+
+  const STATUS_COLORS: Record<string, string> = {
+    'Відправлено': '#10B981',
+    'На збірку': '#3B82F6',
+    'Новий': '#F59E0B',
+    'Оплата': '#8B5CF6',
+    'Наложка': '#6366F1',
+    'Скасовано': '#EF4444',
   };
 
   return (
-    <div className="space-y-5">
-      <PageHeader icon="📈" title="Аналітика" subtitle="Замовлення та джерела" />
-
-      {/* Period selector */}
-      <div className="flex gap-2">
-        {(['today', 'week', 'month'] as const).map((p) => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              period === p ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-[#eceef5] text-[#363f75]'
-            }`}
-          >
-            {{ today: 'Сьогодні', week: 'Тиждень', month: 'Місяць' }[p]}
-          </button>
-        ))}
+    <div className="space-y-5 max-w-md mx-auto">
+      {/* Header with period pills */}
+      <div>
+        <h2 className="text-[20px] font-bold text-[#111827] mb-4">Аналітика</h2>
+        <div className="flex bg-[#F3F4F6] rounded-2xl p-1 gap-0.5">
+          {(['today', 'week', 'month'] as const).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={`flex-1 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
+                period === p
+                  ? 'bg-white text-[#4b569e] shadow-sm'
+                  : 'text-[#6B7280] hover:text-[#374151]'
+              }`}
+            >
+              {{ today: 'Сьогоднi', week: 'Тиждень', month: 'Мiсяць' }[p]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10">
-          <div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
+        <div className="flex justify-center py-16">
+          <div className="w-7 h-7 border-[2.5px] border-[#4b569e] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : data ? (
         <div className="space-y-4">
-          {/* Summary cards 2x2 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Замовлення</p>
-              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{data.total_orders}</p>
-              <p className="text-[11px] text-[#9CA3AF] mt-0.5">{data.period.from} - {data.period.to}</p>
+          {/* Top metrics — horizontal scroll */}
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+            {/* Orders */}
+            <div className="min-w-[140px] flex-1 bg-white rounded-2xl p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] text-[#9CA3AF] font-medium tracking-wide uppercase">Замовлення</p>
+              <div className="flex items-baseline gap-1.5 mt-1.5">
+                <span className="text-[22px] font-bold text-[#111827] leading-none">{fmt(data.total_orders)}</span>
+                <span className="text-[12px] text-[#9CA3AF] font-medium">зам.</span>
+              </div>
             </div>
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Дохід</p>
-              <p className="text-[28px] font-bold text-[#10B981] leading-tight mt-1">{fmtShort(data.total_revenue)}</p>
-              <p className="text-[11px] text-[#9CA3AF] mt-0.5">{fmt(data.total_revenue)} грн</p>
+            {/* Revenue */}
+            <div className="min-w-[140px] flex-1 bg-white rounded-2xl p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] text-[#9CA3AF] font-medium tracking-wide uppercase">Дохід</p>
+              <div className="flex items-baseline gap-1.5 mt-1.5">
+                <span className="text-[22px] font-bold text-[#10B981] leading-none">{fmt(data.total_revenue)}</span>
+                <span className="text-[12px] text-[#9CA3AF] font-medium">грн</span>
+              </div>
             </div>
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Середній чек</p>
-              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{fmt(data.avg_order)}</p>
-              <p className="text-[11px] text-[#9CA3AF] mt-0.5">грн / замовлення</p>
+            {/* Avg check */}
+            <div className="min-w-[140px] flex-1 bg-white rounded-2xl p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] text-[#9CA3AF] font-medium tracking-wide uppercase">Середній чек</p>
+              <div className="flex items-baseline gap-1.5 mt-1.5">
+                <span className="text-[22px] font-bold text-[#111827] leading-none">{fmt(data.avg_order)}</span>
+                <span className="text-[12px] text-[#9CA3AF] font-medium">грн</span>
+              </div>
             </div>
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] relative overflow-hidden">
-              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Оплачено</p>
-              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{data.paid_percent}%</p>
-              {/* Mini progress bar */}
-              <div className="mt-2 h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700 ease-out"
-                  style={{
-                    width: `${data.paid_percent}%`,
-                    background: data.paid_percent >= 70 ? '#10B981' : data.paid_percent >= 40 ? '#F59E0B' : '#EF4444',
-                  }}
-                />
+            {/* Paid % with circular indicator */}
+            <div className="min-w-[140px] flex-1 bg-white rounded-2xl p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] text-[#9CA3AF] font-medium tracking-wide uppercase">Оплачено</p>
+              <div className="flex items-center gap-2.5 mt-1.5">
+                <span className="text-[22px] font-bold text-[#111827] leading-none">{data.paid_percent}%</span>
+                <svg width="28" height="28" viewBox="0 0 28 28" className="shrink-0">
+                  <circle cx="14" cy="14" r="11" fill="none" stroke="#F3F4F6" strokeWidth="3" />
+                  <circle
+                    cx="14" cy="14" r="11" fill="none"
+                    stroke={data.paid_percent >= 70 ? '#10B981' : data.paid_percent >= 40 ? '#F59E0B' : '#EF4444'}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={`${(data.paid_percent / 100) * 69.115} 69.115`}
+                    transform="rotate(-90 14 14)"
+                    style={{ transition: 'stroke-dasharray 0.7s ease-out' }}
+                  />
+                </svg>
               </div>
             </div>
           </div>
 
-          {/* Revenue by source — horizontal bars */}
+          {/* Revenue by source */}
           {data.by_source.length > 0 && (
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
-              <h3 className="font-semibold text-[#6B7280] text-[14px]">Дохід по джерелах</h3>
-              {(() => {
-                const maxRevenue = Math.max(...data.by_source.map(s => s.revenue));
-                return data.by_source.map((src) => (
-                  <div key={src.source_id} className="space-y-1">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-[13px] font-medium text-[#363f75]">{src.name}</span>
-                      <span className="text-[12px] text-[#6B7280] font-medium">{fmt(src.revenue)} грн</span>
-                    </div>
-                    <div className="h-5 bg-[#F3F4F6] rounded-lg overflow-hidden relative">
-                      <div
-                        className="h-full rounded-lg transition-all duration-700 ease-out flex items-center justify-end pr-2"
-                        style={{
-                          width: `${maxRevenue > 0 ? Math.max((src.revenue / maxRevenue) * 100, 3) : 0}%`,
-                          backgroundColor: SOURCE_COLORS[src.name] ?? '#94a3b8',
-                        }}
-                      >
-                        <span className="text-[10px] font-bold text-white drop-shadow-sm">
-                          {src.orders} зам.
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          )}
-
-          {/* Orders by day — vertical bar chart */}
-          {data.by_day.length > 1 && (
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-              <h3 className="font-semibold text-[#6B7280] text-[14px] mb-3">Замовлення по днях</h3>
-              <div className="flex items-end gap-1" style={{ height: 120 }}>
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Джерела</h3>
+              <div className="space-y-3">
                 {(() => {
-                  const maxOrders = Math.max(...data.by_day.map(d => d.orders), 1);
-                  return data.by_day.map((day) => {
-                    const pct = (day.orders / maxOrders) * 100;
-                    const dateObj = new Date(day.date + 'T00:00:00');
-                    const dayLabel = dateObj.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
-                    const weekDay = dateObj.toLocaleDateString('uk-UA', { weekday: 'short' });
+                  const maxRevenue = Math.max(...data.by_source.map(s => s.revenue), 1);
+                  return data.by_source.map((src) => {
+                    const color = SOURCE_COLORS[src.name] ?? '#9CA3AF';
+                    const barPct = maxRevenue > 0 ? Math.max((src.revenue / maxRevenue) * 100, 4) : 0;
                     return (
-                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[10px] font-bold text-[#363f75]">
-                          {day.orders > 0 ? day.orders : ''}
-                        </span>
-                        <div
-                          className="w-full rounded-t-md transition-all duration-500 ease-out"
-                          style={{
-                            height: `${Math.max(pct, 3)}%`,
-                            background: day.orders > 0
-                              ? 'linear-gradient(180deg, #6366f1 0%, #4b569e 100%)'
-                              : '#E5E7EB',
-                            minHeight: 2,
-                          }}
-                        />
-                        <div className="text-center">
-                          <p className="text-[9px] text-[#9CA3AF] leading-tight">{dayLabel}</p>
-                          <p className="text-[8px] text-[#C0C4CC] leading-tight">{weekDay}</p>
+                      <div key={src.source_id}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                            <span className="text-[13px] font-medium text-[#374151]">{src.name}</span>
+                            <span className="text-[11px] text-[#9CA3AF]">{src.orders} зам.</span>
+                          </div>
+                          <span className="text-[13px] font-semibold text-[#111827]">{fmt(src.revenue)} грн</span>
+                        </div>
+                        <div className="h-2 bg-[#F3F4F6] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700 ease-out"
+                            style={{ width: `${barPct}%`, backgroundColor: color }}
+                          />
                         </div>
                       </div>
                     );
@@ -5185,30 +5167,42 @@ function AnalyticsView() {
             </div>
           )}
 
-          {/* Revenue by day — mini sparkline */}
-          {data.by_day.length > 1 && (
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-              <h3 className="font-semibold text-[#6B7280] text-[14px] mb-3">Дохід по днях</h3>
-              <div className="flex items-end gap-1" style={{ height: 80 }}>
+          {/* Orders trend */}
+          {period === 'today' ? (
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <h3 className="text-[14px] font-semibold text-[#111827] mb-2">Динамiка</h3>
+              <p className="text-[13px] text-[#6B7280]">
+                Сьогоднi: <span className="font-bold text-[#111827]">{fmt(data.total_orders)}</span> замовлень
+                на <span className="font-bold text-[#10B981]">{fmt(data.total_revenue)} грн</span>
+              </p>
+            </div>
+          ) : data.by_day.length > 1 && (
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Динамiка</h3>
+              <div className="flex items-end gap-[3px]" style={{ height: 100 }}>
                 {(() => {
-                  const maxRev = Math.max(...data.by_day.map(d => d.revenue), 1);
+                  const maxOrders = Math.max(...data.by_day.map(d => d.orders), 1);
                   return data.by_day.map((day) => {
-                    const pct = (day.revenue / maxRev) * 100;
+                    const pct = (day.orders / maxOrders) * 100;
+                    const dateObj = new Date(day.date + 'T00:00:00');
+                    const dayLabel = `${String(dateObj.getDate()).padStart(2, '0')}.${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
                     return (
-                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
-                        {day.revenue > 0 && (
-                          <span className="text-[9px] font-medium text-[#10B981]">{fmtShort(day.revenue)}</span>
+                      <div key={day.date} className="flex-1 flex flex-col items-center" style={{ minWidth: 0 }}>
+                        {day.orders > 0 && (
+                          <span className="text-[9px] font-bold text-[#4b569e] mb-0.5">{day.orders}</span>
                         )}
-                        <div
-                          className="w-full rounded-t-md transition-all duration-500 ease-out"
-                          style={{
-                            height: `${Math.max(pct, 3)}%`,
-                            background: day.revenue > 0
-                              ? 'linear-gradient(180deg, #34d399 0%, #10B981 100%)'
-                              : '#E5E7EB',
-                            minHeight: 2,
-                          }}
-                        />
+                        <div className="w-full flex-1 flex items-end">
+                          <div
+                            className="w-full rounded-t-[4px] transition-all duration-500 ease-out"
+                            style={{
+                              height: day.orders > 0 ? `${Math.max(pct, 8)}%` : '2px',
+                              background: day.orders > 0
+                                ? 'linear-gradient(180deg, #6872b0 0%, #4b569e 100%)'
+                                : '#E5E7EB',
+                            }}
+                          />
+                        </div>
+                        <span className="text-[8px] text-[#9CA3AF] mt-1 leading-none">{dayLabel}</span>
                       </div>
                     );
                   });
@@ -5219,31 +5213,36 @@ function AnalyticsView() {
 
           {/* Status breakdown */}
           {data.by_status.length > 0 && (
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-2.5">
-              <h3 className="font-semibold text-[#6B7280] text-[14px]">Статуси замовлень</h3>
-              {data.by_status.map((st) => {
-                const pct = data.total_orders > 0 ? Math.round((st.count / data.total_orders) * 100) : 0;
-                return (
-                  <div key={st.status_id} className="flex items-center gap-3">
-                    <span className="text-[13px] font-medium text-[#363f75] w-28 shrink-0">{st.name}</span>
-                    <div className="flex-1 h-3 bg-[#F3F4F6] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.max(pct, 2)}%`,
-                          backgroundColor: '#4b569e',
-                        }}
-                      />
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Статуси</h3>
+              <div className="space-y-2.5">
+                {data.by_status.map((st) => {
+                  const pct = data.total_orders > 0 ? Math.round((st.count / data.total_orders) * 100) : 0;
+                  const color = STATUS_COLORS[st.name] ?? '#4b569e';
+                  return (
+                    <div key={st.status_id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[13px] font-medium text-[#374151]">{st.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-[#111827]">{st.count}</span>
+                          <span className="text-[11px] text-[#9CA3AF] w-8 text-right">{pct}%</span>
+                        </div>
+                      </div>
+                      <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${Math.max(pct, 2)}%`, backgroundColor: color }}
+                        />
+                      </div>
                     </div>
-                    <span className="text-[12px] text-[#6B7280] font-medium w-16 text-right">{st.count} ({pct}%)</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
       ) : (
-        <p className="text-center text-[#6B7280] py-10">Немає даних</p>
+        <p className="text-center text-[#6B7280] py-16">Немає даних</p>
       )}
     </div>
   );
