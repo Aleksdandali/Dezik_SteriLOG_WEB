@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { keycrmFetch } from '@/lib/keycrm';
-import { sendMessage } from '@/lib/telegram/bot';
+import { sendMessage, deleteMessage } from '@/lib/telegram/bot';
 
 interface KOrder {
   id: number;
@@ -9,19 +9,15 @@ interface KOrder {
   grand_total: number;
   payment_status: string;
   buyer: { full_name: string | null } | null;
-  shipping: { recipient_full_name: string | null; shipping_address_city: string | null; tracking_code: string | null; shipping_receive_point: string | null } | null;
+  shipping: { recipient_full_name: string | null; shipping_address_city: string | null; tracking_code: string | null } | null;
   products: { name: string; quantity: number }[];
 }
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
-  }
+  if (!cronSecret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (authHeader !== `Bearer ${cronSecret}`) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -39,12 +35,9 @@ export async function GET(request: NextRequest) {
     }
     const todayOrders = allOrders.filter(o => (o.status_changed_at ?? '').startsWith(today));
 
-    // Check already notified
-    const { data: notified } = await supabase
-      .from('ops_notifications')
-      .select('order_id');
+    // Check already notified orders
+    const { data: notified } = await supabase.from('ops_notifications').select('order_id').is('type', null);
     const notifiedIds = new Set((notified ?? []).map(n => n.order_id));
-
     const newOrders = todayOrders.filter(o => !notifiedIds.has(o.id));
 
     if (newOrders.length === 0) {
@@ -52,19 +45,28 @@ export async function GET(request: NextRequest) {
     }
 
     // Get chat IDs: warehouse staff + admins
-    const { data: staff } = await supabase
-      .from('ops_staff')
-      .select('telegram_id, location, role')
-      .eq('active', true);
-
+    const { data: staff } = await supabase.from('ops_staff').select('telegram_id, location, role').eq('active', true);
     const chatIds = new Set<number>();
     for (const s of staff ?? []) {
-      if (s.location === 'afina_sklad' || s.role === 'admin') {
-        chatIds.add(s.telegram_id);
-      }
+      if (s.location === 'afina_sklad' || s.role === 'admin') chatIds.add(s.telegram_id);
     }
 
-    // Send one summary message (not individual — less spam)
+    // Delete previous auto-notification messages
+    const { data: oldMsgs } = await supabase
+      .from('ops_notifications')
+      .select('id, telegram_chat_id, telegram_message_id')
+      .eq('type', 'auto_shipment');
+
+    for (const old of oldMsgs ?? []) {
+      if (old.telegram_chat_id && old.telegram_message_id) {
+        await deleteMessage(old.telegram_chat_id, old.telegram_message_id);
+      }
+    }
+    if (oldMsgs && oldMsgs.length > 0) {
+      await supabase.from('ops_notifications').delete().eq('type', 'auto_shipment');
+    }
+
+    // Build summary message
     const summary =
       `📬 <b>${newOrders.length} нов${newOrders.length === 1 ? 'е замовлення' : 'их замовлень'} на збірку</b>\n\n` +
       newOrders.slice(0, 10).map(o => {
@@ -75,17 +77,30 @@ export async function GET(request: NextRequest) {
       }).join('\n') +
       (newOrders.length > 10 ? `\n\n… і ще ${newOrders.length - 10}` : '');
 
+    // Send new messages and save message_ids
     for (const chatId of chatIds) {
-      try { await sendMessage(chatId, summary); } catch {}
+      try {
+        const result = await sendMessage(chatId, summary);
+        const msgId = result?.result?.message_id;
+        if (msgId) {
+          await supabase.from('ops_notifications').insert({
+            order_id: 0,
+            type: 'auto_shipment',
+            telegram_chat_id: chatId,
+            telegram_message_id: msgId,
+          });
+        }
+      } catch {}
     }
 
+    // Mark orders as notified
     for (const o of newOrders) {
       await supabase.from('ops_notifications').upsert({ order_id: o.id }, { onConflict: 'order_id' });
     }
 
-    // Clean old notifications (older than 7 days) to prevent table bloat
+    // Clean old records (>7 days)
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-    await supabase.from('ops_notifications').delete().lt('notified_at', weekAgo);
+    await supabase.from('ops_notifications').delete().lt('notified_at', weekAgo).is('type', null);
 
     return NextResponse.json({ new: newOrders.length, sent: chatIds.size });
   } catch (err) {

@@ -32,6 +32,12 @@ export async function sendMessage(
 }
 
 
+export async function deleteMessage(chatId: number, messageId: number) {
+  try {
+    await callApi('deleteMessage', { chat_id: chatId, message_id: messageId });
+  } catch {}
+}
+
 export async function setWebhook(url: string) {
   return callApi('setWebhook', {
     url,
