@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     let page = 1;
     while (page <= 10) {
       const data = await keycrmFetch<{ data: KOrder[]; last_page: number }>(
-        `/order?sort=-id&limit=50&page=${page}&filter[ordered_at_from]=${fromDate}&filter[ordered_at_to]=${toDate} 23:59:59`
+        `/order?sort=-id&limit=50&page=${page}&filter[created_between]=${fromDate},${toDate}`
       );
       allOrders.push(...(data.data ?? []));
       if (page >= data.last_page) break;
