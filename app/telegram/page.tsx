@@ -58,6 +58,7 @@ type View =
   | 'shipments'
   | 'inventory-audit'
   | 'reports'
+  | 'analytics'
   | 'history'
   | 'team'
   | 'orders';
@@ -496,6 +497,9 @@ function TelegramPage() {
       {view === 'reports' && (
         <ReportView />
       )}
+      {view === 'analytics' && (
+        <AnalyticsView />
+      )}
       {view === 'history' && (
         <HistoryView staff={staff} />
       )}
@@ -547,6 +551,7 @@ function MainMenu({
     { icon: '💵', label: 'Зарплати', view: 'salary', adminOnly: true },
     { icon: '👥', label: 'Команда', view: 'team', adminOnly: true },
     { icon: '📊', label: 'Звіти P&L', view: 'reports', adminOnly: true },
+    { icon: '📈', label: 'Аналітика', view: 'analytics', adminOnly: true },
   ];
 
   const visibleMain = mainItems.filter(i => canSee(i.view));
@@ -5000,6 +5005,250 @@ function TeamView() {
 }
 
 // ─── Reports (admin only) ─────────────────────────────
+// ─── Analytics Dashboard ──────────────────────────────
+interface AnalyticsData {
+  period: { from: string; to: string };
+  total_orders: number;
+  total_revenue: number;
+  by_source: { name: string; source_id: number; orders: number; revenue: number }[];
+  by_status: { name: string; status_id: number; count: number }[];
+  by_day: { date: string; orders: number; revenue: number }[];
+  avg_order: number;
+  paid_percent: number;
+}
+
+const SOURCE_COLORS: Record<string, string> = {
+  'Хорошоп': '#6366f1',
+  'Instagram': '#ec4899',
+  'Telegram': '#0ea5e9',
+  'Dezik Bot': '#8b5cf6',
+  'Rozetka': '#22c55e',
+  'Prom.ua': '#f59e0b',
+  'OLX': '#14b8a6',
+  'Вайбер': '#a855f7',
+  'Інше': '#94a3b8',
+};
+
+function AnalyticsView() {
+  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('week');
+  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadAnalytics = useCallback(async (p: string) => {
+    setLoading(true);
+    try {
+      const res = await api<AnalyticsData>(`/analytics?period=${p}`);
+      setData(res);
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAnalytics(period);
+  }, [period, loadAnalytics]);
+
+  const fmt = (n: number) => (n || 0).toLocaleString('uk-UA', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const fmtShort = (n: number) => {
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
+    return String(n);
+  };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader icon="📈" title="Аналітика" subtitle="Замовлення та джерела" />
+
+      {/* Period selector */}
+      <div className="flex gap-2">
+        {(['today', 'week', 'month'] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              period === p ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-[#eceef5] text-[#363f75]'
+            }`}
+          >
+            {{ today: 'Сьогодні', week: 'Тиждень', month: 'Місяць' }[p]}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : data ? (
+        <div className="space-y-4">
+          {/* Summary cards 2x2 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Замовлення</p>
+              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{data.total_orders}</p>
+              <p className="text-[11px] text-[#9CA3AF] mt-0.5">{data.period.from} - {data.period.to}</p>
+            </div>
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Дохід</p>
+              <p className="text-[28px] font-bold text-[#10B981] leading-tight mt-1">{fmtShort(data.total_revenue)}</p>
+              <p className="text-[11px] text-[#9CA3AF] mt-0.5">{fmt(data.total_revenue)} грн</p>
+            </div>
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Середній чек</p>
+              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{fmt(data.avg_order)}</p>
+              <p className="text-[11px] text-[#9CA3AF] mt-0.5">грн / замовлення</p>
+            </div>
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] relative overflow-hidden">
+              <p className="text-[12px] text-[#9CA3AF] font-medium uppercase tracking-wider">Оплачено</p>
+              <p className="text-[28px] font-bold text-[#363f75] leading-tight mt-1">{data.paid_percent}%</p>
+              {/* Mini progress bar */}
+              <div className="mt-2 h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700 ease-out"
+                  style={{
+                    width: `${data.paid_percent}%`,
+                    background: data.paid_percent >= 70 ? '#10B981' : data.paid_percent >= 40 ? '#F59E0B' : '#EF4444',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue by source — horizontal bars */}
+          {data.by_source.length > 0 && (
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-3">
+              <h3 className="font-semibold text-[#6B7280] text-[14px]">Дохід по джерелах</h3>
+              {(() => {
+                const maxRevenue = Math.max(...data.by_source.map(s => s.revenue));
+                return data.by_source.map((src) => (
+                  <div key={src.source_id} className="space-y-1">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-[13px] font-medium text-[#363f75]">{src.name}</span>
+                      <span className="text-[12px] text-[#6B7280] font-medium">{fmt(src.revenue)} грн</span>
+                    </div>
+                    <div className="h-5 bg-[#F3F4F6] rounded-lg overflow-hidden relative">
+                      <div
+                        className="h-full rounded-lg transition-all duration-700 ease-out flex items-center justify-end pr-2"
+                        style={{
+                          width: `${maxRevenue > 0 ? Math.max((src.revenue / maxRevenue) * 100, 3) : 0}%`,
+                          backgroundColor: SOURCE_COLORS[src.name] ?? '#94a3b8',
+                        }}
+                      >
+                        <span className="text-[10px] font-bold text-white drop-shadow-sm">
+                          {src.orders} зам.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+
+          {/* Orders by day — vertical bar chart */}
+          {data.by_day.length > 1 && (
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <h3 className="font-semibold text-[#6B7280] text-[14px] mb-3">Замовлення по днях</h3>
+              <div className="flex items-end gap-1" style={{ height: 120 }}>
+                {(() => {
+                  const maxOrders = Math.max(...data.by_day.map(d => d.orders), 1);
+                  return data.by_day.map((day) => {
+                    const pct = (day.orders / maxOrders) * 100;
+                    const dateObj = new Date(day.date + 'T00:00:00');
+                    const dayLabel = dateObj.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' });
+                    const weekDay = dateObj.toLocaleDateString('uk-UA', { weekday: 'short' });
+                    return (
+                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-bold text-[#363f75]">
+                          {day.orders > 0 ? day.orders : ''}
+                        </span>
+                        <div
+                          className="w-full rounded-t-md transition-all duration-500 ease-out"
+                          style={{
+                            height: `${Math.max(pct, 3)}%`,
+                            background: day.orders > 0
+                              ? 'linear-gradient(180deg, #6366f1 0%, #4b569e 100%)'
+                              : '#E5E7EB',
+                            minHeight: 2,
+                          }}
+                        />
+                        <div className="text-center">
+                          <p className="text-[9px] text-[#9CA3AF] leading-tight">{dayLabel}</p>
+                          <p className="text-[8px] text-[#C0C4CC] leading-tight">{weekDay}</p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Revenue by day — mini sparkline */}
+          {data.by_day.length > 1 && (
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <h3 className="font-semibold text-[#6B7280] text-[14px] mb-3">Дохід по днях</h3>
+              <div className="flex items-end gap-1" style={{ height: 80 }}>
+                {(() => {
+                  const maxRev = Math.max(...data.by_day.map(d => d.revenue), 1);
+                  return data.by_day.map((day) => {
+                    const pct = (day.revenue / maxRev) * 100;
+                    return (
+                      <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                        {day.revenue > 0 && (
+                          <span className="text-[9px] font-medium text-[#10B981]">{fmtShort(day.revenue)}</span>
+                        )}
+                        <div
+                          className="w-full rounded-t-md transition-all duration-500 ease-out"
+                          style={{
+                            height: `${Math.max(pct, 3)}%`,
+                            background: day.revenue > 0
+                              ? 'linear-gradient(180deg, #34d399 0%, #10B981 100%)'
+                              : '#E5E7EB',
+                            minHeight: 2,
+                          }}
+                        />
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Status breakdown */}
+          {data.by_status.length > 0 && (
+            <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] space-y-2.5">
+              <h3 className="font-semibold text-[#6B7280] text-[14px]">Статуси замовлень</h3>
+              {data.by_status.map((st) => {
+                const pct = data.total_orders > 0 ? Math.round((st.count / data.total_orders) * 100) : 0;
+                return (
+                  <div key={st.status_id} className="flex items-center gap-3">
+                    <span className="text-[13px] font-medium text-[#363f75] w-28 shrink-0">{st.name}</span>
+                    <div className="flex-1 h-3 bg-[#F3F4F6] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.max(pct, 2)}%`,
+                          backgroundColor: '#4b569e',
+                        }}
+                      />
+                    </div>
+                    <span className="text-[12px] text-[#6B7280] font-medium w-16 text-right">{st.count} ({pct}%)</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-center text-[#6B7280] py-10">Немає даних</p>
+      )}
+    </div>
+  );
+}
+
 interface ReportData {
   income: number;
   expenses: { total: number; byCategory: Record<string, number>; byLocation: Record<string, number> };
