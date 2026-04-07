@@ -18,9 +18,6 @@ const SOURCE_NAMES: Record<number, string> = {
   3: 'Instagram',
   8: 'Telegram',
   12: 'Хорошоп',
-  14: 'Rozetka',
-  17: 'OLX',
-  19: 'Prom.ua',
 };
 
 export async function GET(request: NextRequest) {
