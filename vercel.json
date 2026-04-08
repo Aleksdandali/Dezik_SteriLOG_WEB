@@ -7,6 +7,18 @@
     {
       "path": "/api/telegram/notify-new-orders",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/telegram/retention/post-delivery",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/telegram/retention/reorder",
+      "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/telegram/retention/on-order",
+      "schedule": "0 */4 * * *"
     }
   ]
 }
