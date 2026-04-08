@@ -61,7 +61,11 @@ type View =
   | 'analytics'
   | 'history'
   | 'team'
-  | 'orders';
+  | 'orders'
+  | 'fop-docs'
+  | 'messages'
+  | 'chat-detail'
+  | 'stock-dashboard';
 
 interface TelegramWebApp {
   initData: string;
@@ -78,6 +82,7 @@ interface TelegramWebApp {
     notificationOccurred: (type: 'success' | 'error' | 'warning') => void;
     impactOccurred: (style: 'light' | 'medium' | 'heavy') => void;
   };
+  openTelegramLink: (url: string) => void;
 }
 
 declare global {
@@ -106,22 +111,26 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 async function uploadPhoto(file: File): Promise<string> {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d')!;
-  const img = await createImageBitmap(file);
+  let uploadBlob: Blob = file;
 
-  const maxW = 1200;
-  const scale = img.width > maxW ? maxW / img.width : 1;
-  canvas.width = img.width * scale;
-  canvas.height = img.height * scale;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise<Blob>((resolve) =>
-    canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8)
-  );
+  try {
+    const img = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    const maxW = 1200;
+    const scale = img.width > maxW ? maxW / img.width : 1;
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    uploadBlob = await new Promise<Blob>((resolve) =>
+      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8)
+    );
+  } catch {
+    // createImageBitmap failed (some Android devices) — upload original file
+  }
 
   const formData = new FormData();
-  formData.append('photo', blob, 'photo.jpg');
+  formData.append('photo', uploadBlob, 'photo.jpg');
 
   const res = await fetch('/api/telegram/upload', {
     method: 'POST',
@@ -361,6 +370,7 @@ export default function TelegramPageWrapper() {
 
 function TelegramPage() {
   const [view, setView] = useState<View>('menu');
+  const [chatConvId, setChatConvId] = useState<string | null>(null);
   const [staff, setStaff] = useState<OpsStaff | null>(null);
   const [allStaff, setAllStaff] = useState<OpsStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -503,6 +513,15 @@ function TelegramPage() {
       {view === 'history' && (
         <HistoryView staff={staff} />
       )}
+      {view === 'fop-docs' && (
+        <FopDocsView staff={staff} />
+      )}
+      {view === 'stock-dashboard' && (
+        <StockDashboard />
+      )}
+      {(view === 'messages' || view === 'chat-detail') && (
+        <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
+      )}
     </div>
   );
 }
@@ -520,14 +539,25 @@ function MainMenu({
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [cashToday, setCashToday] = useState(0);
   const [pendingAuditsCount, setPendingAuditsCount] = useState(0);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+
+  const refreshUnread = () => {
+    api<{ data: { unread_by_manager: number }[] }>('/chat/conversations').then(r => {
+      const total = (r.data ?? []).reduce((sum, c) => sum + (c.unread_by_manager ?? 0), 0);
+      setUnreadMsgCount(total);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     api<{ count: number }>('/shipments/count').then(r => setShipmentCount(r.count)).catch(() => {});
+    refreshUnread();
     api<{ total: number }>('/orders?status=1').then(r => setNewOrdersCount(r.total ?? 0)).catch(() => {});
     api<{ total_sum: number }>('/cash?period=today').then(r => setCashToday(r.total_sum ?? 0)).catch(() => {});
     api<{ data: { status: string }[] }>('/inventory-audit?days=30').then(r => {
       setPendingAuditsCount((r.data ?? []).filter(a => a.status === 'pending').length);
     }).catch(() => {});
+    const interval = setInterval(refreshUnread, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const sections = staff.visible_sections ?? [];
@@ -537,11 +567,13 @@ function MainMenu({
     { icon: '🏭', label: 'Виробництво', desc: 'Друк / Упаковка', view: 'production', color: '#4b569e' },
     { icon: '🚚', label: 'Переміщення', desc: 'Між точками', view: 'movement', color: '#3B82F6' },
     { icon: '📋', label: 'Склад', desc: 'Вхідні / Залишки', view: 'warehouse', color: '#10B981' },
+    { icon: '📊', label: 'Залишки', desc: 'Всі локації', view: 'stock-dashboard', color: '#8B5CF6' },
     { icon: '📦', label: 'Приймання', desc: 'Від постачальника', view: 'receiving', color: '#F59E0B' },
     { icon: '📝', label: 'Замовлення', desc: 'Обробка KeyCRM', view: 'orders', color: '#3B82F6', badge: newOrdersCount },
     { icon: '📬', label: 'Відправки', desc: 'На збірку', view: 'shipments', color: '#F59E0B', badge: shipmentCount },
     { icon: '🧾', label: 'Каса', desc: cashToday > 0 ? `${cashToday.toLocaleString('uk-UA')} грн` : 'Продажі', view: 'cash-report', color: '#10B981' },
     { icon: '💰', label: 'Витрати', desc: 'Записати витрату', view: 'expense', color: '#EF4444' },
+    { icon: '💬', label: 'Повідомлення', desc: 'Чати з клієнтами', view: 'messages', color: '#4b569e', badge: unreadMsgCount },
   ];
 
   const secondaryItems: { icon: string; label: string; view: View; adminOnly?: boolean; badge?: number }[] = [
@@ -552,6 +584,7 @@ function MainMenu({
     { icon: '👥', label: 'Команда', view: 'team', adminOnly: true },
     { icon: '📊', label: 'Звіти P&L', view: 'reports', adminOnly: true },
     { icon: '📈', label: 'Аналітика', view: 'analytics', adminOnly: true },
+    { icon: '📄', label: 'Документи ФОП', view: 'fop-docs', adminOnly: true },
   ];
 
   const visibleMain = mainItems.filter(i => canSee(i.view));
@@ -3670,8 +3703,9 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
   const [managerComment, setManagerComment] = useState('');
   const [stockQty, setStockQty] = useState<Record<string, number>>({});
   const [showTTNConfirm, setShowTTNConfirm] = useState(false);
-  const [ttnWeight, setTtnWeight] = useState('1');
+  const [ttnWeight, setTtnWeight] = useState('0.5');
   const [ttnPayer, setTtnPayer] = useState<'Sender' | 'Recipient'>('Recipient');
+  const [ttnPaymentMethod, setTtnPaymentMethod] = useState<'Cash' | 'NonCash'>('Cash');
   const [ttnResult, setTtnResult] = useState<{ ttn: string; delivery_cost: number; estimated_delivery: string } | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<{ id: string; sender_type: string; text: string; created_at: string }[]>([]);
@@ -3795,21 +3829,29 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         setCoBuyerResults(r.data ?? []);
       } catch { setCoBuyerResults([]); }
     };
-    const searchCity = async (q: string) => {
+    let _cityTimer: ReturnType<typeof setTimeout> | null = null;
+    let _whTimer: ReturnType<typeof setTimeout> | null = null;
+    const searchCity = (q: string) => {
+      if (_cityTimer) clearTimeout(_cityTimer);
       if (q.length < 2) { setCoCitySuggestions([]); return; }
-      try {
-        const r = await fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(q)}`);
-        const d = await r.json();
-        setCoCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name })));
-      } catch {}
+      _cityTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(q)}`);
+          const d = await r.json();
+          setCoCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name })));
+        } catch {}
+      }, 300);
     };
-    const searchWh = async (q: string) => {
+    const searchWh = (q: string) => {
+      if (_whTimer) clearTimeout(_whTimer);
       if (!coCityRef) return;
-      try {
-        const r = await fetch(`/api/customer/np-search?type=warehouse&city_ref=${coCityRef}&q=${encodeURIComponent(q)}`);
-        const d = await r.json();
-        setCoWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name })));
-      } catch {}
+      _whTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`/api/customer/np-search?type=warehouse&city_ref=${coCityRef}&q=${encodeURIComponent(q)}`);
+          const d = await r.json();
+          setCoWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name })));
+        } catch {}
+      }, 200);
     };
     const loadCatalog = async () => {
       try {
@@ -3943,9 +3985,8 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
               onChange={e => {
                 const v = e.target.value;
                 setCoCity(v);
-                setCoCityRef(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoWhSuggestions([]);
-                if (v.trim().length >= 2) searchCity(v.trim());
-                else setCoCitySuggestions([]);
+                if (coCityRef) { setCoCityRef(''); }
+                searchCity(v.trim());
               }} />
             {coCitySuggestions.length > 0 && (
               <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[160px] overflow-y-auto shadow-lg">
@@ -3966,10 +4007,14 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
               </div>
             )}
             {coCityRef && (
-              <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
-                <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                {coCity}
-              </p>
+              <div className="flex items-center justify-between mt-1 px-1">
+                <p className="text-[11px] text-green-600 font-medium">
+                  <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                  {coCity}
+                </p>
+                <button onClick={() => { setCoCityRef(''); setCoCity(''); setCoWarehouse(''); setCoWarehouseRef(''); setCoWhSuggestions([]); }}
+                  className="text-[11px] text-[#EF4444] font-medium active:opacity-60">Скинути</button>
+              </div>
             )}
           </div>
           <div>
@@ -4111,7 +4156,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         )}
 
         <button
-          disabled={coSubmitting || !coName || !coPhone || !coCity || !coWarehouse || coProducts.length === 0}
+          disabled={coSubmitting || !coName || !coPhone || !coCityRef || !coWarehouseRef || coProducts.length === 0}
           onClick={async () => {
             setCoSubmitting(true);
             try {
@@ -4252,12 +4297,15 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                   onChange={e => {
                     const v = e.target.value;
                     setEditCity(v);
-                    setEditCityRef(''); setEditWarehouse(''); setEditWarehouseRef(''); setEditWhSuggestions([]);
+                    if (editCityRef) setEditCityRef('');
+                    clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__editCityTimer);
                     if (v.trim().length >= 2) {
-                      fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(v.trim())}`)
-                        .then(r => r.json())
-                        .then(d => setEditCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name }))))
-                        .catch(() => {});
+                      (window as unknown as Record<string, ReturnType<typeof setTimeout>>).__editCityTimer = setTimeout(() => {
+                        fetch(`/api/customer/np-search?type=city&q=${encodeURIComponent(v.trim())}`)
+                          .then(r => r.json())
+                          .then(d => setEditCitySuggestions((d.data ?? []).map((c: { ref: string; name: string }) => ({ ref: c.ref, name: c.name }))))
+                          .catch(() => {});
+                      }, 300);
                     } else {
                       setEditCitySuggestions([]);
                     }
@@ -4280,10 +4328,14 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                   </div>
                 )}
                 {editCityRef && (
-                  <p className="text-[11px] text-green-600 font-medium mt-1 px-1">
-                    <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                    {editCity}
-                  </p>
+                  <div className="flex items-center justify-between mt-1 px-1">
+                    <p className="text-[11px] text-green-600 font-medium">
+                      <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                      {editCity}
+                    </p>
+                    <button onClick={() => { setEditCityRef(''); setEditCity(''); setEditWarehouse(''); setEditWarehouseRef(''); setEditWhSuggestions([]); }}
+                      className="text-[11px] text-[#EF4444] font-medium active:opacity-60">Скинути</button>
+                  </div>
                 )}
               </div>
               <div>
@@ -4294,10 +4346,13 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                       onChange={e => {
                         const v = e.target.value;
                         setEditWarehouse(v); setEditWarehouseRef('');
-                        fetch(`/api/customer/np-search?type=warehouse&city_ref=${editCityRef}&q=${encodeURIComponent(v)}`)
-                          .then(r => r.json())
-                          .then(d => setEditWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
-                          .catch(() => {});
+                        clearTimeout((window as unknown as Record<string, ReturnType<typeof setTimeout>>).__editWhTimer);
+                        (window as unknown as Record<string, ReturnType<typeof setTimeout>>).__editWhTimer = setTimeout(() => {
+                          fetch(`/api/customer/np-search?type=warehouse&city_ref=${editCityRef}&q=${encodeURIComponent(v)}`)
+                            .then(r => r.json())
+                            .then(d => setEditWhSuggestions((d.data ?? []).map((w: { ref: string; name: string }) => ({ ref: w.ref, name: w.name }))))
+                            .catch(() => {});
+                        }, 200);
                       }} />
                     {editWhSuggestions.length > 0 && !editWarehouseRef && (
                       <div className="mt-1 bg-white rounded-xl border-2 border-[#4b569e]/20 max-h-[200px] overflow-y-auto shadow-lg">
@@ -4371,10 +4426,33 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
         {/* Payment status */}
         <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
           <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2">Статус оплати</p>
-          <div className={`py-3 rounded-xl text-center text-[15px] font-bold ${
-            o.payment_status === 'paid' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-orange-50 text-orange-700 border border-orange-200'
-          }`}>
-            {o.payment_status === 'paid' ? '✅ Оплачено' : '💳 Накладний платіж'}
+          <div className="flex gap-2">
+            {([
+              { key: 'paid', label: 'Оплачено', activeBg: 'bg-[#D1FAE5]', activeText: 'text-[#065F46]', activeBorder: 'border-[#A7F3D0]' },
+              { key: 'not_paid', label: 'Накладний платіж', activeBg: 'bg-[#FEF3C7]', activeText: 'text-[#92400E]', activeBorder: 'border-[#FDE68A]' },
+            ] as const).map(opt => {
+              const isActive = o.payment_status === opt.key;
+              return (
+                <button key={opt.key}
+                  onClick={async () => {
+                    if (isActive) return;
+                    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+                    try {
+                      await api('/orders', { method: 'POST', body: JSON.stringify({ order_id: o.id, payment_status: opt.key }) });
+                      o.payment_status = opt.key;
+                      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                      loadOrders();
+                    } catch (err) { alert(err instanceof Error ? err.message : 'Помилка'); }
+                  }}
+                  className={`px-4 py-2.5 rounded-2xl text-[13px] font-semibold transition-all duration-200 ${
+                    isActive
+                      ? `${opt.activeBg} ${opt.activeText} border ${opt.activeBorder}`
+                      : 'bg-white text-[#9CA3AF] border border-[#E5E7EB]'
+                  }`}>
+                  {opt.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -4442,15 +4520,27 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                 </div>
               </div>
 
+              {/* Auto-detected payment & delivery info */}
+              <div className={`rounded-xl px-3 py-2.5 space-y-1 ${o.payment_status !== 'paid' ? 'bg-[#FEF3C7] border border-[#FDE68A]' : 'bg-[#D1FAE5] border border-[#A7F3D0]'}`}>
+                <p className={`text-[13px] font-semibold ${o.payment_status !== 'paid' ? 'text-[#92400E]' : 'text-[#065F46]'}`}>
+                  {o.payment_status !== 'paid'
+                    ? `💳 Наложка — ${o.total} грн при отриманні`
+                    : '✅ Передоплата'}
+                </p>
+                {o.total >= 1000 && (
+                  <p className="text-[12px] text-[#065F46]">🚚 Безкоштовна доставка (від 1000 грн)</p>
+                )}
+              </div>
+
               <div>
                 <p className="text-[12px] text-[#9CA3AF] mb-1.5">Платник доставки</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button onClick={() => setTtnPayer('Sender')}
-                    className={`py-2.5 rounded-xl text-[13px] font-bold transition-all ${ttnPayer === 'Sender' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+                    className={`px-4 py-2.5 rounded-2xl text-[13px] font-semibold transition-all duration-200 ${ttnPayer === 'Sender' ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
                     Відправник
                   </button>
                   <button onClick={() => setTtnPayer('Recipient')}
-                    className={`py-2.5 rounded-xl text-[13px] font-bold transition-all ${ttnPayer === 'Recipient' ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+                    className={`px-4 py-2.5 rounded-2xl text-[13px] font-semibold transition-all duration-200 ${ttnPayer === 'Recipient' ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
                     Отримувач
                   </button>
                 </div>
@@ -4462,12 +4552,13 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                   window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('heavy');
                   setCreatingTTN(true);
                   try {
-                    const res = await api<{ ttn: string; delivery_cost: number; estimated_delivery: string }>('/orders/create-ttn', {
+                    const res = await api<{ ttn: string; delivery_cost: number; estimated_delivery: string; keycrm_synced?: boolean }>('/orders/create-ttn', {
                       method: 'POST',
                       body: JSON.stringify({
                         order_id: o.id,
                         weight: parseFloat(ttnWeight) || 1,
                         payer_type: ttnPayer,
+                        payment_status: o.payment_status,
                         ...(editingAddress && editRecipient ? { override_recipient: editRecipient } : {}),
                         ...(editingAddress && editPhone ? { override_phone: editPhone } : {}),
                         ...(editingAddress && editCityRef ? { override_city_ref: editCityRef } : {}),
@@ -4477,6 +4568,9 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                     setTtnResult(res);
                     setShowTTNConfirm(false);
                     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+                    if (res.keycrm_synced === false) {
+                      alert('ТТН створено, але не вдалось записати в KeyCRM. Перевір вручну.');
+                    }
                   } catch (err) {
                     alert(err instanceof Error ? err.message : 'Помилка');
                   } finally {
@@ -4491,7 +4585,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
             <Btn onClick={() => {
               window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
               setShowTTNConfirm(true);
-              setTtnPayer(o.payment_status === 'paid' ? 'Sender' : 'Recipient');
+              setTtnPayer((o.payment_status === 'paid' || o.total >= 1000) ? 'Sender' : 'Recipient');
             }} variant="secondary" className="w-full py-4 text-base">
               📦 Створити ТТН
             </Btn>
@@ -5540,6 +5634,534 @@ function HistoryView({ staff }: { staff: OpsStaff }) {
                 </button>
               )}
             </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── FOP Documents ───────────────────────────────────
+interface FopDoc { name: string; url: string; type: 'pdf' | 'image'; uploaded_at: string; }
+
+function FopDocsView({ staff }: { staff: OpsStaff }) {
+  const [docs, setDocs] = useState<FopDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [viewingDoc, setViewingDoc] = useState<FopDoc | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const STORAGE_KEY = 'fop-documents';
+
+  useEffect(() => {
+    try { const s = localStorage.getItem(STORAGE_KEY); if (s) setDocs(JSON.parse(s)); } catch {}
+    setLoading(false);
+  }, []);
+
+  const saveDocs = (next: FopDoc[]) => { setDocs(next); localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); };
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      fd.append('folder', 'fop-documents');
+      const res = await fetch('/api/telegram/upload', { method: 'POST', headers: { 'x-telegram-init-data': getInitData() }, body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Upload failed');
+      const doc: FopDoc = { name: file.name.replace(/\.[^.]+$/, ''), url: json.url, type: file.type === 'application/pdf' ? 'pdf' : 'image', uploaded_at: new Date().toISOString() };
+      saveDocs([doc, ...docs]);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    } catch (err) { alert(err instanceof Error ? err.message : 'Помилка завантаження'); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  const shareDoc = (doc: FopDoc) => {
+    const tg = window.Telegram?.WebApp;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(doc.url)}&text=${encodeURIComponent('📄 ' + doc.name)}`;
+    if (tg?.openTelegramLink) { tg.openTelegramLink(url); } else { window.open(url, '_blank'); }
+  };
+
+  const deleteDoc = (idx: number) => { saveDocs(docs.filter((_, i) => i !== idx)); window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); };
+
+  if (viewingDoc) {
+    return (
+      <div className="fixed inset-0 bg-[#F8FAFC] z-40 flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E5E7EB]">
+          <button onClick={() => setViewingDoc(null)} className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+          </button>
+          <h1 className="text-[15px] font-bold text-[#111827] flex-1 truncate">{viewingDoc.name}</h1>
+          <button onClick={() => shareDoc(viewingDoc)} className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" /></svg>
+          </button>
+        </div>
+        {viewingDoc.type === 'pdf'
+          ? <iframe src={viewingDoc.type === 'pdf' ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(viewingDoc.url)}` : viewingDoc.url} className="flex-1 w-full" title={viewingDoc.name} />
+          : <div className="flex-1 flex items-center justify-center p-4 overflow-auto"><img src={viewingDoc.url} alt={viewingDoc.name} className="max-w-full max-h-full rounded-2xl shadow-lg" /></div>
+        }
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <PageHeader icon="📄" title="Документи ФОП" subtitle="Завантаження та обмін" />
+      <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
+      <button onClick={() => fileRef.current?.click()} disabled={uploading}
+        className="w-full py-4 rounded-2xl border-2 border-dashed border-[#4b569e]/30 bg-[#eceef5]/50 flex items-center justify-center gap-3 active:scale-[0.97] transition-all disabled:opacity-50">
+        {uploading ? <div className="w-5 h-5 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
+          : <svg className="w-5 h-5 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>}
+        <span className="text-[15px] font-semibold text-[#4b569e]">{uploading ? 'Завантаження...' : 'Завантажити документ'}</span>
+      </button>
+
+      {loading ? <div className="flex justify-center py-12"><div className="w-8 h-8 border-3 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+      : docs.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 rounded-2xl bg-[#eceef5] flex items-center justify-center mx-auto mb-3"><span className="text-2xl">📄</span></div>
+          <p className="text-[15px] font-semibold text-[#111827]">Немає документів</p>
+          <p className="text-[13px] text-[#9CA3AF] mt-1">Завантажте PDF або фото документів</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {docs.map((doc, i) => (
+            <div key={i} className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+              <button onClick={() => setViewingDoc(doc)} className="w-full flex items-center gap-3.5 px-4 py-4 active:bg-[#F8F8FA] transition-colors text-left">
+                <div className={`w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0 ${doc.type === 'pdf' ? 'bg-red-50' : 'bg-blue-50'}`}>
+                  <span className="text-xl">{doc.type === 'pdf' ? '📕' : '🖼'}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[15px] font-semibold text-[#111827] truncate">{doc.name}</p>
+                  <p className="text-[12px] text-[#9CA3AF] mt-0.5">{new Date(doc.uploaded_at).toLocaleDateString('uk-UA')}</p>
+                </div>
+                <svg className="w-4 h-4 text-[#C5C9D1] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </button>
+              <div className="flex border-t border-[#F0F0F0] divide-x divide-[#F0F0F0]">
+                <button onClick={() => shareDoc(doc)} className="flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-semibold text-[#4b569e] active:bg-[#eceef5] transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" /></svg>
+                  Поділитися
+                </button>
+                <button onClick={() => { if (confirm('Видалити документ?')) deleteDoc(i); }} className="flex-1 flex items-center justify-center gap-2 py-3 text-[13px] font-semibold text-[#EF4444] active:bg-red-50 transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                  Видалити
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Stock Dashboard ─────────────────────────────────
+type StockCategory = 'raw' | 'finished';
+interface DashStockItem { name: string; quantity: number; unit: string; item_type?: string; }
+
+const DASH_LOCS = [
+  { id: 'malynovskogo' as const, icon: '🏭', name: 'Маліновського', hasRaw: true },
+  { id: 'afina_sklad' as const, icon: '📦', name: 'Афіна склад', hasRaw: false },
+  { id: 'dalnytska' as const, icon: '🧪', name: 'Дальницька', hasRaw: true },
+];
+
+const LEVEL_STYLES = {
+  good: { bg: 'bg-[#D1FAE5]', text: 'text-[#059669]', dot: 'bg-[#10B981]' },
+  low: { bg: 'bg-[#FEF3C7]', text: 'text-[#D97706]', dot: 'bg-[#F59E0B]' },
+  critical: { bg: 'bg-[#FEE2E2]', text: 'text-[#DC2626]', dot: 'bg-[#EF4444]' },
+};
+
+function stockLevel(qty: number, name: string): 'good' | 'low' | 'critical' {
+  if (qty <= 0) return 'critical';
+  const isBag = name.includes('×') || name.includes('x');
+  const crit = isBag ? 5 : 3;
+  const low = isBag ? 20 : 10;
+  if (qty <= crit) return 'critical';
+  if (qty <= low) return 'low';
+  return 'good';
+}
+
+function StockDashboard() {
+  const [cat, setCat] = useState<StockCategory>('finished');
+  const [search, setSearch] = useState('');
+  const [locData, setLocData] = useState<Record<string, { items: DashStockItem[]; source: string; lastAudit: string | null; loading: boolean }>>({});
+  const [expandedLoc, setExpandedLoc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const init: typeof locData = {};
+    DASH_LOCS.forEach(l => { init[l.id] = { items: [], source: '', lastAudit: null, loading: true }; });
+    setLocData(init);
+    Promise.all(DASH_LOCS.map(async l => {
+      try {
+        const r = await api<{ data: DashStockItem[]; source: string; lastAudit: { date: string } | null }>(`/stock?location=${l.id}`);
+        return { id: l.id, items: r.data ?? [], source: r.source ?? '', lastAudit: r.lastAudit?.date ?? null };
+      } catch { return { id: l.id, items: [], source: '', lastAudit: null }; }
+    })).then(results => {
+      const next: typeof locData = {};
+      results.forEach(r => { next[r.id] = { items: r.items, source: r.source, lastAudit: r.lastAudit, loading: false }; });
+      setLocData(next);
+    });
+  }, []);
+
+  const filterItems = (items: DashStockItem[]) => {
+    let f = items.filter(i => cat === 'raw' ? i.item_type === 'raw' : i.item_type !== 'raw');
+    if (search.trim()) { const q = search.toLowerCase(); f = f.filter(i => i.name.toLowerCase().includes(q)); }
+    return f.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  };
+
+  const allLoading = Object.values(locData).some(d => d.loading);
+
+  // Totals
+  const totalsMap: Record<string, DashStockItem> = {};
+  DASH_LOCS.forEach(l => {
+    if (cat === 'raw' && !l.hasRaw) return;
+    filterItems(locData[l.id]?.items ?? []).forEach(item => {
+      if (!totalsMap[item.name]) totalsMap[item.name] = { ...item, quantity: 0 };
+      totalsMap[item.name].quantity += item.quantity;
+    });
+  });
+  const totals = Object.values(totalsMap).sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+
+  const counts = { good: 0, low: 0, critical: 0 };
+  totals.forEach(i => { counts[stockLevel(i.quantity, i.name)]++; });
+
+  return (
+    <div className="space-y-5">
+      <PageHeader icon="📊" title="Залишки" subtitle="Всі локації" />
+
+      {/* Toggle */}
+      <div className="grid grid-cols-2 gap-2">
+        {([{ id: 'finished' as StockCategory, label: '📦 Готова продукція' }, { id: 'raw' as StockCategory, label: '🧱 Сировина' }]).map(c => (
+          <button key={c.id} onClick={() => { setCat(c.id); setExpandedLoc(null); window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); }}
+            className={`py-3 rounded-2xl text-[13px] font-bold transition-all duration-200 ${cat === c.id ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-white text-[#363f75] border border-[#F0F0F0]'}`}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+        <input placeholder="Пошук..." value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full h-[44px] pl-11 pr-9 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]" />
+        {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#F3F4F6] flex items-center justify-center">
+          <svg className="w-3 h-3 text-[#6B7280]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>}
+      </div>
+
+      {allLoading ? (
+        <div className="flex flex-col items-center py-16 gap-3">
+          <div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[13px] text-[#9CA3AF]">Завантаження...</p>
+        </div>
+      ) : (
+        <>
+          {/* Summary */}
+          <div className="grid grid-cols-3 gap-2">
+            {([{ k: 'good' as const, label: 'Норма' }, { k: 'low' as const, label: 'Мало' }, { k: 'critical' as const, label: 'Критично' }]).map(s => (
+              <div key={s.k} className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+                <div className={`w-7 h-7 rounded-lg ${LEVEL_STYLES[s.k].bg} flex items-center justify-center mx-auto mb-1.5`}>
+                  <div className={`w-2.5 h-2.5 rounded-full ${LEVEL_STYLES[s.k].dot}`} />
+                </div>
+                <p className="text-[18px] font-bold text-[#111827]">{counts[s.k]}</p>
+                <p className="text-[11px] text-[#9CA3AF]">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Totals */}
+          {totals.length > 0 && (
+            <div>
+              <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2 px-1">Загалом</p>
+              <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+                {totals.map((item, i) => {
+                  const lv = stockLevel(item.quantity, item.name);
+                  const st = LEVEL_STYLES[lv];
+                  return (
+                    <div key={item.name} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                        <p className="text-[14px] font-medium text-[#111827] truncate">{item.name}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                        <span className={`px-2 py-0.5 rounded-lg text-[13px] font-bold ${st.bg} ${st.text}`}>{item.quantity}</span>
+                        <span className="text-[11px] text-[#9CA3AF] w-5">{item.unit}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Per location */}
+          <div>
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2 px-1">По локаціях</p>
+            <div className="space-y-2">
+              {DASH_LOCS.filter(l => cat !== 'raw' || l.hasRaw).map(l => {
+                const d = locData[l.id];
+                const filtered = filterItems(d?.items ?? []);
+                const isExp = expandedLoc === l.id;
+                const lCounts = { good: 0, low: 0, critical: 0 };
+                filtered.forEach(i => { lCounts[stockLevel(i.quantity, i.name)]++; });
+                return (
+                  <div key={l.id}>
+                    <button onClick={() => { setExpandedLoc(isExp ? null : l.id); window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light'); }}
+                      className="w-full bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.98] transition-all">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-[#eceef5] flex items-center justify-center text-xl flex-shrink-0">{l.icon}</div>
+                        <div className="flex-1 text-left min-w-0">
+                          <p className="text-[14px] font-bold text-[#111827]">{l.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {d?.loading ? <div className="w-3 h-3 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" />
+                            : filtered.length === 0 ? <span className="text-[12px] text-[#9CA3AF]">Немає даних</span>
+                            : <>
+                              <span className="text-[12px] text-[#6B7280] font-medium">{filtered.length} поз.</span>
+                              {lCounts.critical > 0 && <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-[#EF4444]" /><span className="text-[10px] font-bold text-[#EF4444]">{lCounts.critical}</span></span>}
+                              {lCounts.low > 0 && <span className="flex items-center gap-0.5"><div className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" /><span className="text-[10px] font-bold text-[#D97706]">{lCounts.low}</span></span>}
+                            </>}
+                          </div>
+                        </div>
+                        <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                      </div>
+                    </button>
+                    {isExp && (
+                      <div className="mt-1 bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+                        <div className="px-4 py-2 bg-[#F8FAFC] border-b border-[#F0F0F0]">
+                          <p className="text-[11px] text-[#9CA3AF]">{d?.source === 'keycrm' ? '📡 KeyCRM' : d?.source === 'production' ? '🏭 Виробництво' : d?.lastAudit ? `📋 Переоблік: ${d.lastAudit}` : '📋 Дані переобліку'}</p>
+                        </div>
+                        {filtered.length === 0 ? <p className="py-6 text-center text-[13px] text-[#9CA3AF]">{search ? 'Не знайдено' : 'Немає даних'}</p>
+                        : filtered.map((item, i) => {
+                          const lv = stockLevel(item.quantity, item.name); const st = LEVEL_STYLES[lv];
+                          return (
+                            <div key={`${item.name}-${i}`} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${st.dot}`} />
+                                <p className="text-[13px] font-medium text-[#111827] truncate">{item.name}</p>
+                              </div>
+                              <div className="flex items-baseline gap-1 flex-shrink-0 ml-2">
+                                <span className={`text-[15px] font-bold ${st.text}`}>{item.quantity}</span>
+                                <span className="text-[10px] text-[#9CA3AF]">{item.unit}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {totals.length === 0 && <div className="text-center py-10">
+            <p className="text-2xl mb-2">{search ? '🔍' : '📦'}</p>
+            <p className="text-[15px] font-semibold text-[#111827]">{search ? 'Не знайдено' : 'Немає даних'}</p>
+            <p className="text-[13px] text-[#9CA3AF] mt-1">{search ? 'Спробуйте інший запит' : 'Зробіть переоблік'}</p>
+          </div>}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Messages Inbox ──────────────────────────────────
+interface ChatConv {
+  id: string;
+  customer_phone: string | null;
+  customer_name: string | null;
+  customer_telegram_id: number | null;
+  status: string;
+  last_message_at: string;
+  last_message_preview: string | null;
+  last_message_sender: string | null;
+  unread_by_manager: number;
+}
+
+interface ChatMsg {
+  id: string;
+  conversation_id: string;
+  sender_type: string;
+  text: string | null;
+  content_type: string;
+  media_url: string | null;
+  order_id: number | null;
+  created_at: string;
+}
+
+function MessagesInbox({ onOpenChat, chatConvId, onBack }: {
+  onOpenChat: (id: string) => void;
+  chatConvId: string | null;
+  onBack: () => void;
+}) {
+  const [convs, setConvs] = useState<ChatConv[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [activeConv, setActiveConv] = useState<ChatConv | null>(null);
+  const msgEndRef = useRef<HTMLDivElement>(null);
+
+  const loadConvs = useCallback(async () => {
+    try {
+      const r = await api<{ data: ChatConv[] }>('/chat/conversations');
+      setConvs(r.data ?? []);
+    } catch {} finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadConvs(); }, [loadConvs]);
+
+  const openChat = useCallback(async (conv: ChatConv) => {
+    setActiveConv(conv);
+    setMsgLoading(true);
+    setMessages([]);
+    onOpenChat(conv.id);
+    try {
+      const r = await api<{ data: ChatMsg[] }>(`/chat/conversations/${conv.id}/messages`);
+      setMessages(r.data ?? []);
+      // Mark as read locally
+      setConvs(prev => prev.map(c => c.id === conv.id ? { ...c, unread_by_manager: 0 } : c));
+    } catch {} finally { setMsgLoading(false); }
+  }, [onOpenChat]);
+
+  useEffect(() => {
+    if (msgEndRef.current) msgEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const sendReply = async () => {
+    if (!replyText.trim() || !chatConvId || sending) return;
+    setSending(true);
+    try {
+      const r = await api<{ data: ChatMsg }>(`/chat/conversations/${chatConvId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ text: replyText.trim() }),
+      });
+      setMessages(prev => [...prev, r.data]);
+      setReplyText('');
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Помилка');
+    } finally { setSending(false); }
+  };
+
+  // Chat detail view
+  if (chatConvId && activeConv) {
+    return (
+      <div className="space-y-0 -mx-4 -mt-5 -mb-20">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#F0F0F0] sticky top-0 z-10">
+          <button onClick={() => { onBack(); setActiveConv(null); }}
+            className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-[15px] font-bold text-[#111827] truncate">{activeConv.customer_name || 'Клієнт'}</p>
+            <p className="text-[12px] text-[#9CA3AF]">{activeConv.customer_phone || ''}</p>
+          </div>
+          <button onClick={async () => {
+            if (!confirm('Завершити чат?')) return;
+            try {
+              await api(`/chat/conversations/${chatConvId}/messages`, { method: 'POST', body: JSON.stringify({ text: '— Чат завершено —' }) });
+              // Close conversation via direct supabase or just go back
+              onBack(); setActiveConv(null); loadConvs();
+              window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+            } catch {}
+          }}
+            className="px-3 py-1.5 rounded-xl bg-[#FEE2E2] text-[#DC2626] text-[11px] font-bold active:scale-[0.95] transition-all">
+            Завершити
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="px-4 py-3 space-y-2 min-h-[50vh] max-h-[65vh] overflow-y-auto bg-[#F8FAFC]">
+          {msgLoading ? (
+            <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+          ) : messages.length === 0 ? (
+            <p className="text-center text-[13px] text-[#9CA3AF] py-8">Немає повідомлень</p>
+          ) : messages.map(m => (
+            <div key={m.id} className={`flex ${m.sender_type === 'manager' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-[14px] leading-snug ${
+                m.sender_type === 'manager'
+                  ? 'bg-[#4b569e] text-white rounded-br-lg'
+                  : 'bg-white text-[#111827] border border-[#E5E7EB] rounded-bl-lg'
+              }`}>
+                {m.content_type === 'image' && m.media_url ? (
+                  <img src={m.media_url} alt="" className="max-w-full rounded-xl mb-1" />
+                ) : null}
+                {m.text && <p className="whitespace-pre-wrap">{m.text}</p>}
+                <p className={`text-[10px] mt-1 ${m.sender_type === 'manager' ? 'text-white/60' : 'text-[#9CA3AF]'}`}>
+                  {new Date(m.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          ))}
+          <div ref={msgEndRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-4 py-3 bg-white border-t border-[#F0F0F0] flex gap-2">
+          <input
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
+            placeholder="Написати відповідь..."
+            className="flex-1 h-[44px] px-4 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]"
+          />
+          <button onClick={sendReply} disabled={!replyText.trim() || sending}
+            className="w-[44px] h-[44px] rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] flex items-center justify-center text-white shadow-lg shadow-[#4b569e]/25 active:scale-[0.95] transition-all disabled:opacity-40">
+            {sending
+              ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+            }
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Inbox list
+  return (
+    <div className="space-y-4">
+      <PageHeader icon="💬" title="Повідомлення" subtitle="Чати з клієнтами" />
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="w-8 h-8 border-3 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+      ) : convs.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 rounded-2xl bg-[#eceef5] flex items-center justify-center mx-auto mb-3"><span className="text-2xl">💬</span></div>
+          <p className="text-[15px] font-semibold text-[#111827]">Немає повідомлень</p>
+          <p className="text-[13px] text-[#9CA3AF] mt-1">Коли клієнт напише — зʼявиться тут</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] divide-y divide-[#F5F5F5]">
+          {convs.map(c => (
+            <button key={c.id} onClick={() => openChat(c)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-[#F8F8FA] transition-colors text-left first:rounded-t-[20px] last:rounded-b-[20px]">
+              <div className="w-10 h-10 rounded-full bg-[#eceef5] flex items-center justify-center flex-shrink-0 text-[15px] font-bold text-[#4b569e]">
+                {(c.customer_name ?? '?')[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="text-[14px] font-semibold text-[#111827] truncate">{c.customer_name || c.customer_phone || 'Клієнт'}</p>
+                  <span className="text-[11px] text-[#9CA3AF] flex-shrink-0 ml-2">
+                    {new Date(c.last_message_at).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' })}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-0.5">
+                  <p className="text-[13px] text-[#9CA3AF] truncate flex-1">
+                    {c.last_message_sender === 'manager' ? 'Ви: ' : ''}{c.last_message_preview || '...'}
+                  </p>
+                  {c.unread_by_manager > 0 && (
+                    <span className="min-w-[20px] h-[20px] px-1.5 rounded-full bg-[#4b569e] text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 ml-2">
+                      {c.unread_by_manager}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
           ))}
         </div>
       )}

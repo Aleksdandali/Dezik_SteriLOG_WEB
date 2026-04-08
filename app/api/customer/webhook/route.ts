@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { dualWriteMessage } from '@/lib/chat/dual-write';
 
 const BOT_API = 'https://api.telegram.org/bot';
 
@@ -84,27 +85,28 @@ export async function POST(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(1);
 
-      const orderId = recentMsg?.[0]?.order_id;
-      if (!orderId) {
-        await sendMessage(chatId, '💬 Щоб надіслати фото оплати, спочатку відкрийте замовлення в додатку.', {
-          reply_markup: {
-            inline_keyboard: [[
-              { text: '📦 Відкрити додаток', web_app: { url: 'https://dezik-admin.vercel.app/customer' } },
-            ]],
-          },
-        });
-        return NextResponse.json({ ok: true });
-      }
+      const orderId = recentMsg?.[0]?.order_id ?? null;
 
-      // Save as payment proof
+      // Save photo message
+      const paymentText = orderId ? `Підтвердження оплати\n${photoUrl}` : `Фото від клієнта\n${photoUrl}`;
       await supabase
         .from('ops_order_messages')
         .insert({
-          order_id: orderId,
+          order_id: orderId ?? 0,
           sender_type: 'customer',
           sender_telegram_id: chatId,
-          text: `💳 Підтвердження оплати\n${photoUrl}`,
+          text: `💳 ${paymentText}`,
         });
+
+      // Dual-write to unified chat
+      dualWriteMessage(supabase, {
+        customerTelegramId: chatId,
+        senderType: 'customer',
+        senderId: String(chatId),
+        text: `💳 ${paymentText}`,
+        orderId,
+        channel: 'telegram_dm',
+      });
 
       // Notify ops admins
       const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
@@ -160,22 +162,32 @@ export async function POST(request: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(1);
 
-    const orderId = recentMsg?.[0]?.order_id;
-    if (!orderId) {
-      await sendMessage(chatId, '💬 Щоб написати менеджеру, відкрийте замовлення в додатку та натисніть "Написати менеджеру".', {
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '📦 Відкрити додаток', web_app: { url: 'https://dezik-admin.vercel.app/customer' } },
-          ]],
-        },
-      });
-      return NextResponse.json({ ok: true });
-    }
+    const orderId = recentMsg?.[0]?.order_id ?? null;
 
-    // Save the message
+    // Save to ops_order_messages (backward compat, use order_id 0 if no order context)
     await supabase
       .from('ops_order_messages')
-      .insert({ order_id: orderId, sender_type: 'customer', sender_telegram_id: chatId, text });
+      .insert({ order_id: orderId ?? 0, sender_type: 'customer', sender_telegram_id: chatId, text });
+
+    // Save to unified chat system (always works, regardless of order)
+    dualWriteMessage(supabase, {
+      customerTelegramId: chatId,
+      senderType: 'customer',
+      text,
+      orderId,
+      channel: 'telegram_dm',
+    });
+
+    // Look up customer name for notification
+    const { data: link } = await supabase
+      .from('customer_telegram_links')
+      .select('phone, first_name')
+      .eq('telegram_id', chatId)
+      .maybeSingle();
+
+    const customerLabel = link
+      ? `${link.first_name ?? 'Клієнт'} (${link.phone ?? ''})`
+      : `Telegram ${chatId}`;
 
     // Notify ops admins
     const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
@@ -192,7 +204,9 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: admin.telegram_id,
-            text: `💬 <b>Повідомлення по замовленню #${orderId}</b>\n\n${text}`,
+            text: orderId
+              ? `💬 <b>Повідомлення по замовленню #${orderId}</b>\n${customerLabel}\n\n${text}`
+              : `💬 <b>Повідомлення від ${customerLabel}</b>\n\n${text}`,
             parse_mode: 'HTML',
           }),
         });

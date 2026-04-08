@@ -27,6 +27,30 @@ export async function keycrmFetch<T>(path: string): Promise<T> {
   }
 }
 
+export async function keycrmPut<T = unknown>(path: string, body: unknown): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getKey()}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`KeyCRM PUT ${res.status}: ${text.substring(0, 200)}`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export interface KeyCRMProduct {
   id: number;
   name: string;

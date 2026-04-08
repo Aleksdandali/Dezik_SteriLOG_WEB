@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateInitData } from '@/lib/telegram/validate';
+import { dualWriteMessage } from '@/lib/chat/dual-write';
 
 const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const CUSTOMER_BOT_TOKEN = process.env.TELEGRAM_CUSTOMER_BOT_TOKEN ?? '';
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { order_id, sender_telegram_id, text } = body;
 
-    if (!order_id || !text) {
+    if (order_id === undefined || order_id === null || !text) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
@@ -63,8 +64,34 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
+    // Dual-write to chat_conversations / chat_messages
+    if (sender_telegram_id) {
+      dualWriteMessage(supabase, {
+        customerTelegramId: sender_telegram_id,
+        senderType: sender_type as 'customer' | 'manager',
+        senderId: String(sender_telegram_id),
+        text,
+        orderId: order_id,
+        channel: sender_type === 'manager' ? 'internal' : 'telegram_miniapp',
+      });
+    }
+
     // Forward to the other side
     if (sender_type === 'customer') {
+      // Look up customer info for notification
+      let customerLabel = `замовлення #${order_id}`;
+      if (sender_telegram_id) {
+        const { data: link } = await supabase
+          .from('customer_telegram_links')
+          .select('phone, first_name')
+          .eq('telegram_id', sender_telegram_id)
+          .maybeSingle();
+        if (link) {
+          customerLabel = `${link.first_name ?? 'Клієнт'} (${link.phone ?? ''})`;
+        }
+      }
+      if (order_id === 0) customerLabel = customerLabel.replace('замовлення #0', customerLabel);
+
       // Notify managers via ops bot
       const { data: admins } = await supabase
         .from('ops_staff')
@@ -75,7 +102,9 @@ export async function POST(request: NextRequest) {
       for (const admin of admins ?? []) {
         try {
           await sendTelegram(OPS_BOT_TOKEN, admin.telegram_id,
-            `💬 <b>Повідомлення по замовленню #${order_id}</b>\n\n${text}`
+            order_id > 0
+              ? `💬 <b>Повідомлення по замовленню #${order_id}</b>\n${customerLabel}\n\n${text}`
+              : `💬 <b>Повідомлення від ${customerLabel}</b>\n\n${text}`
           );
         } catch {}
       }

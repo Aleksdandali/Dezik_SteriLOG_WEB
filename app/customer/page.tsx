@@ -30,7 +30,7 @@ interface CartItem {
   qty: number;
 }
 
-type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat' | 'manager-chat';
+type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat' | 'manager-chat' | 'fop-docs';
 
 export default function CustomerPage() {
   const [phone, setPhone] = useState('');
@@ -679,6 +679,11 @@ export default function CustomerPage() {
   // Certificates
   // ═══════════════════════════════════
   if (view === 'certificates' && viewingCert) {
+    const shareCertViewer = () => {
+      const tg = (window as unknown as { Telegram?: { WebApp: { openTelegramLink: (u: string) => void } } }).Telegram?.WebApp;
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(viewingCert.url)}&text=${encodeURIComponent(`📋 Сертифікат Dezik — ${viewingCert.title}`)}`;
+      if (tg?.openTelegramLink) { tg.openTelegramLink(shareUrl); } else { window.open(shareUrl, '_blank'); }
+    };
     return (
       <div className="fixed inset-0 bg-[#F8FAFC] z-40 flex flex-col">
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-[#E5E7EB]">
@@ -688,50 +693,73 @@ export default function CustomerPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <h1 className="text-[16px] font-bold text-[#111827]">{viewingCert.title}</h1>
+          <h1 className="text-[15px] font-bold text-[#111827] flex-1 truncate">{viewingCert.title}</h1>
+          <button onClick={shareCertViewer}
+            className="w-9 h-9 rounded-xl bg-[#eceef5] flex items-center justify-center active:scale-[0.95] transition-transform">
+            <svg className="w-4 h-4 text-[#4b569e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+          </button>
         </div>
-        <iframe src={viewingCert.url} className="flex-1 w-full" title={viewingCert.title} />
+        <iframe src={`https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(viewingCert.url)}`} className="flex-1 w-full" style={{ minHeight: 0 }} title={viewingCert.title} />
       </div>
     );
   }
 
   if (view === 'certificates') {
+    const certsList = [
+      { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', color: 'from-[#3B82F6] to-[#2563EB]', iconPath: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/pakety-certificate.pdf' },
+      { title: 'Деланол', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#10B981] to-[#059669]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/delanol-certificate.pdf' },
+      { title: 'Біонол Форте', desc: 'Сертифікат якості', color: 'from-[#8B5CF6] to-[#7C3AED]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/bionol-certificate.pdf' },
+      { title: 'Інструм', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#F59E0B] to-[#D97706]', iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/instrum-certificate.pdf' },
+    ];
+    const shareCertTg = (cert: typeof certsList[0]) => {
+      const tg = (window as unknown as { Telegram?: { WebApp: { openTelegramLink: (u: string) => void } } }).Telegram?.WebApp;
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(cert.url)}&text=${encodeURIComponent(`📋 Сертифікат Dezik — ${cert.title}`)}`;
+      if (tg?.openTelegramLink) { tg.openTelegramLink(shareUrl); } else { window.open(shareUrl, '_blank'); }
+    };
     return (
       <div className="min-h-screen bg-[#F8FAFC]">
-        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center mx-auto shadow-lg shadow-[#10B981]/25">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <div className="max-w-md mx-auto px-4 py-5 space-y-3">
+          <div className="text-center mb-2">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center mx-auto shadow-lg shadow-[#10B981]/25">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
               </svg>
             </div>
-            <h1 className="text-[22px] font-bold text-[#111827] mt-4">Сертифікати</h1>
-            <p className="text-[14px] text-[#9CA3AF] mt-1">Уся продукція Dezik сертифікована в Україні</p>
+            <h1 className="text-[18px] font-bold text-[#111827] mt-3">Сертифікати</h1>
+            <p className="text-[13px] text-[#9CA3AF] mt-0.5">Уся продукція Dezik сертифікована в Україні</p>
           </div>
 
-          {[
-            { title: 'Пакети для стерилізації', desc: 'Сертифікат відповідності та висновок СЕС', color: 'from-[#3B82F6] to-[#2563EB]', iconPath: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/pakety-certificate.pdf' },
-            { title: 'Деланол', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#10B981] to-[#059669]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/delanol-certificate.pdf' },
-            { title: 'Біонол Форте', desc: 'Сертифікат якості', color: 'from-[#8B5CF6] to-[#7C3AED]', iconPath: 'M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/bionol-certificate.pdf' },
-            { title: 'Інструм', desc: 'Висновок санітарно-епідеміологічної експертизи', color: 'from-[#F59E0B] to-[#D97706]', iconPath: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z', url: 'https://csshbetufyocutdislkn.supabase.co/storage/v1/object/public/ops-photos/certificates/instrum-certificate.pdf' },
-          ].map((cert, i) => (
-            <button key={i} onClick={() => setViewingCert(cert)}
-              className="w-full text-left bg-white rounded-2xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.97] transition-all">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${cert.color} flex items-center justify-center flex-shrink-0 shadow-md`}>
-                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={cert.iconPath} />
+          {certsList.map((cert, i) => (
+            <div key={i} className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.03)] border border-[#F0F0F0] overflow-hidden">
+              <button onClick={() => setViewingCert(cert)}
+                className="w-full text-left px-4 py-3.5 active:bg-[#F8F8FA] transition-all">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${cert.color} flex items-center justify-center flex-shrink-0 shadow-sm`}>
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={cert.iconPath} />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold text-[#111827]">{cert.title}</p>
+                    <p className="text-[12px] text-[#9CA3AF] mt-0.5 truncate">{cert.desc}</p>
+                  </div>
+                  <svg className="w-4 h-4 text-[#C5C9D1] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
                 </div>
-                <div className="flex-1">
-                  <p className="text-[16px] font-bold text-[#111827]">{cert.title}</p>
-                  <p className="text-[13px] text-[#9CA3AF] mt-0.5">{cert.desc}</p>
-                </div>
-                <svg className="w-5 h-5 text-[#C5C9D1] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
+              </button>
+              <div className="border-t border-[#F0F0F0]">
+                <button onClick={() => shareCertTg(cert)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-semibold text-[#4b569e] active:bg-[#eceef5] transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                  </svg>
+                  Поділитися
+                </button>
               </div>
-            </button>
+            </div>
           ))}
         </div>
       </div>

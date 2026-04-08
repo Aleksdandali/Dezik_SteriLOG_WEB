@@ -41,6 +41,8 @@ export interface CreateTTNParams {
   cost?: number;
   paymentMethod?: 'Cash' | 'NonCash';
   payerType?: 'Sender' | 'Recipient';
+  afterpayment?: boolean;
+  afterpaymentAmount?: number;
 }
 
 export interface TTNResult {
@@ -70,13 +72,8 @@ export async function createTTN(params: CreateTTNParams): Promise<TTNResult> {
     throw new Error('Не вдалось створити отримувача в НП');
   }
 
-  // Create internet document (TTN)
-  const docs = await npCall<{
-    IntDocNumber: string;
-    Ref: string;
-    CostOnSite: string;
-    EstimatedDeliveryDate: string;
-  }[]>('InternetDocument', 'save', {
+  // Build document properties
+  const docProps: Record<string, unknown> = {
     PayerType: params.payerType ?? 'Recipient',
     PaymentMethod: params.paymentMethod ?? 'Cash',
     CargoType: 'Parcel',
@@ -96,7 +93,25 @@ export async function createTTN(params: CreateTTNParams): Promise<TTNResult> {
     RecipientAddress: params.warehouseRef,
     ContactRecipient: recipientContactRef,
     RecipientsPhone: params.recipientPhone.replace(/\+/g, ''),
-  });
+  };
+
+  // Add COD (контроль оплати / наложений платіж) for unpaid orders
+  // Uses AfterpaymentOnGoodsCost — the correct NP API parameter for payment control.
+  // BackwardDeliveryData with CargoType:'Money' is a different service (зворотна доставка)
+  // and requires separate activation; AfterpaymentOnGoodsCost is the standard COD mechanism.
+  // IMPORTANT: Requires active NovaPay agreement on your NP account + fresh API key.
+  const sameWarehouse = params.warehouseRef === SENDER_ADDRESS_REF;
+  if (params.afterpayment && params.afterpaymentAmount && params.afterpaymentAmount > 0 && !sameWarehouse) {
+    docProps.AfterpaymentOnGoodsCost = String(params.afterpaymentAmount);
+  }
+
+  // Create internet document (TTN)
+  const docs = await npCall<{
+    IntDocNumber: string;
+    Ref: string;
+    CostOnSite: string;
+    EstimatedDeliveryDate: string;
+  }[]>('InternetDocument', 'save', docProps);
 
   const doc = docs[0];
   if (!doc?.IntDocNumber) {

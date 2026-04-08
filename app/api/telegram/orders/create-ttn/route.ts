@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireStaff } from '@/lib/telegram/auth';
-import { keycrmFetch } from '@/lib/keycrm';
+import { keycrmFetch, keycrmPut } from '@/lib/keycrm';
 import { createTTN } from '@/lib/nova-poshta';
 
 export async function POST(request: NextRequest) {
   try {
     await requireStaff(request);
     const body = await request.json();
-    const { order_id, weight, payer_type, override_recipient, override_phone, override_city_ref, override_warehouse_ref } = body;
+    const { order_id, weight, payer_type, payment_status: ui_payment_status, override_recipient, override_phone, override_city_ref, override_warehouse_ref } = body;
 
     if (!order_id) return NextResponse.json({ error: 'Missing order_id' }, { status: 400 });
 
@@ -42,37 +42,49 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Немає імені або телефону отримувача' }, { status: 400 });
     }
 
-    // Create TTN via Nova Poshta
+    // Use UI payment status if provided (user may have changed it), otherwise KeyCRM
+    const effectivePaymentStatus = ui_payment_status || order.payment_status;
+    const isNotPaid = effectivePaymentStatus !== 'paid';
+    const needsCOD = isNotPaid && order.grand_total > 0;
+
+    // Free delivery for orders >= 1000 UAH; otherwise Recipient pays for unpaid, Sender for paid
+    const freeDelivery = order.grand_total >= 1000;
+    const defaultPayer = (freeDelivery || !isNotPaid) ? 'Sender' : 'Recipient';
+    const effectivePayer = payer_type ?? defaultPayer;
+    const paymentMethod = effectivePayer === 'Sender' ? 'NonCash' : 'Cash';
+
     const result = await createTTN({
       recipientName,
       recipientPhone,
       cityRef,
       warehouseRef,
-      weight: weight ?? 1,
+      weight: weight ?? 0.5,
       cost: order.grand_total,
       description: 'Товари Dezik',
-      payerType: payer_type ?? (order.payment_status === 'paid' ? 'Sender' : 'Recipient'),
+      payerType: effectivePayer,
+      paymentMethod,
+      afterpayment: needsCOD,
+      afterpaymentAmount: needsCOD ? order.grand_total : undefined,
     });
 
     // Write TTN back to KeyCRM + change status to "На збірку" (8)
-    const key = process.env.KEYCRM_API_KEY;
-    await fetch(`https://openapi.keycrm.app/v1/order/${order_id}`, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    let keycrmSynced = true;
+    try {
+      await keycrmPut(`/order/${order_id}`, {
         shipping: { tracking_code: result.ttn },
         status_id: 8,
-      }),
-    });
+      });
+    } catch (err) {
+      console.error('[KeyCRM Sync Error]', err);
+      keycrmSynced = false;
+    }
 
     return NextResponse.json({
       ok: true,
       ttn: result.ttn,
       delivery_cost: result.costOnSite,
       estimated_delivery: result.estimatedDeliveryDate,
+      keycrm_synced: keycrmSynced,
     });
   } catch (err) {
     console.error('[Create TTN Error]', err);

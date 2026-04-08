@@ -146,14 +146,16 @@ export async function POST(request: NextRequest) {
   try {
     await requireStaff(request);
     const body = await request.json();
-    const { order_id, status_id, manager_comment } = body;
+    const { order_id, status_id, manager_comment, payment_status } = body;
 
-    if (!order_id || !status_id) {
+    if (!order_id || (!status_id && !payment_status)) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
-    const updateBody: Record<string, unknown> = { status_id };
-    if (manager_comment) updateBody.manager_comment = manager_comment;
+    const updateBody: Record<string, unknown> = {};
+    if (status_id) updateBody.status_id = status_id;
+    if (manager_comment !== undefined) updateBody.manager_comment = manager_comment;
+    if (payment_status) updateBody.payment_status = payment_status;
 
     const key = process.env.KEYCRM_API_KEY;
     const res = await fetch(`https://openapi.keycrm.app/v1/order/${order_id}`, {

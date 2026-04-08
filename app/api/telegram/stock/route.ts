@@ -3,7 +3,28 @@ import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
 import { fetchAllProductsSafe } from '@/lib/keycrm';
 
-const ML: Record<string, string> = { transparent: 'Прозорі', white: 'Білі', brown: 'Коричневі' };
+const ML: Record<string, string> = { transparent: 'прозорі', white: 'білі', brown: 'коричневі' };
+
+function bagKey(bagSize: string | null, material: string | null): string | null {
+  if (!bagSize) return null;
+  const size = bagSize.replace('x', '×');
+  const mat = ML[material ?? ''] ?? material ?? '';
+  return `Пакети ${size} ${mat}`.trim();
+}
+
+// Normalize audit/production names to match catalog format
+// "100×200 Білі" → "Пакети 100×200 білі"
+// "75×150 Прозорі" → "Пакети 75×150 прозорі"
+function normalizeName(name: string): string {
+  // Match bag patterns: optional "Пакети " + size×size + material
+  const m = name.match(/^(?:Пакети\s+)?(\d+[×x]\d+)\s+(.+)$/i);
+  if (m) {
+    const size = m[1].replace('x', '×');
+    const mat = m[2].toLowerCase();
+    return `Пакети ${size} ${mat}`;
+  }
+  return name;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,7 +34,7 @@ export async function GET(request: NextRequest) {
     const location = searchParams.get('location') ?? 'afina_sklad';
     const isProduction = location === 'malynovskogo' || location === 'dalnytska';
 
-    // 1. Get latest audit
+    // 1. Get latest approved audit
     const { data: audits } = await supabase
       .from('ops_inventory_audits')
       .select('id, audit_date, created_at')
@@ -24,7 +45,7 @@ export async function GET(request: NextRequest) {
 
     const lastAudit = audits?.[0] ?? null;
 
-    // 2. Get audit items (raw materials)
+    // 2. Get audit items
     let auditItems: { name: string; quantity: number; unit: string; item_type: string }[] = [];
     if (lastAudit) {
       const { data } = await supabase
@@ -36,53 +57,85 @@ export async function GET(request: NextRequest) {
 
     const stockMap: Record<string, { name: string; quantity: number; unit: string; item_type: string }> = {};
 
-    // Add ALL audit items (raw + finished)
+    // Add audit items as baseline (normalize names to match catalog)
     for (const item of auditItems) {
-      stockMap[item.name] = { ...item };
+      const name = normalizeName(item.name);
+      if (stockMap[name]) {
+        stockMap[name].quantity += item.quantity;
+      } else {
+        stockMap[name] = { ...item, name };
+      }
     }
 
     if (isProduction) {
       const auditHasFinished = auditItems.some(i => i.item_type === 'finished');
+      // Date cutoff: if audit has finished items, only count delta AFTER audit
+      const cutoff = auditHasFinished && lastAudit ? lastAudit.created_at : null;
+      let source = auditHasFinished ? 'audit' : 'production';
 
-      if (!auditHasFinished) {
-        // No finished items in audit — calculate from production
-        const { data: produced } = await supabase
-          .from('ops_production')
-          .select('bag_size, material, packages')
-          .eq('location', location)
-          .eq('stage', 'pack')
-          .not('packages', 'is', null);
+      // Always calculate production delta (after cutoff if audit exists)
+      let prodQuery = supabase
+        .from('ops_production')
+        .select('bag_size, material, packages')
+        .eq('location', location)
+        .eq('stage', 'pack')
+        .not('packages', 'is', null);
+      if (cutoff) prodQuery = prodQuery.gt('created_at', cutoff);
 
-        for (const p of produced ?? []) {
-          if (!p.bag_size || !p.packages) continue;
-          const key = `${p.bag_size.replace('x', '×')} ${ML[p.material] ?? p.material}`;
-          if (!stockMap[key]) stockMap[key] = { name: key, quantity: 0, unit: 'уп', item_type: 'finished' };
-          stockMap[key].quantity += p.packages;
-        }
+      const { data: produced } = await prodQuery;
 
-        const { data: movedOut } = await supabase
-          .from('ops_movements')
-          .select('bag_size, material, packages')
-          .eq('from_location', location)
-          .not('packages', 'is', null);
-
-        for (const m of movedOut ?? []) {
-          if (!m.bag_size || !m.packages) continue;
-          const key = `${m.bag_size.replace('x', '×')} ${ML[m.material] ?? m.material ?? ''}`;
-          if (stockMap[key]) stockMap[key].quantity -= m.packages;
-        }
+      for (const p of produced ?? []) {
+        const key = bagKey(p.bag_size, p.material);
+        if (!key || !p.packages) continue;
+        if (!stockMap[key]) stockMap[key] = { name: key, quantity: 0, unit: 'уп', item_type: 'finished' };
+        stockMap[key].quantity += p.packages;
       }
-      // If audit HAS finished items — they override production calc (переоблік = факт)
 
-      const result = Object.values(stockMap).filter(s => s.quantity > 0);
+      // Subtract CONFIRMED movements OUT (only confirmed, use confirmed_packages)
+      let moveOutQuery = supabase
+        .from('ops_movements')
+        .select('bag_size, material, packages, confirmed_packages')
+        .eq('from_location', location)
+        .not('confirmed_at', 'is', null);
+      if (cutoff) moveOutQuery = moveOutQuery.gt('confirmed_at', cutoff);
+
+      const { data: movedOut } = await moveOutQuery;
+
+      for (const m of movedOut ?? []) {
+        const key = bagKey(m.bag_size, m.material);
+        if (!key) continue;
+        const qty = m.confirmed_packages ?? m.packages ?? 0;
+        if (qty <= 0) continue;
+        if (stockMap[key]) stockMap[key].quantity -= qty;
+      }
+
+      // Add CONFIRMED movements IN (returned to this location)
+      let moveInQuery = supabase
+        .from('ops_movements')
+        .select('bag_size, material, packages, confirmed_packages')
+        .eq('to_location', location)
+        .not('confirmed_at', 'is', null);
+      if (cutoff) moveInQuery = moveInQuery.gt('confirmed_at', cutoff);
+
+      const { data: movedIn } = await moveInQuery;
+
+      for (const m of movedIn ?? []) {
+        const key = bagKey(m.bag_size, m.material);
+        if (!key) continue;
+        const qty = m.confirmed_packages ?? m.packages ?? 0;
+        if (qty <= 0) continue;
+        if (!stockMap[key]) stockMap[key] = { name: key, quantity: 0, unit: 'уп', item_type: 'finished' };
+        stockMap[key].quantity += qty;
+      }
+
       return NextResponse.json({
-        data: result,
+        data: Object.values(stockMap),
         lastAudit: lastAudit ? { date: lastAudit.audit_date } : null,
-        source: 'production',
+        source,
       });
     }
 
-    // Afina: KeyCRM = source of truth. Ignore audit finished items.
+    // Afina: KeyCRM = source of truth
     const { data: opsProducts } = await supabase
       .from('ops_products')
       .select('name, keycrm_id, unit, category')
@@ -94,14 +147,13 @@ export async function GET(request: NextRequest) {
     const keycrmProducts = await fetchAllProductsSafe();
     const keycrmMap = new Map(keycrmProducts.map(p => [p.id, p]));
 
-    // Only KeyCRM data for finished products (no audit duplicates)
     const result: { name: string; quantity: number; unit: string; item_type: string }[] = [];
 
     if (keycrmMap.size > 0) {
       for (const op of opsProducts ?? []) {
         const kp = keycrmMap.get(op.keycrm_id!);
-        if (kp && kp.quantity > 0) {
-          result.push({ name: op.name, quantity: kp.quantity, unit: op.unit, item_type: 'finished' });
+        if (kp) {
+          result.push({ name: op.name, quantity: kp.quantity - (kp.in_reserve ?? 0), unit: op.unit, item_type: 'finished' });
         }
       }
     }
