@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { keycrmFetch, fetchAllProductsSafe } from '@/lib/keycrm';
+import { trackShipment } from '@/lib/nova-poshta';
 
+// ---------------------------------------------------------------------------
+// System prompt — product knowledge + tool usage instructions
+// ---------------------------------------------------------------------------
 const SYSTEM_PROMPT = `Ти — AI-консультант Dezik, українського виробника засобів для стерилізації та дезінфекції.
 
 ПРОДУКЦІЯ DEZIK:
@@ -135,6 +140,13 @@ DEZIK INSTRUM — повна інструкція:
 - Сайт: dezik.com.ua
 - Telegram: @dezik_ua_bot
 
+РЕКВІЗИТИ ДЛЯ ОПЛАТИ:
+ФОП Вічев Юрій Іванович
+IBAN: UA813220010000026007340078498
+Банк: Універсал Банк (monobank)
+ЄДРПОУ: 3188517653
+Призначення платежу: "Оплата за товар згідно рахунку"
+
 ЯК КОРИСТУВАТИСЬ БОТОМ:
 Щоб побачити замовлення — натисніть "Мій кабінет" і введіть номер телефону.
 В кабінеті доступно: активні замовлення, історія, магазин, сертифікати, AI консультант.
@@ -142,19 +154,344 @@ DEZIK INSTRUM — повна інструкція:
 Щоб написати менеджеру — відкрийте замовлення і натисніть "Написати менеджеру".
 Щоб замовити — перейдіть в "Магазин", оберіть товари, оформіть з доставкою Новою Поштою.
 
+ІНСТРУМЕНТИ:
+У тебе є інструменти для перевірки замовлень клієнта, відстеження посилок Нової Пошти та перевірки цін і наявності товарів. Використовуй їх, коли клієнт питає про свої замовлення, статус доставки, ціни чи наявність товарів. Реквізити для оплати вже є вище — просто дай їх клієнту без інструменту.
+
 ПРАВИЛА ВІДПОВІДЕЙ:
 - Відповідай ТІЛЬКИ українською
 - НІКОЛИ не використовуй markdown (**, ##, #, -, *). Тільки простий текст
-- МАКСИМАЛЬНО коротко. 1-2 речення. Тільки суть і цифри. Без вступів, без "Звичайно!", без "Чудове питання!"
+- МАКСИМАЛЬНО коротко. 2-3 речення. Тільки суть і цифри. Без вступів, без "Звичайно!", без "Чудове питання!"
 - Приклад хорошої відповіді: "Деланол для інструментів: 2 мл на 1 л води, замочити на 15 хв при 20°C, промити 3 хв."
 - Якщо товар є в базі знань — давай конкретну інструкцію. Якщо немає — скажи чесно що немає детальної інструкції і запропонуй звернутись до менеджера
-- Якщо питання про конкретне замовлення, статус, оплату — відповідай: {"redirect": true, "message": "Передаю менеджеру..."}
-- Якщо питання про ціни — направляй в магазин у боті
-- Не вигадуй. Тільки факти з інструкцій вище`;
+- Якщо не можеш допомогти або клієнт наполягає на живому менеджері — відповідай: {"redirect": true, "message": "Передаю менеджеру..."}
+- Не вигадуй. Тільки факти з інструкцій вище та з результатів інструментів`;
 
+// ---------------------------------------------------------------------------
+// Tool definitions for Claude function calling
+// ---------------------------------------------------------------------------
+const TOOLS = [
+  {
+    name: 'get_customer_orders',
+    description:
+      'Отримати список останніх замовлень клієнта. Використовуй, коли клієнт питає про свої замовлення, статус, що замовляв, коли буде доставка тощо.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        telegram_id: {
+          type: 'string',
+          description: 'Telegram ID клієнта',
+        },
+      },
+      required: ['telegram_id'],
+    },
+  },
+  {
+    name: 'track_shipment',
+    description:
+      'Відстежити посилку Нової Пошти за номером ТТН. Використовуй, коли клієнт питає "де моя посилка", "коли приїде", або дає номер ТТН.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        ttn: {
+          type: 'string',
+          description: 'Номер ТТН (експрес-накладної) Нової Пошти',
+        },
+      },
+      required: ['ttn'],
+    },
+  },
+  {
+    name: 'get_product_info',
+    description:
+      'Перевірити ціну та наявність товару. Використовуй, коли клієнт питає про ціну, наявність, вартість конкретного товару.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        product_name: {
+          type: 'string',
+          description: 'Назва або частина назви товару для пошуку (наприклад "деланол 1л", "пакети 100х200")',
+        },
+      },
+      required: ['product_name'],
+    },
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Status name mapping (shared with orders route)
+// ---------------------------------------------------------------------------
+const STATUS_NAMES: Record<number, string> = {
+  1: 'Новий',
+  4: 'Очікуємо оплату',
+  8: 'Збирається',
+  10: 'Накладний платіж',
+  12: 'Відправлено',
+  19: 'Скасовано',
+};
+
+// ---------------------------------------------------------------------------
+// Tool executors
+// ---------------------------------------------------------------------------
+
+async function executeGetCustomerOrders(telegramId: string): Promise<string> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Look up phone from customer_telegram_links
+  const { data: link, error: linkErr } = await supabase
+    .from('customer_telegram_links')
+    .select('phone')
+    .eq('telegram_id', telegramId)
+    .maybeSingle();
+
+  if (linkErr || !link?.phone) {
+    return JSON.stringify({
+      error: true,
+      message: 'Клієнт ще не привʼязав номер телефону. Потрібно натиснути "Мій кабінет" і ввести номер.',
+    });
+  }
+
+  const cleanPhone = link.phone;
+
+  try {
+    const data = await keycrmFetch<{
+      data: {
+        id: number;
+        status_id: number;
+        payment_status: string;
+        grand_total: number;
+        ordered_at: string;
+        shipping: {
+          tracking_code: string | null;
+          shipping_status: string | null;
+          shipping_address_city: string | null;
+          shipping_receive_point: string | null;
+        } | null;
+        products: { name: string; quantity: number; price: number }[];
+      }[];
+      total: number;
+    }>(`/order?filter[buyer_phone]=${cleanPhone}&sort=-id&limit=5&include=products,shipping`);
+
+    if (!data.data?.length) {
+      return JSON.stringify({ orders: [], message: 'Замовлень не знайдено.' });
+    }
+
+    const orders = data.data.map((o) => ({
+      id: o.id,
+      status: STATUS_NAMES[o.status_id] ?? `Статус ${o.status_id}`,
+      payment: o.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено',
+      total: `${o.grand_total} грн`,
+      date: o.ordered_at?.split('T')[0] ?? '',
+      ttn: o.shipping?.tracking_code ?? null,
+      city: o.shipping?.shipping_address_city ?? null,
+      warehouse: o.shipping?.shipping_receive_point ?? null,
+      products: o.products?.map((p) => `${p.name} x${p.quantity}`).join(', ') ?? '',
+    }));
+
+    return JSON.stringify({ orders });
+  } catch (err) {
+    console.error('[AI Tool: get_customer_orders]', err);
+    return JSON.stringify({ error: true, message: 'Помилка отримання замовлень з CRM.' });
+  }
+}
+
+async function executeTrackShipment(ttn: string): Promise<string> {
+  try {
+    const result = await trackShipment(ttn);
+
+    return JSON.stringify({
+      ttn: result.Number,
+      status: result.Status,
+      statusCode: result.StatusCode,
+      city: result.CityRecipient,
+      warehouseRecipient: result.WarehouseRecipient,
+      scheduledDelivery: result.ScheduledDeliveryDate,
+      actualDelivery: result.ActualDeliveryDate || null,
+      received: result.RecipientDateTime || null,
+    });
+  } catch (err) {
+    console.error('[AI Tool: track_shipment]', err);
+    return JSON.stringify({ error: true, message: `Не вдалось відстежити ТТН ${ttn}. Перевірте номер.` });
+  }
+}
+
+async function executeGetProductInfo(productName: string): Promise<string> {
+  try {
+    const products = await fetchAllProductsSafe();
+
+    if (!products.length) {
+      return JSON.stringify({ error: true, message: 'Каталог тимчасово недоступний.' });
+    }
+
+    const query = productName.toLowerCase();
+    const queryWords = query.split(/\s+/).filter(Boolean);
+
+    // Score-based fuzzy matching
+    const scored = products
+      .filter((p) => !p.is_archived)
+      .map((p) => {
+        const name = p.name.toLowerCase();
+        let score = 0;
+
+        // Exact substring match — highest priority
+        if (name.includes(query)) score += 100;
+
+        // Individual word matches
+        for (const word of queryWords) {
+          if (name.includes(word)) score += 10;
+        }
+
+        return { product: p, score };
+      })
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    if (!scored.length) {
+      return JSON.stringify({
+        found: false,
+        message: `Товар "${productName}" не знайдено в каталозі.`,
+      });
+    }
+
+    const results = scored.map((s) => ({
+      name: s.product.name,
+      price: `${s.product.min_price} грн`,
+      in_stock: s.product.quantity > 0,
+      quantity: s.product.quantity,
+    }));
+
+    return JSON.stringify({ found: true, products: results });
+  } catch (err) {
+    console.error('[AI Tool: get_product_info]', err);
+    return JSON.stringify({ error: true, message: 'Помилка пошуку товару.' });
+  }
+}
+
+async function executeTool(
+  toolName: string,
+  toolInput: Record<string, string>,
+  telegramId?: string
+): Promise<string> {
+  switch (toolName) {
+    case 'get_customer_orders':
+      return executeGetCustomerOrders(toolInput.telegram_id || telegramId || '');
+    case 'track_shipment':
+      return executeTrackShipment(toolInput.ttn);
+    case 'get_product_info':
+      return executeGetProductInfo(toolInput.product_name);
+    default:
+      return JSON.stringify({ error: true, message: `Unknown tool: ${toolName}` });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Anthropic API caller with tool loop
+// ---------------------------------------------------------------------------
+
+interface AnthropicMessage {
+  role: 'user' | 'assistant';
+  content: string | AnthropicContentBlock[];
+}
+
+interface AnthropicContentBlock {
+  type: string;
+  text?: string;
+  id?: string;
+  name?: string;
+  input?: Record<string, string>;
+  tool_use_id?: string;
+  content?: string;
+}
+
+async function callClaude(
+  apiKey: string,
+  messages: AnthropicMessage[],
+  telegramId?: string
+): Promise<{ text: string; stopReason: string }> {
+  const MAX_TOOL_ROUNDS = 3;
+
+  let currentMessages = [...messages];
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT,
+        tools: TOOLS,
+        messages: currentMessages,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('[AI Chat] Anthropic API error:', res.status, errText);
+      throw new Error(`Anthropic API ${res.status}`);
+    }
+
+    const data = await res.json();
+    const stopReason: string = data.stop_reason;
+    const content: AnthropicContentBlock[] = data.content ?? [];
+
+    // If the model stopped without tool use, extract text and return
+    if (stopReason !== 'tool_use') {
+      const text = content
+        .filter((b: AnthropicContentBlock) => b.type === 'text')
+        .map((b: AnthropicContentBlock) => b.text ?? '')
+        .join('');
+      return { text, stopReason };
+    }
+
+    // Model wants to use tools — execute them and continue
+    const toolUseBlocks = content.filter(
+      (b: AnthropicContentBlock) => b.type === 'tool_use'
+    );
+
+    // Add assistant response (with tool_use blocks) to messages
+    currentMessages.push({ role: 'assistant', content });
+
+    // Execute all tool calls in parallel
+    const toolResults = await Promise.all(
+      toolUseBlocks.map(async (block: AnthropicContentBlock) => {
+        const result = await executeTool(
+          block.name!,
+          (block.input ?? {}) as Record<string, string>,
+          telegramId
+        );
+        return {
+          type: 'tool_result' as const,
+          tool_use_id: block.id!,
+          content: result,
+        };
+      })
+    );
+
+    // Add tool results as a user message
+    currentMessages.push({ role: 'user', content: toolResults });
+  }
+
+  // If we exhausted tool rounds, return a fallback
+  return {
+    text: 'Вибачте, не вдалось обробити запит. Спробуйте ще раз або зверніться до менеджера.',
+    stopReason: 'max_tool_rounds',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// POST handler
+// ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    const { message, order_id, history } = await request.json();
+    const { message, order_id, history, telegram_id } = await request.json();
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });
@@ -165,46 +502,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'AI service not configured' }, { status: 500 });
     }
 
-    // Call Claude Haiku
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+    // Build messages from history
+    const messages: AnthropicMessage[] = [
+      ...((history ?? []) as { role: string; text: string }[]).map(
+        (m: { role: string; text: string }) => ({
+          role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+          content: m.text,
+        })
+      ),
+      {
+        role: 'user' as const,
+        content: telegram_id
+          ? `[telegram_id: ${telegram_id}] ${message}`
+          : message,
       },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 512,
-        system: SYSTEM_PROMPT,
-        messages: [
-          ...((history ?? []) as { role: string; text: string }[]).map((m: { role: string; text: string }) => ({
-            role: m.role === 'ai' ? 'assistant' : 'user',
-            content: m.text,
-          })),
-          { role: 'user', content: message },
-        ],
-      }),
-    });
+    ];
 
-    if (!res.ok) {
-      console.error('[AI Chat] Anthropic API error:', res.status, await res.text());
-      return NextResponse.json({ error: 'AI service error' }, { status: 502 });
-    }
-
-    const data = await res.json();
-    const aiText = data.content?.[0]?.text ?? '';
+    // Call Claude with tool loop
+    const { text: aiText } = await callClaude(apiKey, messages, telegram_id);
 
     // Check if AI wants to redirect to manager
-    let redirected = false;
     try {
       if (aiText.includes('"redirect"') && aiText.includes('true')) {
         const jsonMatch = aiText.match(/\{[^}]*"redirect"\s*:\s*true[^}]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.redirect === true) {
-            redirected = true;
-
             // If we have an order_id, save message and notify admins
             if (order_id) {
               const supabase = createClient(
@@ -238,7 +561,9 @@ export async function POST(request: NextRequest) {
                       parse_mode: 'HTML',
                     }),
                   });
-                } catch {}
+                } catch {
+                  // ignore notification failures
+                }
               }
             }
 
@@ -249,7 +574,9 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    } catch {}
+    } catch {
+      // JSON parse failure — not a redirect, continue
+    }
 
     return NextResponse.json({ reply: aiText, redirected: false });
   } catch (err) {

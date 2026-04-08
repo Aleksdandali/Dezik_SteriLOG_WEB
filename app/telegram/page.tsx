@@ -65,7 +65,8 @@ type View =
   | 'fop-docs'
   | 'messages'
   | 'chat-detail'
-  | 'stock-dashboard';
+  | 'stock-dashboard'
+  | 'bot-clients';
 
 interface TelegramWebApp {
   initData: string;
@@ -519,6 +520,9 @@ function TelegramPage() {
       {view === 'stock-dashboard' && (
         <StockDashboard />
       )}
+      {view === 'bot-clients' && (
+        <BotClientsView />
+      )}
       {(view === 'messages' || view === 'chat-detail') && (
         <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
       )}
@@ -540,6 +544,7 @@ function MainMenu({
   const [cashToday, setCashToday] = useState(0);
   const [pendingAuditsCount, setPendingAuditsCount] = useState(0);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [botClientsCount, setBotClientsCount] = useState(0);
 
   const refreshUnread = () => {
     api<{ data: { unread_by_manager: number }[] }>('/chat/conversations').then(r => {
@@ -550,6 +555,8 @@ function MainMenu({
 
   useEffect(() => {
     api<{ count: number }>('/shipments/count').then(r => setShipmentCount(r.count)).catch(() => {});
+    fetch('/api/telegram/team?type=bot_clients', { headers: { 'x-telegram-init-data': getInitData() } })
+      .then(r => r.json()).then(d => setBotClientsCount((d.data ?? []).length)).catch(() => {});
     refreshUnread();
     api<{ total: number }>('/orders?status=1').then(r => setNewOrdersCount(r.total ?? 0)).catch(() => {});
     api<{ total_sum: number }>('/cash?period=today').then(r => setCashToday(r.total_sum ?? 0)).catch(() => {});
@@ -668,6 +675,25 @@ function MainMenu({
           ))}
         </div>
       </div>
+
+      {/* Bot clients info */}
+      {botClientsCount > 0 && (
+        <button onClick={() => onNavigate('bot-clients')}
+          className="w-full bg-gradient-to-b from-[#4b569e]/5 to-[#4b569e]/10 rounded-[20px] p-4 border border-[#4b569e]/10 active:scale-[0.98] transition-all text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#D1FAE5] flex items-center justify-center">
+              <span className="text-lg">👥</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-[14px] font-bold text-[#111827]">Клієнти в боті</p>
+              <p className="text-[12px] text-[#6B7280]">{botClientsCount} активних чатів</p>
+            </div>
+            <svg className="w-4 h-4 text-[#C5C9D1]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </div>
+        </button>
+      )}
     </div>
   );
 }
@@ -2055,7 +2081,7 @@ function ShipmentsView() {
                         }`}>
                           {order.payment_status === 'paid' ? 'Оплачено' : order.payment_status === 'not_paid' ? 'Наложка' : order.payment_status}
                         </span>
-                        {order.in_bot && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="В боті" />}
+                        {order.in_bot && <span className="px-1.5 py-0.5 rounded-md bg-[#D1FAE5] text-[#065F46] text-[9px] font-bold flex-shrink-0">В боті</span>}
                       </div>
                       <p className="text-[14px] font-medium text-[#111827] mt-0.5">{order.recipient ?? 'Клієнт'}</p>
                       <p className="text-[12px] text-[#9CA3AF]">
@@ -4752,7 +4778,7 @@ function OrdersView({ staff }: { staff: OpsStaff }) {
                     }`}>
                       {o.payment_status === 'paid' ? 'Оплачено' : 'Не оплачено'}
                     </span>
-                    {o.in_bot && <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="В боті" />}
+                    {o.in_bot && <span className="px-1.5 py-0.5 rounded-md bg-[#D1FAE5] text-[#065F46] text-[9px] font-bold flex-shrink-0">В боті</span>}
                   </div>
                   <p className="text-[14px] font-medium text-[#111827] mt-1">{o.recipient ?? 'Клієнт'}</p>
                   <p className="text-[12px] text-[#9CA3AF]">{o.city ?? ''} · {o.total.toLocaleString('uk-UA')} грн · {o.products.length} поз.</p>
@@ -5744,6 +5770,94 @@ function FopDocsView({ staff }: { staff: OpsStaff }) {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                   Видалити
                 </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Bot Clients ─────────────────────────────────────
+interface BotClient {
+  phone: string | null;
+  first_name: string | null;
+  telegram_id: number;
+  is_customer: boolean;
+  joined_at: string | null;
+  last_active: string | null;
+}
+
+function BotClientsView() {
+  const [clients, setClients] = useState<BotClient[]>([]);
+  const [totalSubs, setTotalSubs] = useState(0);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    fetch('/api/telegram/team?type=bot_clients', {
+      headers: { 'x-telegram-init-data': getInitData() },
+    })
+      .then(r => r.json())
+      .then(d => { setClients(d.data ?? []); setTotalSubs(d.total_subscribers ?? 0); setTotalCustomers(d.total_customers ?? 0); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = search.trim()
+    ? clients.filter(c => (c.first_name ?? '').toLowerCase().includes(search.toLowerCase()) || (c.phone ?? '').includes(search))
+    : clients;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader icon="👥" title="Клієнти в боті" subtitle={`${clients.length} всього`} />
+
+      {/* Stats */}
+      {!loading && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+            <p className="text-[20px] font-bold text-[#111827]">{totalSubs}</p>
+            <p className="text-[11px] text-[#9CA3AF]">Підписників</p>
+          </div>
+          <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+            <p className="text-[20px] font-bold text-[#10B981]">{totalCustomers}</p>
+            <p className="text-[11px] text-[#9CA3AF]">З телефоном</p>
+          </div>
+        </div>
+      )}
+
+      <div className="relative">
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+        <input placeholder="Пошук по імені або телефону..." value={search} onChange={e => setSearch(e.target.value)}
+          className="w-full h-[44px] pl-11 pr-4 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]" />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-[15px] font-semibold text-[#111827]">{search ? 'Не знайдено' : 'Немає клієнтів'}</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] divide-y divide-[#F5F5F5]">
+          {filtered.map(c => (
+            <div key={c.telegram_id} className="flex items-center gap-3 px-4 py-3.5">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[14px] font-bold ${c.is_customer ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
+                {(c.first_name ?? c.phone ?? '?')[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[14px] font-semibold text-[#111827] truncate">{c.first_name || 'Без імені'}</p>
+                  {c.is_customer && <span className="px-1.5 py-0.5 rounded-md bg-[#D1FAE5] text-[#065F46] text-[9px] font-bold flex-shrink-0">Клієнт</span>}
+                </div>
+                <p className="text-[12px] text-[#9CA3AF]">{c.phone || `tg: ${c.telegram_id}`}</p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                {c.last_active && <p className="text-[11px] text-[#9CA3AF]">{new Date(c.last_active).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit' })}</p>}
               </div>
             </div>
           ))}

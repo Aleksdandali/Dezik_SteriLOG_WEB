@@ -9,6 +9,33 @@ export async function GET(request: NextRequest) {
     await requireOpsAdmin(request);
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('type') === 'bot_clients') {
+      const [{ data: subscribers }, { data: customers }] = await Promise.all([
+        supabase.from('bot_subscribers').select('telegram_id, first_name, username, last_active, created_at').order('last_active', { ascending: false }),
+        supabase.from('customer_telegram_links').select('telegram_id, phone, first_name'),
+      ]);
+      const customerMap = new Map((customers ?? []).map(c => [c.telegram_id, c]));
+      const merged = (subscribers ?? []).map(s => {
+        const cust = customerMap.get(s.telegram_id);
+        return {
+          telegram_id: s.telegram_id,
+          first_name: cust?.first_name || s.first_name || s.username || null,
+          phone: cust?.phone || null,
+          is_customer: !!cust,
+          last_active: s.last_active,
+          joined_at: s.created_at,
+        };
+      });
+      // Also add customers not yet in subscribers
+      for (const c of customers ?? []) {
+        if (!merged.find(m => m.telegram_id === c.telegram_id)) {
+          merged.push({ telegram_id: c.telegram_id, first_name: c.first_name, phone: c.phone, is_customer: true, last_active: null, joined_at: null });
+        }
+      }
+      return NextResponse.json({ data: merged, total_subscribers: (subscribers ?? []).length, total_customers: (customers ?? []).length });
+    }
+
     const [{ data: staff }, { data: requests }] = await Promise.all([
       supabase.from('ops_staff').select('*').eq('active', true).order('name'),
       supabase.from('ops_staff_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }),

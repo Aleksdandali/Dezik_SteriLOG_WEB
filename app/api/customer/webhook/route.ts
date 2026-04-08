@@ -137,6 +137,19 @@ export async function POST(request: NextRequest) {
     if (!text) return NextResponse.json({ ok: true });
 
     if (text === '/start') {
+      // Save bot subscriber
+      const supabaseStart = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+      const firstName = msg.from?.first_name ?? null;
+      const username = msg.from?.username ?? null;
+      try {
+        await supabaseStart.from('bot_subscribers').upsert({
+          telegram_id: chatId,
+          first_name: firstName,
+          username,
+          last_active: new Date().toISOString(),
+        }, { onConflict: 'telegram_id' });
+      } catch {}
+
       const webAppUrl = 'https://dezik-admin.vercel.app/customer';
       await sendMessage(chatId, 'Вітаємо в Dezik! 👋\n\nТут ви можете:\n— переглядати статус замовлень\n— підтвердити оплату\n— отримати консультацію AI\n— переглянути сертифікати та інструкції\n\nНатисніть кнопку нижче, введіть номер телефону і ви побачите всі ваші замовлення.', {
         reply_markup: {

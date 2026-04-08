@@ -31,6 +31,26 @@ async function npCall<T>(modelName: string, calledMethod: string, props: Record<
   return data.data;
 }
 
+export interface TrackingResult {
+  Number: string;
+  Status: string;
+  StatusCode: string;
+  WarehouseSender: string;
+  WarehouseRecipient: string;
+  CityRecipient: string;
+  ScheduledDeliveryDate: string;
+  ActualDeliveryDate: string;
+  RecipientDateTime: string;
+}
+
+export async function trackShipment(ttn: string): Promise<TrackingResult> {
+  const results = await npCall<TrackingResult[]>('TrackingDocument', 'getStatusDocuments', {
+    Documents: [{ DocumentNumber: ttn, Phone: '' }],
+  });
+  if (!results?.[0]) throw new Error('ТТН не знайдено');
+  return results[0];
+}
+
 export interface CreateTTNParams {
   recipientName: string;
   recipientPhone: string;
