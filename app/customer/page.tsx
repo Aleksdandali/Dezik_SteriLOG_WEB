@@ -2,6 +2,20 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+function getTgInitData(): string {
+  return (window as unknown as { Telegram?: { WebApp: { initData: string } } }).Telegram?.WebApp?.initData ?? '';
+}
+
+function customerFetch(url: string, options?: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options?.headers,
+      'x-telegram-init-data': getTgInitData(),
+    },
+  });
+}
+
 interface Order {
   id: number;
   status: string;
@@ -78,10 +92,18 @@ export default function CustomerPage() {
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
 
   useEffect(() => {
-    const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
+    const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; requestFullscreen?: () => void; checkHomeScreenStatus?: () => void; addToHomeScreen?: () => void; onEvent?: (event: string, cb: (status: string) => void) => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
     if (tg) {
       tg.ready(); tg.expand();
+      try { tg.requestFullscreen?.(); } catch {}
+      try { (tg as unknown as { disableVerticalSwipes?: () => void }).disableVerticalSwipes?.(); } catch {}
       if (tg.initDataUnsafe?.user?.id) setTelegramUserId(tg.initDataUnsafe.user.id);
+      // Home screen icon — show on second visit
+      const visits = parseInt(localStorage.getItem('dezik_visits') ?? '0') + 1;
+      localStorage.setItem('dezik_visits', String(visits));
+      if (visits >= 2 && tg.addToHomeScreen) {
+        try { tg.addToHomeScreen(); } catch {}
+      }
     }
     const saved = localStorage.getItem('dezik_phone');
     if (saved) { setPhone(saved); searchOrders(saved); }
@@ -106,7 +128,7 @@ export default function CustomerPage() {
     if (!chatText.trim()) return;
     setChatSending(true);
     try {
-      await fetch('/api/customer/messages', {
+      await customerFetch('/api/customer/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,7 +242,7 @@ export default function CustomerPage() {
   const loadCatalog = async () => {
     setCatalogLoading(true);
     try {
-      const res = await fetch('/api/customer/catalog');
+      const res = await customerFetch('/api/customer/catalog');
       const data = await res.json();
       setCatalog(data.data ?? []);
       setCatalogCategories(data.categories ?? []);
@@ -247,7 +269,7 @@ export default function CustomerPage() {
     if (!checkoutName || cart.length === 0) return;
     setOrdering(true);
     try {
-      const res = await fetch('/api/customer/create-order', {
+      const res = await customerFetch('/api/customer/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -429,7 +451,7 @@ export default function CustomerPage() {
                     const fd = new FormData();
                     fd.append('order_id', String(o.id));
                     fd.append('photo', file);
-                    const res = await fetch('/api/customer/payment-proof', { method: 'POST', body: fd });
+                    const res = await customerFetch('/api/customer/payment-proof', { method: 'POST', body: fd });
                     const data = await res.json();
                     if (data.ok) {
                       setPaymentSent(true);
@@ -1020,7 +1042,7 @@ export default function CustomerPage() {
           className="mt-8 px-8 py-3 rounded-2xl bg-[#4b569e] text-white text-[15px] font-bold active:scale-[0.97] transition-all">
           На головну
         </button>
-        <button onClick={() => { setView('shop'); if (catalog.length === 0) { setCatalogLoading(true); fetch('/api/customer/catalog').then(r => r.json()).then(d => { setCatalog(d.data ?? []); const cats = [...new Set((d.data ?? []).map((p: CatalogProduct & { category?: string }) => p.category).filter(Boolean))] as string[]; setCatalogCategories(cats); }).finally(() => setCatalogLoading(false)); } }}
+        <button onClick={() => { setView('shop'); if (catalog.length === 0) { setCatalogLoading(true); customerFetch('/api/customer/catalog').then(r => r.json()).then(d => { setCatalog(d.data ?? []); const cats = [...new Set((d.data ?? []).map((p: CatalogProduct & { category?: string }) => p.category).filter(Boolean))] as string[]; setCatalogCategories(cats); }).finally(() => setCatalogLoading(false)); } }}
           className="mt-3 flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-[#E5E7EB] text-[#4b569e] text-[14px] font-semibold active:scale-[0.97] transition-all shadow-sm">
           <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349m-16.5 11.65V9.35m0 0a3.001 3.001 0 003.75-.615A2.993 2.993 0 009.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 002.25 1.016c.896 0 1.7-.393 2.25-1.016a3.001 3.001 0 003.75.614m-16.5 0a3.004 3.004 0 01-.621-4.72L4.318 3.44A1.5 1.5 0 015.378 3h13.243a1.5 1.5 0 011.06.44l1.19 1.189a3 3 0 01-.621 4.72m-13.5 8.65h3.75a.75.75 0 00.75-.75V13.5a.75.75 0 00-.75-.75H6.75a.75.75 0 00-.75.75v3.15c0 .415.336.75.75.75z" />
@@ -1525,7 +1547,7 @@ export default function CustomerPage() {
     const loadManagerMessages = async () => {
       setManagerChatLoading(true);
       try {
-        const res = await fetch('/api/customer/messages?order_id=0');
+        const res = await customerFetch('/api/customer/messages?order_id=0');
         const data = await res.json();
         setManagerMessages(data.data ?? []);
       } catch {} finally { setManagerChatLoading(false); }
@@ -1535,7 +1557,7 @@ export default function CustomerPage() {
       if (!managerText.trim() || managerSending) return;
       setManagerSending(true);
       try {
-        await fetch('/api/customer/messages', {
+        await customerFetch('/api/customer/messages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1650,7 +1672,7 @@ export default function CustomerPage() {
       setAiText('');
       setAiSending(true);
       try {
-        const res = await fetch('/api/customer/ai-chat', {
+        const res = await customerFetch('/api/customer/ai-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: msg, history: aiMessages }),
@@ -1874,7 +1896,7 @@ export default function CustomerPage() {
           <button onClick={() => {
             setView('manager-chat');
             setManagerChatLoading(true);
-            fetch('/api/customer/messages?order_id=0').then(r => r.json()).then(d => setManagerMessages(d.data ?? [])).catch(() => {}).finally(() => setManagerChatLoading(false));
+            customerFetch('/api/customer/messages?order_id=0').then(r => r.json()).then(d => setManagerMessages(d.data ?? [])).catch(() => {}).finally(() => setManagerChatLoading(false));
           }}
             className="flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#E5E7EB] active:scale-[0.96] transition-all text-left">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#2563EB] flex items-center justify-center text-white shadow-md">

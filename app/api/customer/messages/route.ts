@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateInitData } from '@/lib/telegram/validate';
 import { dualWriteMessage } from '@/lib/chat/dual-write';
+import { authenticateCustomer, escapeHtml } from '@/lib/telegram/customer-auth';
 
 const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const CUSTOMER_BOT_TOKEN = process.env.TELEGRAM_CUSTOMER_BOT_TOKEN ?? '';
@@ -14,8 +15,23 @@ async function sendTelegram(token: string, chatId: number, text: string) {
   });
 }
 
-/** GET messages for an order */
+/** GET messages for an order — requires Telegram auth or ops staff */
 export async function GET(request: NextRequest) {
+  // Allow both customer auth and ops staff auth
+  const customerId = await authenticateCustomer(request);
+  const initData = request.headers.get('x-telegram-init-data');
+  let isOpsStaff = false;
+  if (!customerId && initData) {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (botToken) {
+      const tg = await validateInitData(initData, botToken);
+      if (tg) isOpsStaff = true;
+    }
+  }
+  if (!customerId && !isOpsStaff) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get('order_id');
   if (!orderId) return NextResponse.json({ data: [] });
@@ -30,27 +46,36 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ data: data ?? [] });
 }
 
-/** POST send a message */
+/** POST send a message — requires auth */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { order_id, sender_telegram_id, text } = body;
-
-    if (order_id === undefined || order_id === null || !text) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
-    }
-
-    // Determine sender_type from authentication, not client input
+    // Authenticate — try customer first, then ops staff
+    const customerId = await authenticateCustomer(request);
     let sender_type = 'customer';
-    const initData = request.headers.get('x-telegram-init-data');
-    if (initData) {
+    let authTelegramId: number | null = customerId;
+
+    if (!customerId) {
+      const initData = request.headers.get('x-telegram-init-data');
       const botToken = process.env.TELEGRAM_BOT_TOKEN;
-      if (botToken) {
+      if (initData && botToken) {
         const tgUser = await validateInitData(initData, botToken);
         if (tgUser) {
           sender_type = 'manager';
+          authTelegramId = tgUser.id;
         }
       }
+    }
+
+    if (!authTelegramId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { order_id, text } = body;
+    const sender_telegram_id = authTelegramId;
+
+    if (order_id === undefined || order_id === null || !text) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
     }
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);

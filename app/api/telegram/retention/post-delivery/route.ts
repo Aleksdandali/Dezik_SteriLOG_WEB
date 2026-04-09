@@ -9,6 +9,7 @@ import {
   sendCustomerMessage,
   logRetentionMessage,
   getTelegramLinksByPhones,
+  generateAiMessage,
 } from '@/lib/retention/helpers';
 
 interface KOrder {
@@ -80,8 +81,17 @@ export async function GET(request: NextRequest) {
     }
     const phones = Array.from(phonesSet);
 
-    // Get telegram links for all phones at once
+    // Get telegram links and customer profiles for all phones at once
     const telegramLinks = await getTelegramLinksByPhones(supabase, phones);
+
+    const { data: profiles } = await supabase
+      .from('customer_profiles')
+      .select('phone, segment, total_orders')
+      .in('phone', phones);
+    const profileMap = new Map<string, { segment: string; totalOrders: number }>();
+    for (const p of profiles ?? []) {
+      profileMap.set(p.phone, { segment: p.segment ?? 'new', totalOrders: p.total_orders ?? 1 });
+    }
 
     let sent = 0;
     let skipped = 0;
@@ -117,12 +127,27 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const firstName = link.firstName ?? '';
-      const greeting = firstName ? `${firstName}, все` : 'Все';
+      const profile = profileMap.get(phone);
 
-      const messageText =
-        `${greeting} отримали? Якщо щось не так -- пишіть, ми на зв'язку.\n\n` +
-        `Замовлення #${order.id}`;
+      // Try AI-generated message first
+      let messageText = await generateAiMessage({
+        messageType: 'post_delivery',
+        firstName: link.firstName,
+        segment: profile?.segment ?? 'new',
+        products: [],
+        totalOrders: profile?.totalOrders ?? 1,
+        orderId: order.id,
+      });
+
+      // Fallback to template if AI fails
+      if (!messageText) {
+        const firstName = link.firstName ?? '';
+        const greeting = firstName ? `${firstName}, все` : 'Все';
+
+        messageText =
+          `${greeting} отримали? Якщо щось не так -- пишіть, ми на зв'язку.\n\n` +
+          `Замовлення #${order.id}`;
+      }
 
       try {
         await sendCustomerMessage(link.telegramId, messageText, {

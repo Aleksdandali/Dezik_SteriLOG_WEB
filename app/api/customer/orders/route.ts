@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { keycrmFetch } from '@/lib/keycrm';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateCustomer } from '@/lib/telegram/customer-auth';
 
-/** GET customer orders by phone number */
+/** GET customer orders by phone number — requires Telegram auth */
 export async function GET(request: NextRequest) {
+  const customerId = await authenticateCustomer(request);
+  if (!customerId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const phone = searchParams.get('phone');
-  const telegramId = searchParams.get('telegram_id');
+  const telegramId = String(customerId);
 
   if (!phone || phone.length < 9 || phone.length > 20) {
     return NextResponse.json({ error: 'Вкажіть номер телефону' }, { status: 400 });

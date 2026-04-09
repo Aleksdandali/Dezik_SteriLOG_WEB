@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { keycrmFetch, fetchAllProductsSafe } from '@/lib/keycrm';
+import { authenticateCustomer } from '@/lib/telegram/customer-auth';
 import { trackShipment } from '@/lib/nova-poshta';
 
 // ---------------------------------------------------------------------------
@@ -491,7 +492,13 @@ async function callClaude(
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    const { message, order_id, history, telegram_id } = await request.json();
+    const customerId = await authenticateCustomer(request);
+    if (!customerId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { message, order_id, history } = await request.json();
+    const telegram_id = String(customerId);
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { keycrmFetch } from '@/lib/keycrm';
-import { getSupabase, verifyCronAuth } from '@/lib/retention/helpers';
+import {
+  getSupabase,
+  verifyCronAuth,
+  loadProductMap,
+  resolveProductSku,
+} from '@/lib/retention/helpers';
 import { CONSUMPTION_DEFAULTS } from '@/lib/retention/constants';
 
 interface KOrderProduct {
+  product_id?: number;
   sku: string | null;
   name: string;
   quantity: number;
@@ -140,6 +146,9 @@ async function processOrder(
   const now = new Date().toISOString();
   const orderDate = order.created_at.slice(0, 10);
 
+  // ---- 0. Load product map (keycrm_id -> SKU) ----
+  const productMap = await loadProductMap(supabase);
+
   // ---- 1. Update customer_profiles ----
 
   // Fetch existing profile
@@ -214,12 +223,17 @@ async function processOrder(
   // ---- 2. Update consumption_tracking ----
 
   for (const product of order.products ?? []) {
-    const sku = product.sku;
-    if (!sku) continue;
+    // Resolve SKU via keycrm_id -> ops_products mapping (with fuzzy name fallback)
+    const resolved = resolveProductSku(
+      productMap,
+      product.product_id,
+      product.name
+    );
+    if (!resolved) continue; // Unknown product, skip
 
-    // Look up default consumption rate
+    const { sku } = resolved;
     const defaults = CONSUMPTION_DEFAULTS[sku];
-    if (!defaults) continue; // Unknown product, skip
+    if (!defaults || !defaults.isConsumable) continue;
 
     const quantity = product.quantity || 1;
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { authenticateCustomer } from '@/lib/telegram/customer-auth';
 
 const OPS_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? '';
 
@@ -11,9 +12,12 @@ async function sendTelegram(chatId: number, text: string) {
   });
 }
 
-/** POST — upload payment proof photo */
+/** POST — upload payment proof photo — requires auth */
 export async function POST(request: NextRequest) {
   try {
+    const customerId = await authenticateCustomer(request);
+    if (!customerId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
     const formData = await request.formData();
     const orderId = formData.get('order_id');
     const file = formData.get('photo') as File | null;
@@ -94,8 +98,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** GET — get payment proofs for an order */
+/** GET — get payment proofs for an order — requires auth */
 export async function GET(request: NextRequest) {
+  const customerId = await authenticateCustomer(request);
+  if (!customerId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get('order_id');
   if (!orderId) return NextResponse.json({ data: [] });

@@ -4,9 +4,189 @@ import {
   SEND_WINDOW,
   MAX_MESSAGES_PER_WEEK,
   MIN_DAYS_BETWEEN_MESSAGES,
+  CONSUMPTION_DEFAULTS,
 } from './constants';
 
 const BOT_API = 'https://api.telegram.org/bot';
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const AI_MODEL = 'claude-haiku-4-5-20251001';
+const AI_MAX_TOKENS = 200;
+
+/* ─── Product map: keycrm_id -> { sku, name, category } ─── */
+
+export interface ProductMapEntry {
+  sku: string;
+  name: string;
+  category: string;
+}
+
+let _productMapCache: Map<number, ProductMapEntry> | null = null;
+let _productMapExpiry = 0;
+const PRODUCT_MAP_TTL = 10 * 60 * 1000; // 10 minutes
+
+/** Load ops_products and build a Map<keycrm_id, {sku, name, category}>. Cached for 10 min. */
+export async function loadProductMap(
+  supabase: SupabaseClient
+): Promise<Map<number, ProductMapEntry>> {
+  if (_productMapCache && Date.now() < _productMapExpiry) {
+    return _productMapCache;
+  }
+
+  const { data, error } = await supabase
+    .from('ops_products')
+    .select('sku, name, category, keycrm_id')
+    .eq('active', true)
+    .not('keycrm_id', 'is', null);
+
+  if (error) {
+    console.error('[loadProductMap] DB error:', error.message);
+    return _productMapCache ?? new Map();
+  }
+
+  const map = new Map<number, ProductMapEntry>();
+  for (const row of data ?? []) {
+    if (row.keycrm_id != null) {
+      map.set(row.keycrm_id, {
+        sku: row.sku,
+        name: row.name,
+        category: row.category,
+      });
+    }
+  }
+
+  _productMapCache = map;
+  _productMapExpiry = Date.now() + PRODUCT_MAP_TTL;
+  return map;
+}
+
+/**
+ * Resolve a KeyCRM order product to our internal SKU.
+ * Strategy: 1) match by product_id -> keycrm_id, 2) fuzzy name match as fallback.
+ */
+export function resolveProductSku(
+  productMap: Map<number, ProductMapEntry>,
+  keycrmProductId: number | null | undefined,
+  productName: string
+): { sku: string; entry: ProductMapEntry } | null {
+  // 1. Direct match by keycrm_id
+  if (keycrmProductId != null) {
+    const entry = productMap.get(keycrmProductId);
+    if (entry && CONSUMPTION_DEFAULTS[entry.sku]) {
+      return { sku: entry.sku, entry };
+    }
+  }
+
+  // 2. Fuzzy fallback: normalize product name and try to match
+  const normalizedName = productName.toLowerCase().trim();
+  for (const [, entry] of productMap) {
+    const defaults = CONSUMPTION_DEFAULTS[entry.sku];
+    if (!defaults) continue;
+    const entryName = entry.name.toLowerCase();
+    // Check if the KeyCRM product name contains our product name or vice versa
+    if (normalizedName.includes(entryName) || entryName.includes(normalizedName)) {
+      return { sku: entry.sku, entry };
+    }
+  }
+
+  return null;
+}
+
+/* ─── AI message generation ─── */
+
+interface AiMessageContext {
+  messageType: 'reorder_reminder' | 'post_delivery';
+  firstName: string | null;
+  segment: string;
+  products: { name: string; daysLeft?: number }[];
+  totalOrders: number;
+  orderId?: number;
+}
+
+const REORDER_SYSTEM_PROMPT = `Ти -- асистент бренду Dezik (стерилізація та дезінфекція для б'юті-індустрії).
+Напиши коротке повідомлення клієнту про те, що його витратні матеріали закінчуються.
+Правила:
+- Українська мова, звертання на "ви" (з маленької літери)
+- Без emoji
+- 2-4 речення максимум
+- Згадай товари з контексту
+- Тон: дружній, професійний, не нав'язливий
+- НЕ додавай кнопки/посилання -- їх додамо окремо
+- Для VIP клієнтів можна додати "як завжди, подбаємо про швидку доставку"
+- Для нових -- "раді, що обрали Dezik"`;
+
+const POST_DELIVERY_SYSTEM_PROMPT = `Ти -- асистент бренду Dezik (стерилізація та дезінфекція для б'юті-індустрії).
+Напиши коротке повідомлення-перевірку після доставки замовлення.
+Правила:
+- Українська мова, звертання на "ви" (з маленької літери)
+- Без emoji
+- 2-3 речення максимум
+- Тон: турботливий, ненав'язливий
+- Запитай чи все гаразд з замовленням
+- НЕ додавай кнопки/посилання -- їх додамо окремо
+- Для постійних клієнтів -- тепліший тон`;
+
+/**
+ * Generate an AI-personalized message via Claude Haiku.
+ * Falls back to null on failure (caller should use template).
+ */
+export async function generateAiMessage(
+  ctx: AiMessageContext
+): Promise<string | null> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.warn('[AI] ANTHROPIC_API_KEY not set, falling back to template');
+    return null;
+  }
+
+  const systemPrompt =
+    ctx.messageType === 'reorder_reminder'
+      ? REORDER_SYSTEM_PROMPT
+      : POST_DELIVERY_SYSTEM_PROMPT;
+
+  const userContent = JSON.stringify({
+    first_name: ctx.firstName || null,
+    segment: ctx.segment,
+    total_orders: ctx.totalOrders,
+    products: ctx.products,
+    order_id: ctx.orderId ?? null,
+  });
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: AI_MAX_TOKENS,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }],
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.error('[AI] API error:', res.status, await res.text().catch(() => ''));
+      return null;
+    }
+
+    const data = await res.json();
+    const text = data?.content?.[0]?.text?.trim();
+    if (!text || text.length < 10) return null;
+    return text;
+  } catch (err) {
+    console.error('[AI] Generation failed:', err);
+    return null;
+  }
+}
 
 /** Create Supabase service client */
 export function getSupabase(): SupabaseClient {

@@ -66,7 +66,9 @@ type View =
   | 'messages'
   | 'chat-detail'
   | 'stock-dashboard'
-  | 'bot-clients';
+  | 'bot-clients'
+  | 'retention-preview'
+  | 'all-clients';
 
 interface TelegramWebApp {
   initData: string;
@@ -383,6 +385,21 @@ function TelegramPage() {
     if (tg) {
       tg.ready();
       tg.expand();
+      try { (tg as unknown as { requestFullscreen?: () => void }).requestFullscreen?.(); } catch {}
+      try { (tg as unknown as { disableVerticalSwipes?: () => void }).disableVerticalSwipes?.(); } catch {}
+      // Home screen — only suggest if not yet added
+      try {
+        const tw = tg as unknown as { checkHomeScreenStatus?: (cb?: (s: string) => void) => void; addToHomeScreen?: () => void; onEvent?: (e: string, cb: (s: string) => void) => void };
+        if (tw.checkHomeScreenStatus) {
+          tw.onEvent?.('homeScreenChecked', (status: string) => {
+            if (status === 'missed' && !localStorage.getItem('dezik_hs_asked')) {
+              localStorage.setItem('dezik_hs_asked', '1');
+              tw.addToHomeScreen?.();
+            }
+          });
+          tw.checkHomeScreenStatus();
+        }
+      } catch {}
     }
 
     (async () => {
@@ -523,6 +540,12 @@ function TelegramPage() {
       {view === 'bot-clients' && (
         <BotClientsView />
       )}
+      {view === 'all-clients' && (
+        <AllClientsView />
+      )}
+      {view === 'retention-preview' && (
+        <RetentionPreview />
+      )}
       {(view === 'messages' || view === 'chat-detail') && (
         <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
       )}
@@ -591,6 +614,8 @@ function MainMenu({
     { icon: '👥', label: 'Команда', view: 'team', adminOnly: true },
     { icon: '📊', label: 'Звіти P&L', view: 'reports', adminOnly: true },
     { icon: '📈', label: 'Аналітика', view: 'analytics', adminOnly: true },
+    { icon: '👤', label: 'Клієнти', view: 'all-clients', adminOnly: true },
+    { icon: '🔄', label: 'Retention', view: 'retention-preview', adminOnly: true },
     { icon: '📄', label: 'Документи ФОП', view: 'fop-docs', adminOnly: true },
   ];
 
@@ -5774,6 +5799,188 @@ function FopDocsView({ staff }: { staff: OpsStaff }) {
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Retention Preview ───────────────────────────────
+function RetentionPreview() {
+  const [data, setData] = useState<{ total_customers: number; total_orders_90d: number; would_send_reminders: number; would_send_winback: number; customers: {
+    customer: string; phone: string; totalOrders: number; totalSpend: number; lastOrderDate: string; daysSinceLastOrder: number; segment: string;
+    wouldSendPostDelivery: boolean; wouldSendWinback: boolean;
+    products: { name: string; lastOrderedQty: number; daysPerUnit: number; estimatedEmptyDate: string; daysUntilEmpty: number; status: string; wouldSendReminder: boolean }[];
+  }[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<typeof data>('/retention/preview').then(setData).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const segColors: Record<string, string> = { new: 'bg-blue-100 text-blue-700', active: 'bg-green-100 text-green-700', vip: 'bg-purple-100 text-purple-700', dormant: 'bg-red-100 text-red-700' };
+
+  if (loading) return <div className="flex flex-col items-center py-16 gap-3"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /><p className="text-[13px] text-[#9CA3AF]">Аналізую замовлення...</p></div>;
+  if (!data) return <p className="text-center py-12 text-[#9CA3AF]">Помилка завантаження</p>;
+
+  return (
+    <div className="space-y-4">
+      <PageHeader icon="🔄" title="Retention Preview" subtitle="Що відправити клієнтам" />
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[18px] font-bold text-[#111827]">{data.total_customers}</p>
+          <p className="text-[11px] text-[#9CA3AF]">Клієнтів (90д)</p>
+        </div>
+        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[18px] font-bold text-[#111827]">{data.total_orders_90d}</p>
+          <p className="text-[11px] text-[#9CA3AF]">Замовлень</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-[#FEF3C7] rounded-[20px] p-3 border border-[#FDE68A] text-center">
+          <p className="text-[18px] font-bold text-[#92400E]">{data.would_send_reminders}</p>
+          <p className="text-[11px] text-[#92400E]">Нагадування</p>
+        </div>
+        <div className="bg-[#FEE2E2] rounded-[20px] p-3 border border-[#FECACA] text-center">
+          <p className="text-[18px] font-bold text-[#DC2626]">{data.would_send_winback}</p>
+          <p className="text-[11px] text-[#DC2626]">Win-back</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {data.customers.map(c => {
+          const isExp = expanded === c.phone;
+          const urgent = c.products.filter(p => p.status === 'overdue' || p.status === 'empty').length;
+          const soon = c.products.filter(p => p.status === 'soon').length;
+          return (
+            <div key={c.phone}>
+              <button onClick={() => setExpanded(isExp ? null : c.phone)}
+                className="w-full bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.98] transition-all text-left">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-bold text-[#111827] truncate">{c.customer}</p>
+                      <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${segColors[c.segment] ?? 'bg-gray-100 text-gray-600'}`}>{c.segment}</span>
+                    </div>
+                    <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.totalSpend.toLocaleString('uk-UA')} грн · {c.daysSinceLastOrder}д тому</p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {urgent > 0 && <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center">{urgent}</span>}
+                    {soon > 0 && <span className="w-5 h-5 rounded-full bg-[#F59E0B] text-white text-[10px] font-bold flex items-center justify-center">{soon}</span>}
+                    <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                  </div>
+                </div>
+              </button>
+              {isExp && (
+                <div className="mt-1 bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+                  {c.wouldSendWinback && <div className="px-4 py-2 bg-[#FEE2E2] text-[12px] font-semibold text-[#DC2626]">🔄 Win-back: клієнт неактивний {c.daysSinceLastOrder} днів</div>}
+                  {c.wouldSendPostDelivery && <div className="px-4 py-2 bg-[#D1FAE5] text-[12px] font-semibold text-[#065F46]">📦 Post-delivery: відправити "Все отримали?"</div>}
+                  {c.products.length === 0 ? <p className="px-4 py-3 text-[13px] text-[#9CA3AF]">Немає витратних товарів</p>
+                  : c.products.map((p, i) => {
+                    const colors = { ok: 'text-[#059669]', soon: 'text-[#D97706]', empty: 'text-[#DC2626]', overdue: 'text-[#DC2626]' };
+                    const labels = { ok: 'ОК', soon: 'Скоро', empty: 'Закінчується', overdue: 'Закінчився' };
+                    return (
+                      <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-[#111827] truncate">{p.name} ×{p.lastOrderedQty}</p>
+                          <p className="text-[11px] text-[#9CA3AF]">Пустий: {p.estimatedEmptyDate}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <p className={`text-[13px] font-bold ${colors[p.status as keyof typeof colors] ?? 'text-[#9CA3AF]'}`}>
+                            {p.daysUntilEmpty > 0 ? `${p.daysUntilEmpty}д` : `${Math.abs(p.daysUntilEmpty)}д назад`}
+                          </p>
+                          <p className={`text-[10px] font-semibold ${colors[p.status as keyof typeof colors]}`}>{labels[p.status as keyof typeof labels]}{p.wouldSendReminder ? ' 📩' : ''}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── All Clients (KeyCRM) ────────────────────────────
+function AllClientsView() {
+  const [clients, setClients] = useState<{ id: number; name: string; phone: string | null; orders_count: number; orders_sum: number; in_bot: boolean; created_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (q: string, p: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ page: String(p) });
+      if (q) params.set('search', q);
+      const r = await api<{ data: typeof clients; total: number; last_page: number }>(`/clients?${params}`);
+      setClients(r.data ?? []);
+      setTotal(r.total ?? 0);
+      setLastPage(r.last_page ?? 1);
+    } catch (err) { console.error('[AllClients]', err); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load('', 1); }, [load]);
+
+  const doSearch = (q: string) => {
+    setSearch(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setPage(1); load(q, 1); }, 400);
+  };
+
+  return (
+    <div className="space-y-4">
+      <PageHeader icon="👤" title="Клієнти" subtitle={`${total} клієнтів у KeyCRM`} />
+
+      <div className="relative">
+        <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+        <input placeholder="Пошук по імені або телефону..." value={search} onChange={e => doSearch(e.target.value)}
+          className="w-full h-[44px] pl-11 pr-4 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-[14px] focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]" />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+      ) : clients.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-[15px] font-semibold text-[#111827]">{search ? 'Не знайдено' : 'Немає клієнтів'}</p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] divide-y divide-[#F5F5F5]">
+            {clients.map(c => (
+              <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[14px] font-bold ${c.in_bot ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
+                  {c.name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[14px] font-semibold text-[#111827] truncate">{c.name}</p>
+                    {c.in_bot && <span className="px-1.5 py-0.5 rounded-md bg-[#D1FAE5] text-[#065F46] text-[9px] font-bold flex-shrink-0">В боті</span>}
+                  </div>
+                  <p className="text-[12px] text-[#9CA3AF]">{c.phone ?? '—'} · {c.orders_count} зам · {c.orders_sum.toLocaleString('uk-UA')} грн</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {lastPage > 1 && (
+            <div className="flex items-center justify-center gap-3">
+              <button disabled={page <= 1} onClick={() => { setPage(p => p - 1); load(search, page - 1); }}
+                className="px-4 py-2 rounded-xl bg-[#eceef5] text-[#363f75] text-[13px] font-semibold disabled:opacity-30">← Назад</button>
+              <span className="text-[13px] text-[#9CA3AF]">{page} / {lastPage}</span>
+              <button disabled={page >= lastPage} onClick={() => { setPage(p => p + 1); load(search, page + 1); }}
+                className="px-4 py-2 rounded-xl bg-[#eceef5] text-[#363f75] text-[13px] font-semibold disabled:opacity-30">Далі →</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

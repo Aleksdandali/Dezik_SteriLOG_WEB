@@ -8,6 +8,7 @@ import {
   sendCustomerMessage,
   logRetentionMessage,
   getTelegramLinksByPhones,
+  generateAiMessage,
 } from '@/lib/retention/helpers';
 import { REORDER_LOOKAHEAD_DAYS } from '@/lib/retention/constants';
 
@@ -73,6 +74,16 @@ export async function GET(request: NextRequest) {
       itemsByPhone.set(item.phone, existing);
     }
 
+    // Fetch customer profiles for AI context
+    const { data: profiles } = await supabase
+      .from('customer_profiles')
+      .select('phone, segment, total_orders')
+      .in('phone', phones);
+    const profileMap = new Map<string, { segment: string; totalOrders: number }>();
+    for (const p of profiles ?? []) {
+      profileMap.set(p.phone, { segment: p.segment ?? 'new', totalOrders: p.total_orders ?? 1 });
+    }
+
     const webAppUrl = 'https://dezik-admin.vercel.app/customer';
 
     for (const [phone, items] of itemsByPhone) {
@@ -89,8 +100,8 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Build product list for the message
-      const productLines = items
+      // Build product context for AI and fallback
+      const productContext = items
         .slice(0, 5) // Max 5 products per message
         .map(item => {
           const name = item.product_name || item.product_category;
@@ -101,20 +112,39 @@ export async function GET(request: NextRequest) {
               86400000
             )
           );
-          if (daysLeft <= 0) return `  -- ${name} (вже закінчився)`;
-          if (daysLeft <= 3) return `  -- ${name} (залишилось ${daysLeft} дн.)`;
-          return `  -- ${name} (~${daysLeft} дн.)`;
-        })
-        .join('\n');
+          return { name, daysLeft };
+        });
 
-      const firstName = link.firstName ?? '';
-      const greeting = firstName ? `${firstName}, схоже` : 'Схоже';
-      const plural = items.length > 1 ? 'деяких товарів' : 'товару';
+      const profile = profileMap.get(phone);
 
-      const messageText =
-        `${greeting}, запас ${plural} закінчується:\n\n` +
-        `${productLines}\n\n` +
-        `Повторити замовлення?`;
+      // Try AI-generated message first
+      let messageText = await generateAiMessage({
+        messageType: 'reorder_reminder',
+        firstName: link.firstName,
+        segment: profile?.segment ?? 'new',
+        products: productContext,
+        totalOrders: profile?.totalOrders ?? 1,
+      });
+
+      // Fallback to template if AI fails
+      if (!messageText) {
+        const productLines = productContext
+          .map(({ name, daysLeft }) => {
+            if (daysLeft <= 0) return `  -- ${name} (вже закінчився)`;
+            if (daysLeft <= 3) return `  -- ${name} (залишилось ${daysLeft} дн.)`;
+            return `  -- ${name} (~${daysLeft} дн.)`;
+          })
+          .join('\n');
+
+        const firstName = link.firstName ?? '';
+        const greeting = firstName ? `${firstName}, схоже` : 'Схоже';
+        const plural = items.length > 1 ? 'деяких товарів' : 'товару';
+
+        messageText =
+          `${greeting}, запас ${plural} закінчується:\n\n` +
+          `${productLines}\n\n` +
+          `Повторити замовлення?`;
+      }
 
       try {
         await sendCustomerMessage(link.telegramId, messageText, {
