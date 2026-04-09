@@ -4,13 +4,15 @@ import { sendStartMessage, sendMessage } from '@/lib/telegram/bot';
 import type { TelegramUpdate } from '@/lib/telegram/types';
 
 export async function POST(request: NextRequest) {
-  // Verify webhook secret if configured
+  // Verify webhook secret (required)
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (webhookSecret) {
-    const secretHeader = request.headers.get('x-telegram-bot-api-secret-token');
-    if (secretHeader !== webhookSecret) {
-      return NextResponse.json({ ok: false }, { status: 403 });
-    }
+  if (!webhookSecret) {
+    console.error('[OPS Webhook] TELEGRAM_WEBHOOK_SECRET not configured');
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+  const secretHeader = request.headers.get('x-telegram-bot-api-secret-token');
+  if (secretHeader !== webhookSecret) {
+    return NextResponse.json({ ok: false }, { status: 403 });
   }
 
   try {
