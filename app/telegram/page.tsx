@@ -6080,6 +6080,9 @@ function RetentionPreview() {
   }[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null); // phone being sent
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     api<typeof data>('/retention/preview').then(setData).catch(() => {}).finally(() => setLoading(false));
@@ -6087,12 +6090,45 @@ function RetentionPreview() {
 
   const segColors: Record<string, string> = { new: 'bg-blue-100 text-blue-700', active: 'bg-green-100 text-green-700', vip: 'bg-purple-100 text-purple-700', dormant: 'bg-red-100 text-red-700' };
 
+  const handleSend = async (c: NonNullable<typeof data>['customers'][0], type: 'reorder_reminder' | 'post_delivery' | 'win_back') => {
+    setSending(c.phone);
+    setSendError(null);
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
+    try {
+      const products = c.products.filter(p => p.wouldSendReminder || p.status !== 'ok').map(p => ({
+        name: p.name,
+        daysLeft: p.daysUntilEmpty,
+      }));
+      await api('/retention/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: c.phone,
+          messageType: type,
+          products,
+          segment: c.segment,
+          totalOrders: c.totalOrders,
+          firstName: c.customer.split(' ')[0],
+        }),
+      });
+      setSent(prev => new Set(prev).add(c.phone));
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Помилка';
+      setSendError(msg);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+    }
+    setSending(null);
+  };
+
   if (loading) return <div className="flex flex-col items-center py-16 gap-3"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /><p className="text-[13px] text-[#9CA3AF]">Аналізую замовлення...</p></div>;
   if (!data) return <p className="text-center py-12 text-[#9CA3AF]">Помилка завантаження</p>;
 
+  const needsAction = data.customers.filter(c => c.products.some(p => p.wouldSendReminder) || c.wouldSendWinback || c.wouldSendPostDelivery);
+  const ok = data.customers.filter(c => !c.products.some(p => p.wouldSendReminder) && !c.wouldSendWinback && !c.wouldSendPostDelivery);
+
   return (
     <div className="space-y-4">
-      <PageHeader icon="🔄" title="Retention Preview" subtitle="Що відправити клієнтам" />
+      <PageHeader icon="🔄" title="Retention" subtitle="Утримання клієнтів" />
 
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
@@ -6100,8 +6136,8 @@ function RetentionPreview() {
           <p className="text-[11px] text-[#9CA3AF]">Клієнтів (90д)</p>
         </div>
         <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
-          <p className="text-[18px] font-bold text-[#111827]">{data.total_orders_90d}</p>
-          <p className="text-[11px] text-[#9CA3AF]">Замовлень</p>
+          <p className="text-[18px] font-bold text-[#111827]">{sent.size}/{needsAction.length}</p>
+          <p className="text-[11px] text-[#9CA3AF]">Надіслано</p>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -6115,59 +6151,117 @@ function RetentionPreview() {
         </div>
       </div>
 
-      <div className="space-y-2">
-        {data.customers.map(c => {
-          const isExp = expanded === c.phone;
-          const urgent = c.products.filter(p => p.status === 'overdue' || p.status === 'empty').length;
-          const soon = c.products.filter(p => p.status === 'soon').length;
-          return (
-            <div key={c.phone}>
-              <button onClick={() => setExpanded(isExp ? null : c.phone)}
-                className="w-full bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.98] transition-all text-left">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-bold text-[#111827] truncate">{c.customer}</p>
-                      <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${segColors[c.segment] ?? 'bg-gray-100 text-gray-600'}`}>{c.segment}</span>
-                    </div>
-                    <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.totalSpend.toLocaleString('uk-UA')} грн · {c.daysSinceLastOrder}д тому</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {urgent > 0 && <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center">{urgent}</span>}
-                    {soon > 0 && <span className="w-5 h-5 rounded-full bg-[#F59E0B] text-white text-[10px] font-bold flex items-center justify-center">{soon}</span>}
-                    <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                  </div>
-                </div>
-              </button>
-              {isExp && (
-                <div className="mt-1 bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
-                  {c.wouldSendWinback && <div className="px-4 py-2 bg-[#FEE2E2] text-[12px] font-semibold text-[#DC2626]">🔄 Win-back: клієнт неактивний {c.daysSinceLastOrder} днів</div>}
-                  {c.wouldSendPostDelivery && <div className="px-4 py-2 bg-[#D1FAE5] text-[12px] font-semibold text-[#065F46]">📦 Post-delivery: відправити "Все отримали?"</div>}
-                  {c.products.length === 0 ? <p className="px-4 py-3 text-[13px] text-[#9CA3AF]">Немає витратних товарів</p>
-                  : c.products.map((p, i) => {
-                    const colors = { ok: 'text-[#059669]', soon: 'text-[#D97706]', empty: 'text-[#DC2626]', overdue: 'text-[#DC2626]' };
-                    const labels = { ok: 'ОК', soon: 'Скоро', empty: 'Закінчується', overdue: 'Закінчився' };
-                    return (
-                      <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium text-[#111827] truncate">{p.name} ×{p.lastOrderedQty}</p>
-                          <p className="text-[11px] text-[#9CA3AF]">Пустий: {p.estimatedEmptyDate}</p>
+      {sendError && (
+        <div className="bg-[#FEE2E2] rounded-[16px] px-4 py-2 text-[12px] text-[#DC2626] font-medium">{sendError}</div>
+      )}
+
+      {/* Customers that need action */}
+      {needsAction.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Потребують дії ({needsAction.length})</p>
+          {needsAction.map(c => {
+            const isExp = expanded === c.phone;
+            const isSent = sent.has(c.phone);
+            const isSending = sending === c.phone;
+            const urgent = c.products.filter(p => p.status === 'overdue' || p.status === 'empty').length;
+            const soon = c.products.filter(p => p.status === 'soon').length;
+            const hasReminder = c.products.some(p => p.wouldSendReminder);
+
+            // Determine action type
+            let actionType: 'reorder_reminder' | 'post_delivery' | 'win_back' = 'reorder_reminder';
+            let actionLabel = 'Нагадати';
+            let actionColor = 'bg-[#F59E0B]';
+            if (c.wouldSendPostDelivery) { actionType = 'post_delivery'; actionLabel = 'Перевірити'; actionColor = 'bg-[#10B981]'; }
+            else if (c.wouldSendWinback) { actionType = 'win_back'; actionLabel = 'Повернути'; actionColor = 'bg-[#EF4444]'; }
+
+            return (
+              <div key={c.phone}>
+                <div className={`bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border ${isSent ? 'border-[#D1FAE5]' : 'border-[#F0F0F0]'} overflow-hidden`}>
+                  <button onClick={() => setExpanded(isExp ? null : c.phone)}
+                    className="w-full p-4 active:bg-[#FAFAFA] transition-all text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-bold text-[#111827] truncate">{c.customer}</p>
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${segColors[c.segment] ?? 'bg-gray-100 text-gray-600'}`}>{c.segment}</span>
+                          {isSent && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#D1FAE5] text-[#065F46]">Надіслано</span>}
                         </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className={`text-[13px] font-bold ${colors[p.status as keyof typeof colors] ?? 'text-[#9CA3AF]'}`}>
-                            {p.daysUntilEmpty > 0 ? `${p.daysUntilEmpty}д` : `${Math.abs(p.daysUntilEmpty)}д назад`}
-                          </p>
-                          <p className={`text-[10px] font-semibold ${colors[p.status as keyof typeof colors]}`}>{labels[p.status as keyof typeof labels]}{p.wouldSendReminder ? ' 📩' : ''}</p>
-                        </div>
+                        <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.totalSpend.toLocaleString('uk-UA')} грн · {c.daysSinceLastOrder}д тому</p>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {urgent > 0 && <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center">{urgent}</span>}
+                        {soon > 0 && <span className="w-5 h-5 rounded-full bg-[#F59E0B] text-white text-[10px] font-bold flex items-center justify-center">{soon}</span>}
+                        <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                      </div>
+                    </div>
+                  </button>
+                  {isExp && (
+                    <>
+                      {c.wouldSendWinback && <div className="px-4 py-2 bg-[#FEE2E2] text-[12px] font-semibold text-[#DC2626]">Клієнт неактивний {c.daysSinceLastOrder} днів</div>}
+                      {c.wouldSendPostDelivery && <div className="px-4 py-2 bg-[#D1FAE5] text-[12px] font-semibold text-[#065F46]">Замовлення щойно доставлене</div>}
+                      {c.products.length === 0 ? <p className="px-4 py-3 text-[13px] text-[#9CA3AF]">Немає витратних товарів</p>
+                      : c.products.map((p, i) => {
+                        const colors = { ok: 'text-[#059669]', soon: 'text-[#D97706]', empty: 'text-[#DC2626]', overdue: 'text-[#DC2626]' };
+                        const labels = { ok: 'ОК', soon: 'Скоро', empty: 'Закінчується', overdue: 'Закінчився' };
+                        return (
+                          <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-[#111827] truncate">{p.name} ×{p.lastOrderedQty}</p>
+                              <p className="text-[11px] text-[#9CA3AF]">Пустий: {p.estimatedEmptyDate}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className={`text-[13px] font-bold ${colors[p.status as keyof typeof colors] ?? 'text-[#9CA3AF]'}`}>
+                                {p.daysUntilEmpty > 0 ? `${p.daysUntilEmpty}д` : `${Math.abs(p.daysUntilEmpty)}д назад`}
+                              </p>
+                              <p className={`text-[10px] font-semibold ${colors[p.status as keyof typeof colors]}`}>{labels[p.status as keyof typeof labels]}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Action buttons */}
+                      {!isSent && (
+                        <div className="flex gap-2 p-3 border-t border-[#F0F0F0]">
+                          <button
+                            onClick={() => handleSend(c, actionType)}
+                            disabled={isSending}
+                            className={`flex-1 h-[40px] rounded-xl ${actionColor} text-white text-[13px] font-bold active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5`}
+                          >
+                            {isSending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : actionLabel}
+                          </button>
+                        </div>
+                      )}
+                      {isSent && (
+                        <div className="px-4 py-2.5 border-t border-[#D1FAE5] bg-[#F0FDF4] text-[12px] font-semibold text-[#065F46] text-center">
+                          Повідомлення надіслано в Telegram
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* OK customers */}
+      {ok.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Все ОК ({ok.length})</p>
+          {ok.slice(0, 5).map(c => (
+            <div key={c.phone} className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[#111827] truncate">{c.customer}</p>
+                  <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.daysSinceLastOrder}д тому</p>
+                </div>
+                <span className="text-[11px] font-bold text-[#059669]">OK</span>
+              </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+          {ok.length > 5 && <p className="text-center text-[12px] text-[#C5C9D1]">+ ще {ok.length - 5} клієнтів</p>}
+        </div>
+      )}
     </div>
   );
 }
