@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
 
       for (const p of lastOrder.products) {
         // Resolve SKU via keycrm_id mapping (with fuzzy name fallback)
-        const resolved = resolveProductSku(productMap, p.product_id, p.name);
+        const resolved = resolveProductSku(productMap, p.product_id, p.name, (p as Record<string, unknown>).sku as string);
         if (!resolved) continue;
         const sku = resolved.sku;
         const defaults = CONSUMPTION_DEFAULTS[sku];
