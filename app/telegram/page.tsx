@@ -68,7 +68,8 @@ type View =
   | 'stock-dashboard'
   | 'bot-clients'
   | 'retention-preview'
-  | 'all-clients';
+  | 'all-clients'
+  | 'client-detail';
 
 interface TelegramWebApp {
   initData: string;
@@ -374,6 +375,7 @@ export default function TelegramPageWrapper() {
 function TelegramPage() {
   const [view, setView] = useState<View>('menu');
   const [chatConvId, setChatConvId] = useState<string | null>(null);
+  const [clientDetailId, setClientDetailId] = useState<number | null>(null);
   const [staff, setStaff] = useState<OpsStaff | null>(null);
   const [allStaff, setAllStaff] = useState<OpsStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -541,10 +543,13 @@ function TelegramPage() {
         <BotClientsView />
       )}
       {view === 'all-clients' && (
-        <AllClientsView />
+        <AllClientsView onClientClick={(id) => { setClientDetailId(id); setView('client-detail'); }} />
       )}
       {view === 'retention-preview' && (
         <RetentionPreview />
+      )}
+      {view === 'client-detail' && clientDetailId && (
+        <ClientDetailView buyerId={clientDetailId} onBack={() => setView('all-clients')} />
       )}
       {(view === 'messages' || view === 'chat-detail') && (
         <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
@@ -5804,6 +5809,268 @@ function FopDocsView({ staff }: { staff: OpsStaff }) {
   );
 }
 
+// ─── Client Detail View ──────────────────────────────
+function ClientDetailView({ buyerId, onBack }: { buyerId: number; onBack: () => void }) {
+  const [data, setData] = useState<{
+    buyer: { id: number; name: string; phone: string | null; city: string | null; orders_count: number; orders_sum: number; in_bot: boolean; created_at: string };
+    profile: { segment: string; loyalty_tier: string; total_orders: number; lifetime_spend: string; avg_order_interval_days: number | null } | null;
+    intelligence: { ai_summary: string; product_categories: string[]; never_bought_categories: string[]; products_running_low: { product_name: string; days_until_empty: number }[]; segment: string } | null;
+    orders: { id: number; date: string; total: number; daysSincePrev: number | null; products: { name: string; qty: number; price: number }[] }[];
+    productBreakdown: { name: string; count: number; totalQty: number; totalSpent: number }[];
+    consumption: { product_name: string; estimated_empty_date: string; reminder_stage: number }[];
+    retentionMessages: { message_type: string; message_text: string; sent_at: string }[];
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'overview' | 'orders' | 'chat'>('overview');
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    api<typeof data>(`/clients/${buyerId}`).then(setData).catch(() => {}).finally(() => setLoading(false));
+  }, [buyerId]);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [chatMessages]);
+
+  const sendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    setChatMessages(prev => [...prev, { role: 'user', content: msg }]);
+    setChatLoading(true);
+    try {
+      const res = await api<{ reply: string }>(`/clients/${buyerId}/chat`, {
+        method: 'POST',
+        body: JSON.stringify({ message: msg, history: chatMessages }),
+      });
+      setChatMessages(prev => [...prev, { role: 'assistant', content: res.reply }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Помилка. Спробуйте ще раз.' }]);
+    }
+    setChatLoading(false);
+  };
+
+  if (loading) return <div className="flex flex-col items-center py-16 gap-3"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /><p className="text-[13px] text-[#9CA3AF]">Завантаження...</p></div>;
+  if (!data) return <p className="text-center py-12 text-[#9CA3AF]">Помилка завантаження</p>;
+
+  const { buyer, profile, intelligence, orders, productBreakdown, consumption, retentionMessages } = data;
+  const seg = profile?.segment ?? intelligence?.segment ?? 'new';
+  const segColors: Record<string, string> = { new: 'bg-blue-100 text-blue-700', active: 'bg-green-100 text-green-700', returning: 'bg-green-100 text-green-700', regular: 'bg-emerald-100 text-emerald-700', vip: 'bg-purple-100 text-purple-700', dormant: 'bg-red-100 text-red-700', lost: 'bg-red-200 text-red-800', at_risk: 'bg-orange-100 text-orange-700' };
+  const tierColors: Record<string, string> = { bronze: 'bg-amber-100 text-amber-700', silver: 'bg-gray-200 text-gray-700', gold: 'bg-yellow-100 text-yellow-700', platinum: 'bg-purple-100 text-purple-700' };
+
+  const daysSinceLast = orders[0] ? Math.round((Date.now() - new Date(orders[0].date).getTime()) / 86400000) : null;
+  const avgInterval = profile?.avg_order_interval_days ?? (intelligence as Record<string, unknown>)?.avg_order_interval_days as number | null;
+  const overdue = avgInterval && daysSinceLast ? Math.max(0, daysSinceLast - avgInterval) : null;
+
+  // Journey progress
+  const totalOrders = buyer.orders_count;
+  const journeySteps = [
+    { label: 'Новий', target: 1, emoji: '🆕' },
+    { label: 'Повертається', target: 2, emoji: '🔄' },
+    { label: 'Постійний', target: 5, emoji: '⭐' },
+    { label: 'VIP', target: 10, emoji: '👑' },
+  ];
+  const currentStep = totalOrders >= 10 ? 3 : totalOrders >= 5 ? 2 : totalOrders >= 2 ? 1 : 0;
+  const progressPct = Math.min(100, (totalOrders / 10) * 100);
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-[18px] font-bold ${buyer.in_bot ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
+            {buyer.name[0]?.toUpperCase()}
+          </div>
+          <div className="flex-1">
+            <p className="text-[16px] font-bold text-[#111827]">{buyer.name}</p>
+            <p className="text-[12px] text-[#9CA3AF]">{buyer.phone ?? '—'}{buyer.city ? ` · ${buyer.city}` : ''}</p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${segColors[seg] ?? 'bg-gray-100 text-gray-600'}`}>{seg}</span>
+            {profile?.loyalty_tier && <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${tierColors[profile.loyalty_tier] ?? 'bg-gray-100 text-gray-600'}`}>{profile.loyalty_tier}</span>}
+          </div>
+        </div>
+        {/* Journey progress */}
+        <div className="flex items-center gap-1 mb-2">
+          {journeySteps.map((s, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[13px] ${i < currentStep ? 'bg-[#D1FAE5] text-[#065F46]' : i === currentStep ? 'bg-[#4b569e] text-white ring-2 ring-[#4b569e]/30' : 'bg-[#F3F4F6] text-[#C5C9D1]'}`}>
+                {i < currentStep ? '✓' : s.emoji}
+              </div>
+              <span className={`text-[9px] mt-0.5 ${i === currentStep ? 'font-bold text-[#111827]' : 'text-[#C5C9D1]'}`}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#4b569e] to-[#8B5CF6] rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+        </div>
+        <p className="text-[10px] text-[#9CA3AF] text-center mt-1">{totalOrders}/10 замовлень до VIP</p>
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-4 gap-2">
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#111827]">{buyer.orders_count}</p>
+          <p className="text-[9px] text-[#9CA3AF]">Замовлень</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#111827]">{Math.round(buyer.orders_sum).toLocaleString('uk-UA')}</p>
+          <p className="text-[9px] text-[#9CA3AF]">грн</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className={`text-[16px] font-bold ${overdue && overdue > 0 ? 'text-[#EF4444]' : 'text-[#111827]'}`}>{daysSinceLast ?? '—'}<span className="text-[10px] font-normal">д</span></p>
+          <p className="text-[9px] text-[#9CA3AF]">{overdue && overdue > 0 ? `+${overdue}д` : 'остання'}</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#111827]">{avgInterval ? `${Math.round(avgInterval)}` : '—'}<span className="text-[10px] font-normal">д</span></p>
+          <p className="text-[9px] text-[#9CA3AF]">цикл</p>
+        </div>
+      </div>
+
+      {/* AI Summary */}
+      {intelligence?.ai_summary && (
+        <div className="bg-[#eceef5] rounded-[16px] p-3 border border-[#D8DBE8]">
+          <p className="text-[12px] text-[#363f75] leading-relaxed">{intelligence.ai_summary}</p>
+        </div>
+      )}
+
+      {/* Consumption tracking */}
+      {consumption.length > 0 && (
+        <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#F5F5F5]">
+            <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Витратні матеріали</p>
+          </div>
+          {consumption.map((c, i) => {
+            const daysLeft = Math.round((new Date(c.estimated_empty_date).getTime() - Date.now()) / 86400000);
+            const statusColor = daysLeft <= 0 ? 'text-[#EF4444]' : daysLeft <= 7 ? 'text-[#F59E0B]' : 'text-[#10B981]';
+            return (
+              <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                <p className="text-[13px] text-[#111827]">{c.product_name}</p>
+                <p className={`text-[13px] font-bold ${statusColor}`}>
+                  {daysLeft <= 0 ? `${Math.abs(daysLeft)}д тому` : `${daysLeft}д`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex bg-white rounded-[16px] border border-[#F0F0F0] overflow-hidden">
+        {(['overview', 'orders', 'chat'] as const).map(t => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 py-2.5 text-[12px] font-bold transition-colors ${tab === t ? 'bg-[#4b569e] text-white' : 'text-[#9CA3AF]'}`}>
+            {t === 'overview' ? `Товари (${productBreakdown.length})` : t === 'orders' ? `Замовлення (${orders.length})` : 'AI Чат'}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Overview (products + retention messages) */}
+      {tab === 'overview' && (
+        <div className="space-y-2">
+          {productBreakdown.map((p, i) => (
+            <div key={i} className="bg-white rounded-[16px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <div className="flex justify-between mb-0.5">
+                <p className="text-[13px] font-semibold text-[#111827] truncate flex-1">{p.name}</p>
+                <p className="text-[13px] font-bold text-[#111827] flex-shrink-0 ml-2">{Math.round(p.totalSpent)} грн</p>
+              </div>
+              <p className="text-[11px] text-[#9CA3AF]">{p.count}x замовлень · {p.totalQty} шт</p>
+            </div>
+          ))}
+          {/* Never bought categories */}
+          {intelligence?.never_bought_categories && intelligence.never_bought_categories.length > 0 && intelligence.never_bought_categories.length <= 5 && (
+            <div className="bg-[#FEF3C7] rounded-[16px] p-3 border border-[#FDE68A]">
+              <p className="text-[11px] font-bold text-[#92400E] mb-1">Cross-sell можливість</p>
+              <p className="text-[12px] text-[#92400E]">Ніколи не купував: {intelligence.never_bought_categories.join(', ')}</p>
+            </div>
+          )}
+          {/* Retention messages history */}
+          {retentionMessages.length > 0 && (
+            <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-[#F5F5F5]">
+                <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Ретеншн повідомлення</p>
+              </div>
+              {retentionMessages.slice(0, 5).map((m, i) => (
+                <div key={i} className={`px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                  <div className="flex justify-between mb-0.5">
+                    <span className="text-[11px] font-bold text-[#4b569e]">{m.message_type}</span>
+                    <span className="text-[10px] text-[#C5C9D1]">{m.sent_at?.split('T')[0]}</span>
+                  </div>
+                  <p className="text-[12px] text-[#6B7280] leading-relaxed">{m.message_text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Orders */}
+      {tab === 'orders' && (
+        <div className="space-y-2">
+          {orders.map((o, i) => (
+            <div key={o.id} className="bg-white rounded-[16px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-bold text-[#111827]">#{orders.length - i}</span>
+                  <span className="text-[12px] text-[#9CA3AF]">{o.date}</span>
+                  {o.daysSincePrev !== null && <span className="text-[10px] text-[#C5C9D1]">(через {o.daysSincePrev}д)</span>}
+                </div>
+                <span className="text-[14px] font-bold text-[#111827]">{Math.round(o.total)} грн</span>
+              </div>
+              {o.products.map((p, j) => (
+                <div key={j} className="flex justify-between text-[12px] py-0.5">
+                  <span className="text-[#6B7280] truncate flex-1">{p.name} <span className="text-[#C5C9D1]">×{p.qty}</span></span>
+                  <span className="text-[#9CA3AF] flex-shrink-0 ml-2">{Math.round(p.price * p.qty)} грн</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tab: AI Chat */}
+      {tab === 'chat' && (
+        <div className="bg-white rounded-[20px] border border-[#F0F0F0] overflow-hidden" style={{ minHeight: '50vh' }}>
+          <div className="p-3 space-y-2 overflow-y-auto" style={{ maxHeight: '55vh' }}>
+            {chatMessages.length === 0 && (
+              <div className="text-center py-6">
+                <p className="text-[24px] mb-2">🤖</p>
+                <p className="text-[12px] text-[#9CA3AF] mb-3">AI знає все про {buyer.name}</p>
+                <div className="flex flex-wrap gap-1.5 justify-center">
+                  {['Як повернути?', 'Що запропонувати?', 'Напиши повідомлення', 'Порівняй з типовим'].map(q => (
+                    <button key={q} onClick={() => { setChatInput(q); }}
+                      className="px-2.5 py-1.5 bg-[#eceef5] rounded-xl text-[11px] text-[#363f75] font-medium active:scale-95">
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {chatMessages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed whitespace-pre-wrap ${m.role === 'user' ? 'bg-[#4b569e] text-white' : 'bg-[#F3F4F6] text-[#111827]'}`}>
+                  {m.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && <div className="flex justify-start"><div className="bg-[#F3F4F6] rounded-2xl px-3 py-2 text-[13px] text-[#9CA3AF]">Думаю...</div></div>}
+            <div ref={chatEndRef} />
+          </div>
+          <form onSubmit={e => { e.preventDefault(); sendChat(); }} className="flex gap-2 p-2 border-t border-[#F0F0F0]">
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Питання про клієнта..."
+              className="flex-1 h-[40px] px-3 rounded-xl border border-[#E5E7EB] text-[13px] text-[#111827] bg-white focus:border-[#4b569e] focus:outline-none" disabled={chatLoading} />
+            <button type="submit" disabled={chatLoading || !chatInput.trim()}
+              className="w-[40px] h-[40px] rounded-xl bg-[#4b569e] text-white flex items-center justify-center disabled:opacity-30">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Retention Preview ───────────────────────────────
 function RetentionPreview() {
   const [data, setData] = useState<{ total_customers: number; total_orders_90d: number; would_send_reminders: number; would_send_winback: number; customers: {
@@ -5906,7 +6173,7 @@ function RetentionPreview() {
 }
 
 // ─── All Clients (KeyCRM) ────────────────────────────
-function AllClientsView() {
+function AllClientsView({ onClientClick }: { onClientClick?: (buyerId: number) => void }) {
   const [clients, setClients] = useState<{ id: number; name: string; phone: string | null; orders_count: number; orders_sum: number; in_bot: boolean; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -5957,7 +6224,7 @@ function AllClientsView() {
         <>
           <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] divide-y divide-[#F5F5F5]">
             {clients.map(c => (
-              <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
+              <button key={c.id} onClick={() => onClientClick?.(c.id)} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-[#F9FAFB] transition-colors">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-[14px] font-bold ${c.in_bot ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#F3F4F6] text-[#9CA3AF]'}`}>
                   {c.name[0].toUpperCase()}
                 </div>
@@ -5968,7 +6235,8 @@ function AllClientsView() {
                   </div>
                   <p className="text-[12px] text-[#9CA3AF]">{c.phone ?? '—'} · {c.orders_count} зам · {c.orders_sum.toLocaleString('uk-UA')} грн</p>
                 </div>
-              </div>
+                <svg className="w-4 h-4 text-[#C5C9D1] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+              </button>
             ))}
           </div>
           {lastPage > 1 && (
