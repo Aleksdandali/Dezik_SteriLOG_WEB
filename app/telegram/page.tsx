@@ -376,6 +376,7 @@ function TelegramPage() {
   const [view, setView] = useState<View>('menu');
   const [chatConvId, setChatConvId] = useState<string | null>(null);
   const [clientDetailId, setClientDetailId] = useState<number | null>(null);
+  const [clientDetailBackView, setClientDetailBackView] = useState<View>('all-clients');
   const [staff, setStaff] = useState<OpsStaff | null>(null);
   const [allStaff, setAllStaff] = useState<OpsStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -543,13 +544,13 @@ function TelegramPage() {
         <BotClientsView />
       )}
       {view === 'all-clients' && (
-        <AllClientsView onClientClick={(id) => { setClientDetailId(id); setView('client-detail'); }} />
+        <AllClientsView onClientClick={(id) => { setClientDetailId(id); setClientDetailBackView('all-clients'); setView('client-detail'); }} />
       )}
       {view === 'retention-preview' && (
-        <RetentionPreview />
+        <RetentionPreview onClientClick={(id) => { setClientDetailId(id); setClientDetailBackView('retention-preview'); setView('client-detail'); }} />
       )}
       {view === 'client-detail' && clientDetailId && (
-        <ClientDetailView buyerId={clientDetailId} onBack={() => setView('all-clients')} />
+        <ClientDetailView buyerId={clientDetailId} onBack={() => setView(clientDetailBackView)} />
       )}
       {(view === 'messages' || view === 'chat-detail') && (
         <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
@@ -6072,7 +6073,7 @@ function ClientDetailView({ buyerId, onBack }: { buyerId: number; onBack: () => 
 }
 
 // ─── Retention Preview ───────────────────────────────
-function RetentionPreview() {
+function RetentionPreview({ onClientClick }: { onClientClick?: (buyerId: number) => void }) {
   const [data, setData] = useState<{ total_customers: number; total_orders_90d: number; would_send_reminders: number; would_send_winback: number; customers: {
     customer: string; phone: string; totalOrders: number; totalSpend: number; lastOrderDate: string; daysSinceLastOrder: number; segment: string;
     wouldSendPostDelivery: boolean; wouldSendWinback: boolean;
