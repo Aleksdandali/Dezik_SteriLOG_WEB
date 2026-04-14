@@ -6127,28 +6127,78 @@ function RetentionPreview({ onClientClick }: { onClientClick?: (buyerId: number)
   const needsAction = data.customers.filter(c => c.products.some(p => p.wouldSendReminder) || c.wouldSendWinback || c.wouldSendPostDelivery);
   const ok = data.customers.filter(c => !c.products.some(p => p.wouldSendReminder) && !c.wouldSendWinback && !c.wouldSendPostDelivery);
 
+  // Funnel counts
+  const fNew = data.customers.filter(c => c.segment === 'new').length;
+  const fActive = data.customers.filter(c => c.segment === 'active').length;
+  const fVip = data.customers.filter(c => c.segment === 'vip').length;
+  const fDormant = data.customers.filter(c => c.segment === 'dormant').length;
+  // "active" in preview = returning + regular (2+ orders, not dormant)
+  const fReturning = data.customers.filter(c => c.segment === 'active' && c.totalOrders <= 3).length;
+  const fRegular = data.customers.filter(c => c.segment === 'active' && c.totalOrders >= 4).length;
+
+  const fTotal = data.total_customers;
+  const funnelSteps = [
+    { label: 'Новий', count: fNew, color: '#3B82F6', bg: '#EFF6FF', pct: fTotal > 0 ? Math.round((fNew / fTotal) * 100) : 0 },
+    { label: 'Повторний', count: fReturning, color: '#10B981', bg: '#ECFDF5', pct: fTotal > 0 ? Math.round((fReturning / fTotal) * 100) : 0 },
+    { label: 'Постійний', count: fRegular, color: '#8B5CF6', bg: '#F5F3FF', pct: fTotal > 0 ? Math.round((fRegular / fTotal) * 100) : 0 },
+    { label: 'VIP', count: fVip, color: '#F59E0B', bg: '#FFFBEB', pct: fTotal > 0 ? Math.round((fVip / fTotal) * 100) : 0 },
+  ];
+
+  const convToRepeat = fTotal > 0 ? Math.round(((fReturning + fRegular + fVip) / fTotal) * 100) : 0;
+
   return (
     <div className="space-y-4">
-      <PageHeader icon="🔄" title="Retention" subtitle="Утримання клієнтів" />
+      <PageHeader icon="🔄" title="Retention" subtitle={`${data.total_customers} клієнтів за 90 днів`} />
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
-          <p className="text-[18px] font-bold text-[#111827]">{data.total_customers}</p>
-          <p className="text-[11px] text-[#9CA3AF]">Клієнтів (90д)</p>
+      {/* Funnel */}
+      <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Воронка</p>
+          <p className="text-[12px] text-[#9CA3AF]">Конверсія в повторних: <span className="font-bold text-[#111827]">{convToRepeat}%</span></p>
         </div>
-        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
-          <p className="text-[18px] font-bold text-[#111827]">{sent.size}/{needsAction.length}</p>
-          <p className="text-[11px] text-[#9CA3AF]">Надіслано</p>
+        <div className="space-y-2">
+          {funnelSteps.map((step, i) => {
+            const maxCount = Math.max(...funnelSteps.map(s => s.count), 1);
+            const barPct = Math.max(8, (step.count / maxCount) * 100);
+            return (
+              <div key={step.label}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[13px] font-semibold" style={{ color: step.color }}>{step.label}</span>
+                  <span className="text-[13px] font-bold text-[#111827]">{step.count} <span className="text-[11px] font-normal text-[#9CA3AF]">({step.pct}%)</span></span>
+                </div>
+                <div className="h-[6px] bg-[#F3F4F6] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: step.color }} />
+                </div>
+                {i < funnelSteps.length - 1 && (
+                  <div className="flex justify-center py-0.5">
+                    <svg className="w-3 h-3 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" /></svg>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+        {fDormant > 0 && (
+          <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center justify-between">
+            <span className="text-[12px] text-[#EF4444] font-medium">Сплячі</span>
+            <span className="text-[13px] font-bold text-[#EF4444]">{fDormant}</span>
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-[#FEF3C7] rounded-[20px] p-3 border border-[#FDE68A] text-center">
-          <p className="text-[18px] font-bold text-[#92400E]">{data.would_send_reminders}</p>
-          <p className="text-[11px] text-[#92400E]">Нагадування</p>
+
+      {/* Action summary */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#F59E0B]">{data.would_send_reminders}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Нагадати</p>
         </div>
-        <div className="bg-[#FEE2E2] rounded-[20px] p-3 border border-[#FECACA] text-center">
-          <p className="text-[18px] font-bold text-[#DC2626]">{data.would_send_winback}</p>
-          <p className="text-[11px] text-[#DC2626]">Win-back</p>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#EF4444]">{data.would_send_winback}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Повернути</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#10B981]">{sent.size}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Надіслано</p>
         </div>
       </div>
 
