@@ -346,3 +346,67 @@ export type SalaryInput = {
 export async function createSalary(input: SalaryInput): Promise<void> {
   await api('/api/telegram/salaries', { method: 'POST', body: input });
 }
+
+// ── History (read + admin delete) ──────────────────────
+export type ExpenseEntry = {
+  id: string;
+  amount: number;
+  category: ExpenseCategory;
+  location: OpsLocation;
+  description: string | null;
+  photo_url: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export type ReceivingEntry = {
+  id: string;
+  supplier: string;
+  quantity: number;
+  amount: number;
+  ttn: string | null;
+  photo_url: string | null;
+  location: OpsLocation;
+  description: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export type MovementEntry = {
+  id: string;
+  from_location: OpsLocation;
+  to_location: OpsLocation;
+  description: string;
+  quantity: number | null;
+  photo_url: string | null;
+  bag_size: BagSize | null;
+  material: BagMaterial | null;
+  packages: number | null;
+  shipment_id: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export async function listExpenses(days = 30): Promise<ExpenseEntry[]> {
+  const res = await api<{ data: ExpenseEntry[] }>(`/api/telegram/expenses?days=${days}`);
+  return res.data ?? [];
+}
+
+export async function listReceivings(days = 30): Promise<ReceivingEntry[]> {
+  const res = await api<{ data: ReceivingEntry[] }>(`/api/telegram/receivings?days=${days}`);
+  return res.data ?? [];
+}
+
+export async function listMovements(days = 30): Promise<MovementEntry[]> {
+  const res = await api<{ data: MovementEntry[] }>(`/api/telegram/movements?days=${days}`);
+  return res.data ?? [];
+}
+
+export type HistoryKind = 'production' | 'expenses' | 'receivings' | 'movements';
+
+// Admin-only — backend gates with password "300683" (matches Mini App HistoryView).
+export async function deleteEntry(kind: HistoryKind, id: string, password: string): Promise<void> {
+  await api(`/api/telegram/${kind}?id=${encodeURIComponent(id)}&password=${encodeURIComponent(password)}`, {
+    method: 'DELETE',
+  });
+}

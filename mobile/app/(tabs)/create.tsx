@@ -17,7 +17,8 @@ type ActionHref =
   | '/receiving/new'
   | '/stock'
   | '/cash'
-  | '/salary/new';
+  | '/salary/new'
+  | '/history';
 
 type Action = {
   emoji: string;
@@ -39,6 +40,7 @@ const ACTIONS: Action[] = [
   { emoji: '⚖️', title: 'Розгляд переоблiків', subtitle: 'Approve / reject (admin)', href: '/audit/queue' },
   { emoji: '💵', title: 'Каса', subtitle: 'Звіт за період', href: '/cash' },
   { emoji: '💸', title: 'Зарплата / Аванс', subtitle: 'Нарахувати (admin)', href: '/salary/new' },
+  { emoji: '📋', title: 'Історія', subtitle: 'Витрати / Приймання / Перемiщ.', href: '/history' },
 ];
 
 const PENDING_LOCATIONS: OpsLocation[] = ['malynovskogo', 'dalnytska', 'afina_sklad', 'afina_ofis'];
