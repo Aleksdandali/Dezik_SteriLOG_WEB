@@ -8,10 +8,12 @@ import { colors, radius, spacing, text } from '@/lib/theme';
 type ActionHref =
   | '/expense/new'
   | '/audit/new'
+  | '/audit/queue'
   | '/supplier-payment/new'
   | '/movement/new'
   | '/movement/pending'
   | '/production/new'
+  | '/production/history'
   | '/receiving/new'
   | '/stock'
   | '/cash';
@@ -25,6 +27,7 @@ type Action = {
 
 const ACTIONS: Action[] = [
   { emoji: '🏭', title: 'Виробництво', subtitle: 'Друк / упаковка', href: '/production/new' },
+  { emoji: '🗂', title: 'Історія виробництва', subtitle: 'Записи за 30 днів', href: '/production/history' },
   { emoji: '📥', title: 'Приймання', subtitle: 'На склад + ТТН', href: '/receiving/new' },
   { emoji: '📦', title: 'Переміщення', subtitle: 'Між складами + фото', href: '/movement/new' },
   { emoji: '✅', title: 'Підтвердити прибуття', subtitle: 'Очікують підтвердження', href: '/movement/pending' },
@@ -32,6 +35,7 @@ const ACTIONS: Action[] = [
   { emoji: '💰', title: 'Витрата', subtitle: 'Сума + фото чека', href: '/expense/new' },
   { emoji: '🧾', title: 'Оплата постачальнику', subtitle: 'Постачальник + сума', href: '/supplier-payment/new' },
   { emoji: '📝', title: 'Переоблік', subtitle: 'Залишки на локації', href: '/audit/new' },
+  { emoji: '⚖️', title: 'Розгляд переоблiків', subtitle: 'Approve / reject (admin)', href: '/audit/queue' },
   { emoji: '💵', title: 'Каса', subtitle: 'Звіт за період', href: '/cash' },
 ];
 
