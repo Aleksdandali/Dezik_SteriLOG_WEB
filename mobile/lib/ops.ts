@@ -11,6 +11,24 @@ export type ExpenseCategory =
 
 export type AuditItemType = 'raw' | 'finished';
 
+export type SupplierPaymentMethod = 'bank_transfer' | 'card' | 'cash' | 'other';
+
+export type BagSize = '60x100' | '75x150' | '100x200' | '150x230';
+export type BagMaterial = 'transparent' | 'white' | 'brown';
+
+export const BAG_SIZE_LABELS: Record<BagSize, string> = {
+  '60x100': '60x100',
+  '75x150': '75x150',
+  '100x200': '100x200',
+  '150x230': '150x230',
+};
+
+export const BAG_MATERIAL_LABELS: Record<BagMaterial, string> = {
+  transparent: 'Прозорий',
+  white: 'Білий крафт',
+  brown: 'Коричневий',
+};
+
 export const LOCATION_LABELS: Record<OpsLocation, string> = {
   malynovskogo: 'Маліновського',
   afina_sklad: 'Афіна склад',
@@ -26,6 +44,13 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   raw_materials: 'Сировина',
   rent: 'Оренда',
   utilities: 'Комунальні',
+  other: 'Інше',
+};
+
+export const SUPPLIER_METHOD_LABELS: Record<SupplierPaymentMethod, string> = {
+  bank_transfer: 'Безнал (р/р)',
+  card: 'Карта',
+  cash: 'Готівка',
   other: 'Інше',
 };
 
@@ -92,4 +117,34 @@ export type AuditInput = {
 
 export async function createAudit(input: AuditInput): Promise<void> {
   await api('/api/telegram/inventory-audit', { method: 'POST', body: input });
+}
+
+// ── Supplier payment ───────────────────────────────────
+export type SupplierPaymentInput = {
+  supplier: string;
+  amount: number;
+  method: SupplierPaymentMethod;
+  description?: string | null;
+  photo_url?: string | null;
+};
+
+export async function createSupplierPayment(input: SupplierPaymentInput): Promise<void> {
+  await api('/api/telegram/supplier-payments', { method: 'POST', body: input });
+}
+
+// ── Movement (between warehouses) ──────────────────────
+export type MovementInput = {
+  from_location: OpsLocation;
+  to_location: OpsLocation;
+  description: string;
+  quantity?: number | null;
+  photo_url: string;
+  bag_size?: BagSize;
+  material?: BagMaterial;
+  packages?: number;
+  shipment_id?: string;
+};
+
+export async function createMovement(input: MovementInput): Promise<void> {
+  await api('/api/telegram/movements', { method: 'POST', body: input });
 }
