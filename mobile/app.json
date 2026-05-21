@@ -9,7 +9,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "ua.dezik.staff"
+      "bundleIdentifier": "ua.dezik.staff",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "ua.dezik.staff",
@@ -29,6 +32,15 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "6c5c8222-035a-499d-8bb7-b56f4a4cf1d8"
+      }
+    },
+    "owner": "shineshopb2b"
   }
 }
