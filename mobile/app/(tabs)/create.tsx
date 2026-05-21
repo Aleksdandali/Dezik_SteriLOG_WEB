@@ -21,7 +21,8 @@ type ActionHref =
   | '/salary/list'
   | '/history'
   | '/team'
-  | '/shipments';
+  | '/shipments'
+  | '/reports';
 
 type Action = {
   emoji: string;
@@ -45,6 +46,7 @@ const ACTIONS: Action[] = [
   { emoji: '💵', title: 'Каса', subtitle: 'Звіт за період', href: '/cash' },
   { emoji: '💸', title: 'Зарплата / Аванс', subtitle: 'Нарахувати (admin)', href: '/salary/new' },
   { emoji: '🧮', title: 'Зарплати — звіт', subtitle: 'По місяцях (admin)', href: '/salary/list' },
+  { emoji: '📊', title: 'Звіти P&L', subtitle: 'Прибуток + витрати (admin)', href: '/reports' },
   { emoji: '📋', title: 'Історія', subtitle: 'Витрати / Приймання / Перемiщ.', href: '/history' },
   { emoji: '👥', title: 'Команда', subtitle: 'Заявки + ролі (admin)', href: '/team' },
 ];

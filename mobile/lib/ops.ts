@@ -568,3 +568,46 @@ export async function listShipmentArchive(period: ArchivePeriod): Promise<Archiv
 export async function markShipped(order_id: number, photo_url: string): Promise<void> {
   await api(`/api/telegram/shipments`, { method: 'POST', body: { order_id, photo_url } });
 }
+
+// ── P&L reports (admin) ────────────────────────────────
+export type ReportPeriod = 'day' | 'week' | 'month';
+
+export type SalesChannel = 'website' | 'instagram' | 'telegram' | 'b2b' | 'other';
+
+export const CHANNEL_LABELS: Record<SalesChannel, string> = {
+  website: 'Сайт',
+  instagram: 'Instagram',
+  telegram: 'Telegram',
+  b2b: 'Опт B2B',
+  other: 'Інше',
+};
+
+export type ReportMovement = {
+  from_location: OpsLocation;
+  to_location: OpsLocation;
+  description: string;
+  quantity: number | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export type ReportData = {
+  period: string;
+  income: number;
+  expenses: {
+    total: number;
+    byCategory: Record<string, number>;
+    byLocation: Record<string, number>;
+  };
+  supplierPayments: number;
+  salaries: number;
+  fixedCosts: number;
+  totalCosts: number;
+  profit: number;
+  movements: ReportMovement[];
+  cashByChannel: Record<string, number>;
+};
+
+export async function fetchReport(period: ReportPeriod): Promise<ReportData> {
+  return api<ReportData>(`/api/telegram/reports?period=${period}`);
+}
