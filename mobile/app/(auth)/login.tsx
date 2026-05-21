@@ -46,11 +46,11 @@ export default function LoginScreen() {
       <View style={styles.inner}>
         <Text style={styles.title}>Dezik Staff</Text>
         <Text style={styles.subtitle}>
-          Відкрийте @dezik_ua_bot і надішліть команду{' '}
+          Відкрийте @Dezik_OS_bot і надішліть команду{' '}
           <Text style={styles.code}>/login</Text>, щоб отримати код
         </Text>
 
-        <Pressable onPress={() => Linking.openURL('https://t.me/dezik_ua_bot')}>
+        <Pressable onPress={() => Linking.openURL('https://t.me/Dezik_OS_bot')}>
           <Text style={styles.link}>Відкрити бота →</Text>
         </Pressable>
 
