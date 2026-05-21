@@ -18,6 +18,7 @@ type ActionHref =
   | '/stock'
   | '/cash'
   | '/salary/new'
+  | '/salary/list'
   | '/history';
 
 type Action = {
@@ -40,6 +41,7 @@ const ACTIONS: Action[] = [
   { emoji: '⚖️', title: 'Розгляд переоблiків', subtitle: 'Approve / reject (admin)', href: '/audit/queue' },
   { emoji: '💵', title: 'Каса', subtitle: 'Звіт за період', href: '/cash' },
   { emoji: '💸', title: 'Зарплата / Аванс', subtitle: 'Нарахувати (admin)', href: '/salary/new' },
+  { emoji: '🧮', title: 'Зарплати — звіт', subtitle: 'По місяцях (admin)', href: '/salary/list' },
   { emoji: '📋', title: 'Історія', subtitle: 'Витрати / Приймання / Перемiщ.', href: '/history' },
 ];
 

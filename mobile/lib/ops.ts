@@ -347,6 +347,26 @@ export async function createSalary(input: SalaryInput): Promise<void> {
   await api('/api/telegram/salaries', { method: 'POST', body: input });
 }
 
+export type SalaryEntry = {
+  id: string;
+  staff_id: string;
+  recipient_id: string;
+  amount: number;
+  type: SalaryType;
+  period: string;
+  notes: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null; // who issued
+  recipient?: { name: string } | null;
+};
+
+// Admin only — GET returns 403 for non-admins.
+export async function listSalaries(period?: string): Promise<SalaryEntry[]> {
+  const q = period ? `?period=${period}` : '';
+  const res = await api<{ data: SalaryEntry[] }>(`/api/telegram/salaries${q}`);
+  return res.data ?? [];
+}
+
 // ── History (read + admin delete) ──────────────────────
 export type ExpenseEntry = {
   id: string;

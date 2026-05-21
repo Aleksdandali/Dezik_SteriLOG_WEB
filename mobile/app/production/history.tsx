@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Pressable,
@@ -8,12 +9,14 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import {
   BAG_MATERIAL_LABELS,
+  deleteEntry,
   LOCATION_LABELS,
   listProduction,
   PRODUCTION_STAGE_LABELS,
@@ -57,6 +60,9 @@ export default function ProductionHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
+  const [pwdTargetId, setPwdTargetId] = useState<string | null>(null);
+  const [pwd, setPwd] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -82,6 +88,27 @@ export default function ProductionHistoryScreen() {
 
   const visible = filter === 'all' ? items : items.filter(i => i.stage === filter);
   const groups = groupByDay(visible);
+
+  const askDelete = (id: string) => {
+    setPwd('');
+    setPwdTargetId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!pwdTargetId || !pwd) return;
+    const id = pwdTargetId;
+    setDeletingId(id);
+    setPwdTargetId(null);
+    try {
+      await deleteEntry('production', id, pwd);
+      setItems(prev => prev.filter(i => i.id !== id));
+    } catch (e) {
+      Alert.alert('Помилка', e instanceof Error ? e.message : 'Не вдалось видалити');
+    } finally {
+      setDeletingId(null);
+      setPwd('');
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
@@ -120,7 +147,13 @@ export default function ProductionHistoryScreen() {
             <View key={g.day} style={styles.dayBlock}>
               <Text style={styles.dayLabel}>{formatDayLabel(g.day)}</Text>
               {g.items.map(item => (
-                <EntryCard key={item.id} item={item} onPhoto={setLightboxUri} />
+                <EntryCard
+                  key={item.id}
+                  item={item}
+                  onPhoto={setLightboxUri}
+                  onDelete={askDelete}
+                  deleting={deletingId === item.id}
+                />
               ))}
             </View>
           ))
@@ -132,11 +165,51 @@ export default function ProductionHistoryScreen() {
           {lightboxUri && <Image source={{ uri: lightboxUri }} style={styles.lightboxImg} />}
         </Pressable>
       </Modal>
+
+      <Modal visible={!!pwdTargetId} transparent animationType="fade" onRequestClose={() => setPwdTargetId(null)}>
+        <View style={styles.pwdOverlay}>
+          <View style={styles.pwdCard}>
+            <Text style={styles.pwdTitle}>Видалення</Text>
+            <Text style={styles.pwdHint}>Введіть пароль для підтвердження</Text>
+            <TextInput
+              style={styles.pwdInput}
+              value={pwd}
+              onChangeText={setPwd}
+              placeholder="Пароль"
+              placeholderTextColor={colors.textFaint}
+              secureTextEntry
+              autoFocus
+            />
+            <View style={styles.pwdRow}>
+              <Pressable style={[styles.pwdBtn, styles.pwdCancel]} onPress={() => setPwdTargetId(null)}>
+                <Text style={styles.pwdCancelText}>Скасувати</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.pwdBtn, styles.pwdConfirm, !pwd && styles.pwdConfirmDisabled]}
+                onPress={confirmDelete}
+                disabled={!pwd}
+              >
+                <Text style={styles.pwdConfirmText}>Видалити</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function EntryCard({ item, onPhoto }: { item: ProductionEntry; onPhoto: (uri: string) => void }) {
+function EntryCard({
+  item,
+  onPhoto,
+  onDelete,
+  deleting,
+}: {
+  item: ProductionEntry;
+  onPhoto: (uri: string) => void;
+  onDelete: (id: string) => void;
+  deleting: boolean;
+}) {
   const isPrint = item.stage === 'print';
   const time = new Date(item.created_at).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
   const numbers = isPrint
@@ -173,6 +246,17 @@ function EntryCard({ item, onPhoto }: { item: ProductionEntry; onPhoto: (uri: st
             <Image source={{ uri: item.photo_url }} style={styles.entryPhoto} />
           </Pressable>
         )}
+        <Pressable
+          style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
+          onPress={() => onDelete(item.id)}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator color={colors.danger} />
+          ) : (
+            <Text style={styles.deleteText}>🗑  Видалити</Text>
+          )}
+        </Pressable>
       </View>
     </View>
   );
@@ -248,4 +332,39 @@ const styles = StyleSheet.create({
 
   lightbox: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   lightboxImg: { width: '100%', height: '85%', resizeMode: 'contain' },
+
+  deleteBtn: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.sm,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  deleteBtnDisabled: { opacity: 0.5 },
+  deleteText: { color: '#991B1B', fontSize: 12, fontWeight: '700' },
+
+  pwdOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  pwdCard: { width: '100%', maxWidth: 360, backgroundColor: colors.card, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md },
+  pwdTitle: { ...text.heading },
+  pwdHint: { ...text.meta },
+  pwdInput: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+  },
+  pwdRow: { flexDirection: 'row', gap: spacing.sm },
+  pwdBtn: { flex: 1, paddingVertical: spacing.md, borderRadius: radius.md, alignItems: 'center' },
+  pwdCancel: { backgroundColor: colors.brandTint },
+  pwdCancelText: { color: colors.brandDark, fontSize: 14, fontWeight: '600' },
+  pwdConfirm: { backgroundColor: colors.danger },
+  pwdConfirmDisabled: { opacity: 0.5 },
+  pwdConfirmText: { color: colors.card, fontSize: 14, fontWeight: '700' },
 });
