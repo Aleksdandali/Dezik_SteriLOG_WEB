@@ -101,6 +101,14 @@ export async function GET(request: NextRequest) {
         const low = c.products_running_low as unknown[];
         return (c.segment === 'at_risk') || (Array.isArray(low) && low.length > 0);
       })
+      .map((c: Record<string, unknown>) => ({
+        name: c.name,
+        phone: c.phone,
+        city: c.city,
+        segment: c.segment,
+        productsRunningLow: c.products_running_low,
+        lastOrderDate: (c.last_order_date as string)?.split('T')[0] ?? null,
+      }))
       .slice(0, 20);
 
     return NextResponse.json({
@@ -115,7 +123,7 @@ export async function GET(request: NextRequest) {
       revenueBySegment,
       avgCheckBySegment,
       callbackList,
-      needsAttention: needsAttention.length,
+      needsAttention,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';

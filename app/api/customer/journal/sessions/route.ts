@@ -20,25 +20,45 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') ?? '50'), 100);
   const offset = parseInt(searchParams.get('offset') ?? '0');
 
-  const { data: sessions, count } = await supabase
-    .from('sterilization_sessions')
-    .select('*', { count: 'exact' })
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Page of sessions + global stats (counts must reflect the whole table,
+  // not just the current page — frontend shows them as overall numbers).
+  const [pageRes, totalRes, passedRes, failedRes] = await Promise.all([
+    supabase
+      .from('sterilization_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    supabase
+      .from('sterilization_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('sterilization_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('result', 'success'),
+    supabase
+      .from('sterilization_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('result', 'fail'),
+  ]);
 
-  // Stats
-  const all = sessions ?? [];
-  const passed = all.filter(s => s.result === 'success').length;
-  const failed = all.filter(s => s.result === 'fail').length;
+  const sessions = pageRes.data ?? [];
+  const total = totalRes.count ?? 0;
+  const passed = passedRes.count ?? 0;
+  const failed = failedRes.count ?? 0;
+  const decided = passed + failed;
 
   return NextResponse.json({
-    sessions: all,
+    sessions,
     stats: {
-      total: count ?? all.length,
+      total,
       passed,
       failed,
-      rate: all.length > 0 ? Math.round((passed / all.length) * 100) : 0,
+      // Pass rate over decided (success+fail) sessions, ignoring drafts.
+      rate: decided > 0 ? Math.round((passed / decided) * 100) : 0,
     },
   });
 }
