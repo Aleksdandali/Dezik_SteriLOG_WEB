@@ -227,6 +227,24 @@ export async function confirmMovement(input: ConfirmShipmentInput | ConfirmSingl
   await api('/api/telegram/movements/confirm', { method: 'POST', body: input });
 }
 
+// ── Stock dashboard ───────────────────────────────────
+export type StockItem = {
+  name: string;
+  quantity: number;
+  unit: string;
+  item_type: 'raw' | 'finished' | string;
+};
+
+export type StockData = {
+  data: StockItem[];
+  lastAudit: { date: string } | null;
+  source: 'audit' | 'production' | 'keycrm' | string;
+};
+
+export async function fetchStock(location: OpsLocation): Promise<StockData> {
+  return api<StockData>(`/api/telegram/stock?location=${location}`);
+}
+
 // ── Cash report (read-only dashboard) ──────────────────
 export type CashPeriod = 'today' | 'week' | 'month';
 
