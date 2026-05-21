@@ -148,3 +148,51 @@ export type MovementInput = {
 export async function createMovement(input: MovementInput): Promise<void> {
   await api('/api/telegram/movements', { method: 'POST', body: input });
 }
+
+// ── Production (print / pack) ──────────────────────────
+export type ProductionStage = 'print' | 'pack';
+
+export const PRODUCTION_STAGE_LABELS: Record<ProductionStage, string> = {
+  print: 'Друк',
+  pack: 'Упаковка',
+};
+
+export type ProductionInput = {
+  location: OpsLocation;
+  stage: ProductionStage;
+  bag_size: BagSize;
+  material: BagMaterial;
+  km?: number | null;
+  rolls?: number | null;
+  packages?: number | null;
+  photo_url: string;
+  notes?: string | null;
+};
+
+export async function createProduction(input: ProductionInput): Promise<void> {
+  await api('/api/telegram/production', { method: 'POST', body: input });
+}
+
+// ── Cash report (read-only dashboard) ──────────────────
+export type CashPeriod = 'today' | 'week' | 'month';
+
+export type CashData = {
+  period: { from: string; to: string };
+  total_sum: number;
+  orders_count: number;
+  paid_sum: number;
+  paid_count: number;
+  cod_sum: number;
+  cod_count: number;
+  other_sum: number;
+  other_count: number;
+  shipped_count: number;
+  assembly_count: number;
+  avg_processing_hours: number;
+  by_source: Record<string, { sum: number; count: number }>;
+};
+
+export async function fetchCash(opts: { period?: CashPeriod; date?: string } = {}): Promise<CashData> {
+  const q = opts.date ? `?date=${opts.date}` : `?period=${opts.period ?? 'today'}`;
+  return api<CashData>(`/api/telegram/cash${q}`);
+}
