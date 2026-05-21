@@ -9,7 +9,6 @@ import {
   Package,
   FolderOpen,
   Users,
-  Settings2,
   LogOut,
   Factory,
   Truck,
@@ -52,12 +51,6 @@ const navigation = [
     title: 'КЛІЄНТИ',
     items: [
       { name: 'Користувачі', href: '/users', icon: Users },
-    ],
-  },
-  {
-    title: 'НАЛАШТУВАННЯ',
-    items: [
-      { name: 'Конфігурація', href: '/settings', icon: Settings2 },
     ],
   },
 ];
