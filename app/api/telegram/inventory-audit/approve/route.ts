@@ -13,6 +13,9 @@ export async function POST(request: NextRequest) {
     if (!audit_id || !action) {
       return NextResponse.json({ error: 'Missing audit_id or action' }, { status: 400 });
     }
+    if (action !== 'approve' && action !== 'reject') {
+      return NextResponse.json({ error: 'action must be "approve" or "reject"' }, { status: 400 });
+    }
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 

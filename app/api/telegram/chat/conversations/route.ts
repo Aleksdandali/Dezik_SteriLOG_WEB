@@ -30,10 +30,14 @@ export async function GET(request: NextRequest) {
     .order('last_message_at', { ascending: false });
 
   if (search) {
-    // Search by phone or name (ilike for partial match)
-    query = query.or(
-      `customer_phone.ilike.%${search}%,customer_name.ilike.%${search}%`,
-    );
+    // Search by phone or name (ilike for partial match).
+    // Strip PostgREST/SQL special chars to prevent filter-string injection.
+    const safe = search.replace(/[%,()\\*]/g, '');
+    if (safe) {
+      query = query.or(
+        `customer_phone.ilike.%${safe}%,customer_name.ilike.%${safe}%`,
+      );
+    }
   }
 
   const { data, count, error } = await query;
