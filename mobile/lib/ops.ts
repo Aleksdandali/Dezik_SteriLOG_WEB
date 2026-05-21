@@ -227,6 +227,50 @@ export async function confirmMovement(input: ConfirmShipmentInput | ConfirmSingl
   await api('/api/telegram/movements/confirm', { method: 'POST', body: input });
 }
 
+// ── Production history (read-only feed) ────────────────
+export type ProductionEntry = {
+  id: string;
+  staff_id: string;
+  location: OpsLocation;
+  stage: ProductionStage;
+  bag_size: BagSize;
+  material: BagMaterial;
+  km: number | null;
+  rolls: number | null;
+  packages: number | null;
+  photo_url: string | null;
+  notes: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export async function listProduction(days = 30): Promise<ProductionEntry[]> {
+  const res = await api<{ data: ProductionEntry[] }>(`/api/telegram/production?days=${days}`);
+  return res.data ?? [];
+}
+
+// ── Inventory-audit list + approval (admin) ────────────
+export type AuditEntry = {
+  id: string;
+  location: OpsLocation;
+  audit_date: string;
+  status: 'pending' | 'approved' | 'rejected' | string;
+  created_at: string;
+  approved_at: string | null;
+  ops_staff?: { name: string } | null;
+  ops_inventory_audit_items: AuditItem[];
+};
+
+export async function listAudits(location?: OpsLocation): Promise<AuditEntry[]> {
+  const q = location ? `?location=${location}` : '';
+  const res = await api<{ data: AuditEntry[] }>(`/api/telegram/inventory-audit/list${q}`);
+  return res.data ?? [];
+}
+
+export async function reviewAudit(audit_id: string, action: 'approve' | 'reject'): Promise<void> {
+  await api('/api/telegram/inventory-audit/approve', { method: 'POST', body: { audit_id, action } });
+}
+
 // ── Stock dashboard ───────────────────────────────────
 export type StockItem = {
   name: string;
