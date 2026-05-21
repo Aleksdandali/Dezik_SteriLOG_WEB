@@ -11,6 +11,7 @@ export default function TabsLayout() {
     <Tabs screenOptions={{ headerShown: true }}>
       <Tabs.Screen name="orders" options={{ title: 'Замовлення' }} />
       <Tabs.Screen name="chat" options={{ title: 'Чат' }} />
+      <Tabs.Screen name="create" options={{ title: 'Створити' }} />
       <Tabs.Screen name="profile" options={{ title: 'Профіль' }} />
     </Tabs>
   );
