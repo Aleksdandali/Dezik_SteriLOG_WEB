@@ -20,7 +20,8 @@
     "production": {
       "autoIncrement": true,
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "image": "latest"
       }
     }
   },
@@ -28,7 +29,10 @@
     "production": {
       "ios": {
         "ascAppId": "6771711518",
-        "appleId": "gloss.odessa@gmail.com"
+        "appleId": "gloss.odessa@gmail.com",
+        "ascApiKeyPath": "./secrets/AuthKey_A8GM4SD4QF.p8",
+        "ascApiKeyId": "A8GM4SD4QF",
+        "ascApiKeyIssuerId": "36a79a66-7d70-4f1a-8e3b-e8a8034951cb"
       }
     }
   }

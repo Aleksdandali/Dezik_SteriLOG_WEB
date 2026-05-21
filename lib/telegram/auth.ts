@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { validateInitData } from './validate';
+import { verifyStaffToken } from './staff-token';
 import type { OpsStaff } from './types';
 
 function getSupabaseAdmin() {
@@ -42,6 +43,27 @@ async function findStaff(telegramId: number): Promise<OpsStaff | null> {
 export async function authenticateTelegram(
   request: NextRequest
 ): Promise<OpsStaff | null> {
+  // Path 1: Bearer token from native mobile app (Dezik Staff)
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice('Bearer '.length).trim();
+    // Skip if it looks like a Telegram WebApp initData string mirrored into the Bearer header
+    if (token && !token.includes('=') && !token.includes('&')) {
+      const payload = verifyStaffToken(token);
+      if (payload) {
+        const supabase = getSupabaseAdmin();
+        const { data } = await supabase
+          .from('ops_staff')
+          .select('*')
+          .eq('id', payload.sub)
+          .eq('active', true)
+          .single();
+        if (data) return data as OpsStaff;
+      }
+    }
+  }
+
+  // Path 2: Telegram WebApp initData (HMAC-validated)
   const initData = request.headers.get('x-telegram-init-data');
   if (!initData) return null;
 

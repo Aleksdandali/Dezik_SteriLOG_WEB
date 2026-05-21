@@ -23,7 +23,37 @@ export async function POST(request: NextRequest) {
       const text = update.message.text;
       const from = update.message.from;
 
-      if (text === '/start') {
+      if (text === '/login') {
+        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+        const { data: staff } = await supabase
+          .from('ops_staff')
+          .select('id')
+          .eq('telegram_id', from.id)
+          .eq('active', true)
+          .single();
+
+        if (!staff) {
+          await sendMessage(chatId, '❌ Вас не зареєстровано як співробітника. Надішліть /start для подання заявки.');
+        } else {
+          // Generate 6-digit code, 5-minute TTL
+          const code = String(Math.floor(100000 + Math.random() * 900000));
+          const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+          // Invalidate any previous codes for this telegram_id
+          await supabase.from('ops_staff_login_codes').delete().eq('telegram_id', from.id);
+          await supabase.from('ops_staff_login_codes').insert({
+            code,
+            telegram_id: from.id,
+            expires_at: expiresAt,
+          });
+
+          await sendMessage(
+            chatId,
+            `🔑 Ваш код для входу в Dezik Staff:\n\n<code>${code}</code>\n\nДіє 5 хвилин.`,
+          );
+        }
+      } else if (text === '/start') {
         const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
         // Check if already registered

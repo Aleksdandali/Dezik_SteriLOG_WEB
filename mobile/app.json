@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "dezikstaff",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ua.dezik.staff",
