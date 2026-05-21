@@ -25,12 +25,7 @@ CREATE TABLE customer_intelligence (
   segment customer_segment NOT NULL DEFAULT 'new',
   first_order_date DATE,
   last_order_date DATE,
-  days_since_last_order INTEGER GENERATED ALWAYS AS (
-    CASE WHEN last_order_date IS NOT NULL
-      THEN (CURRENT_DATE - last_order_date)
-      ELSE NULL
-    END
-  ) STORED,
+  days_since_last_order INTEGER, -- computed by sync job, not generated column
   total_orders INTEGER NOT NULL DEFAULT 0,
   total_spend NUMERIC(12,2) NOT NULL DEFAULT 0,
   avg_order_value NUMERIC(10,2) NOT NULL DEFAULT 0,

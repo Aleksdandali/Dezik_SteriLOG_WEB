@@ -44,7 +44,7 @@ interface CartItem {
   qty: number;
 }
 
-type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat' | 'manager-chat' | 'fop-docs';
+type View = 'menu' | 'active' | 'history' | 'certificates' | 'solution' | 'order-detail' | 'shop' | 'cart' | 'checkout' | 'order-success' | 'profile' | 'ai-chat' | 'manager-chat' | 'fop-docs' | 'journal' | 'journal-link' | 'journal-new' | 'journal-timer' | 'journal-complete';
 
 export default function CustomerPage() {
   const [phone, setPhone] = useState('');
@@ -90,6 +90,26 @@ export default function CustomerPage() {
   const [managerSending, setManagerSending] = useState(false);
   const [managerChatLoading, setManagerChatLoading] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<number | null>(null);
+  // Journal state
+  const [jLinked, setJLinked] = useState(false);
+  const [jSessions, setJSessions] = useState<{ id: string; sterilizer_name: string; instrument_name: string; packet_type: string; temperature: number | null; duration_minutes: number | null; started_at: string | null; ended_at: string | null; result: string | null; status: string; created_at: string }[]>([]);
+  const [jStats, setJStats] = useState({ total: 0, passed: 0, failed: 0, rate: 0 });
+  const [jLoading, setJLoading] = useState(false);
+  const [jSterilizers, setJSterilizers] = useState<{ id: string; name: string; type: string | null }[]>([]);
+  const [jNewSterilizer, setJNewSterilizer] = useState('');
+  const [jNewSterType, setJNewSterType] = useState<'dry_heat' | 'autoclave'>('dry_heat');
+  const [jInstruments, setJInstruments] = useState('');
+  const [jPacket, setJPacket] = useState('kraft');
+  const [jTemp, setJTemp] = useState('180');
+  const [jDuration, setJDuration] = useState('60');
+  const [jSelectedSter, setJSelectedSter] = useState<string | null>(null);
+  const [jTimerSessionId, setJTimerSessionId] = useState<string | null>(null);
+  const [jTimerStart, setJTimerStart] = useState(0);
+  const [jTimerDuration, setJTimerDuration] = useState(60);
+  const [jElapsed, setJElapsed] = useState(0);
+  const [jResult, setJResult] = useState<'success' | 'fail' | null>(null);
+  const [jSaving, setJSaving] = useState(false);
+  const [jLinkPhone, setJLinkPhone] = useState('');
 
   useEffect(() => {
     const tg = (window as unknown as { Telegram?: { WebApp: { ready: () => void; expand: () => void; requestFullscreen?: () => void; checkHomeScreenStatus?: () => void; addToHomeScreen?: () => void; onEvent?: (event: string, cb: (status: string) => void) => void; initDataUnsafe?: { user?: { id: number } }; BackButton: { show: () => void; hide: () => void; onClick: (cb: () => void) => void; offClick: (cb: () => void) => void } } } }).Telegram?.WebApp;
@@ -108,6 +128,28 @@ export default function CustomerPage() {
     const saved = localStorage.getItem('dezik_phone');
     if (saved) { setPhone(saved); searchOrders(saved); }
   }, []);
+
+  // Timer resume on mount
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('dezik_timer');
+      if (t) {
+        const { sessionId, startTime, durationMinutes } = JSON.parse(t);
+        setJTimerSessionId(sessionId);
+        setJTimerStart(startTime);
+        setJTimerDuration(durationMinutes);
+        setJElapsed(Math.floor((Date.now() - startTime) / 1000));
+        setView('journal-timer');
+      }
+    } catch {}
+  }, []);
+
+  // Timer tick
+  useEffect(() => {
+    if (view !== 'journal-timer' || !jTimerStart) return;
+    const iv = setInterval(() => setJElapsed(Math.floor((Date.now() - jTimerStart) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [view, jTimerStart]);
 
   useEffect(() => {
     if (authorized && view === 'menu' && !localStorage.getItem('dezik_onboarding_done')) {
@@ -155,12 +197,26 @@ export default function CustomerPage() {
       else if (viewingRecipe) { setViewingRecipe(null); }
       else if (view === 'ai-chat') { setView('menu'); setAiMessages([]); setAiText(''); }
       else if (view === 'manager-chat') { setView('menu'); }
+      else if (view === 'journal-complete') { setView('journal'); }
+      else if (view === 'journal-timer') { if (confirm('Скасувати стерилізацію?')) { localStorage.removeItem('dezik_timer'); setView('journal'); } }
+      else if (view === 'journal-new') { setView('journal'); }
+      else if (view === 'journal-link' || view === 'journal') { setView('menu'); }
       else if (view !== 'menu') setView('menu');
     };
     if (view !== 'menu' || viewingOrder || chatOpen || viewingProduct || viewingCert || viewingRecipe) { tg.BackButton.show(); tg.BackButton.onClick(handleBack); }
     else { tg.BackButton.hide(); }
     return () => { tg.BackButton.offClick(handleBack); };
   }, [view, viewingOrder, chatOpen, viewingProduct, viewingCert, viewingRecipe]);
+
+  const loadJournal = async () => {
+    setJLoading(true);
+    try {
+      const r = await customerFetch('/api/customer/journal/sessions');
+      const d = await r.json();
+      setJSessions(d.sessions ?? []);
+      setJStats(d.stats ?? { total: 0, passed: 0, failed: 0, rate: 0 });
+    } catch {} finally { setJLoading(false); }
+  };
 
   const searchOrders = async (p: string) => {
     if (p.length < 9) return;
@@ -789,6 +845,291 @@ export default function CustomerPage() {
   }
 
   // ═══════════════════════════════════
+  // ═══════════════════════════════════
+  // Journal — Link account
+  // ═══════════════════════════════════
+  if (view === 'journal-link') {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#363f75] flex items-center justify-center mx-auto shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+            </div>
+            <h1 className="text-[18px] font-bold text-[#111827] mt-3">Журнал стерилізації</h1>
+            <p className="text-[13px] text-[#9CA3AF] mt-1">Підключіть акаунт Dezik Log</p>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0] space-y-3">
+            <p className="text-[13px] text-[#6B7280]">Введіть номер телефону з якого ви реєструвались в додатку Dezik Log</p>
+            <input value={jLinkPhone} onChange={e => setJLinkPhone(e.target.value)} placeholder="0XX XXX XX XX" inputMode="tel"
+              className="w-full h-[48px] px-4 rounded-2xl border border-[#E5E7EB] bg-white text-[#111827] text-base focus:border-[#4b569e] focus:outline-none placeholder:text-[#C5C9D1]" />
+            <button disabled={jLinkPhone.length < 9 || jLoading} onClick={async () => {
+              setJLoading(true);
+              try {
+                const r = await customerFetch('/api/customer/journal/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: jLinkPhone }) });
+                const d = await r.json();
+                if (d.success) { setJLinked(true); setView('journal'); loadJournal(); }
+                else alert(d.error || 'Акаунт не знайдено');
+              } catch { alert('Помилка'); } finally { setJLoading(false); }
+            }} className="w-full py-3 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white font-semibold text-[15px] shadow-lg shadow-[#4b569e]/25 active:scale-[0.97] transition-all disabled:opacity-40">
+              {jLoading ? 'Підключення...' : 'Підключити'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
+  // Journal — Complete cycle
+  // ═══════════════════════════════════
+  if (view === 'journal-complete') {
+    const elapsed = jElapsed;
+    const recommended = jTimerDuration * 60;
+    const isEnough = elapsed >= recommended;
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+          <div className="text-center">
+            <h1 className="text-[18px] font-bold text-[#111827]">Результат стерилізації</h1>
+            <p className="text-[13px] text-[#9CA3AF] mt-1">Час: {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} / {jTimerDuration}:00</p>
+            <div className={`inline-block mt-2 px-3 py-1 rounded-xl text-[12px] font-bold ${isEnough ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>
+              {isEnough ? 'Час достатній' : 'Менше рекомендованого'}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <button onClick={() => setJResult('success')}
+              className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all ${jResult === 'success' ? 'bg-[#10B981] text-white shadow-lg shadow-[#10B981]/25' : 'bg-white text-[#111827] border border-[#E5E7EB]'}`}>
+              ✅ Індикатор змінився (успіх)
+            </button>
+            <button onClick={() => setJResult('fail')}
+              className={`w-full py-4 rounded-2xl text-[15px] font-bold transition-all ${jResult === 'fail' ? 'bg-[#EF4444] text-white shadow-lg shadow-[#EF4444]/25' : 'bg-white text-[#111827] border border-[#E5E7EB]'}`}>
+              ❌ Індикатор не змінився (невдача)
+            </button>
+          </div>
+          <button disabled={!jResult || jSaving} onClick={async () => {
+            setJSaving(true);
+            try {
+              await customerFetch('/api/customer/journal/sessions', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: jTimerSessionId, status: 'completed', ended_at: new Date().toISOString(), result: jResult }) });
+              localStorage.removeItem('dezik_timer');
+              setView('journal');
+              loadJournal();
+            } catch { alert('Помилка'); } finally { setJSaving(false); }
+          }} className="w-full py-3 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white font-semibold text-[15px] shadow-lg shadow-[#4b569e]/25 active:scale-[0.97] transition-all disabled:opacity-40">
+            {jSaving ? 'Зберігаю...' : 'Зберегти'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
+  // Journal — Timer
+  // ═══════════════════════════════════
+  if (view === 'journal-timer') {
+    const total = jTimerDuration * 60;
+    const progress = Math.min(jElapsed / total, 1);
+    const remaining = Math.max(total - jElapsed, 0);
+    const mins = Math.floor(jElapsed / 60);
+    const secs = jElapsed % 60;
+    const done = jElapsed >= total;
+    const r = 100; const stroke = 8; const circ = 2 * Math.PI * r;
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center px-4">
+        <svg width="240" height="240" viewBox="0 0 240 240">
+          <circle cx="120" cy="120" r={r} fill="none" stroke="#E5E7EB" strokeWidth={stroke} />
+          <circle cx="120" cy="120" r={r} fill="none" stroke={done ? '#10B981' : '#4b569e'} strokeWidth={stroke}
+            strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)} strokeLinecap="round"
+            transform="rotate(-90 120 120)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+        </svg>
+        <p className="text-[40px] font-bold text-[#111827] mt-4 tabular-nums">{String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}</p>
+        <p className="text-[13px] text-[#9CA3AF] mt-1">Рекомендовано: {jTimerDuration} хв</p>
+        <div className={`mt-3 px-4 py-1.5 rounded-xl text-[13px] font-semibold ${done ? 'bg-[#D1FAE5] text-[#065F46]' : 'bg-[#eceef5] text-[#4b569e]'}`}>
+          {done ? 'Час вийшов — можна завершувати!' : remaining > 60 ? `Залишилось ${Math.ceil(remaining / 60)} хв` : `Залишилось ${remaining} сек`}
+        </div>
+        <div className="flex gap-3 mt-8 w-full max-w-xs">
+          <button onClick={() => { if (confirm('Скасувати?')) { localStorage.removeItem('dezik_timer'); setView('journal'); } }}
+            className="flex-1 py-3 rounded-2xl bg-[#eceef5] text-[#363f75] font-semibold text-[14px]">Скасувати</button>
+          <button onClick={() => { setView('journal-complete'); }}
+            className={`flex-1 py-3 rounded-2xl font-semibold text-[14px] text-white shadow-lg transition-all ${done ? 'bg-[#10B981] shadow-[#10B981]/25' : 'bg-[#4b569e] shadow-[#4b569e]/25'}`}>Завершити</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
+  // Journal — New cycle
+  // ═══════════════════════════════════
+  if (view === 'journal-new') {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+          <h1 className="text-[18px] font-bold text-[#111827]">Новий цикл стерилізації</h1>
+          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0] space-y-3">
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Стерилізатор</p>
+            {jSterilizers.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {jSterilizers.map(s => (
+                  <button key={s.id} onClick={() => { setJSelectedSter(s.id); if (s.type === 'autoclave') { setJTemp('134'); setJDuration('30'); } else { setJTemp('180'); setJDuration('60'); } }}
+                    className={`px-4 py-2.5 rounded-2xl text-[13px] font-semibold transition-all ${jSelectedSter === s.id ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>
+                    {s.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input value={jNewSterilizer} onChange={e => setJNewSterilizer(e.target.value)} placeholder="Назва стерилізатора"
+                  className="flex-1 h-[44px] px-3 rounded-xl border border-[#E5E7EB] text-[14px] focus:border-[#4b569e] focus:outline-none" />
+                <button onClick={async () => {
+                  if (!jNewSterilizer) return;
+                  const r = await customerFetch('/api/customer/journal/sterilizers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: jNewSterilizer, type: jNewSterType }) });
+                  const d = await r.json();
+                  if (d.sterilizer) { setJSterilizers(prev => [d.sterilizer, ...prev]); setJSelectedSter(d.sterilizer.id); setJNewSterilizer(''); }
+                }} className="px-4 h-[44px] rounded-xl bg-[#4b569e] text-white text-[13px] font-semibold">+</button>
+              </div>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0] space-y-3">
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Інструменти</p>
+            <input value={jInstruments} onChange={e => setJInstruments(e.target.value)} placeholder="Ножиці, пінцет, фрези..."
+              className="w-full h-[44px] px-3 rounded-xl border border-[#E5E7EB] text-[14px] focus:border-[#4b569e] focus:outline-none" />
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0] space-y-3">
+            <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">Пакет</p>
+            <div className="flex flex-wrap gap-2">
+              {[{ k: 'kraft', l: 'Крафт' }, { k: 'transparent', l: 'Прозорий' }, { k: 'none', l: 'Без пакету' }].map(p => (
+                <button key={p.k} onClick={() => setJPacket(p.k)}
+                  className={`px-4 py-2.5 rounded-2xl text-[13px] font-semibold transition-all ${jPacket === p.k ? 'bg-[#4b569e] text-white shadow-md shadow-[#4b569e]/25' : 'bg-white text-[#363f75] border border-[#E5E7EB]'}`}>{p.l}</button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2">Температура °C</p>
+              <input value={jTemp} onChange={e => setJTemp(e.target.value)} type="number" inputMode="numeric"
+                className="w-full h-[44px] px-3 rounded-xl border border-[#E5E7EB] text-[16px] font-bold text-center focus:border-[#4b569e] focus:outline-none" />
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-[#F0F0F0]">
+              <p className="text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider mb-2">Тривалість хв</p>
+              <input value={jDuration} onChange={e => setJDuration(e.target.value)} type="number" inputMode="numeric"
+                className="w-full h-[44px] px-3 rounded-xl border border-[#E5E7EB] text-[16px] font-bold text-center focus:border-[#4b569e] focus:outline-none" />
+            </div>
+          </div>
+          <button disabled={!jInstruments.trim() || jLoading} onClick={async () => {
+            setJLoading(true);
+            try {
+              const sterName = jSterilizers.find(s => s.id === jSelectedSter)?.name ?? jNewSterilizer ?? '';
+              const r = await customerFetch('/api/customer/journal/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sterilizer_name: sterName, sterilizer_id: jSelectedSter, instrument_names: jInstruments, packet_type: jPacket, temperature: parseInt(jTemp) || null, duration_minutes: parseInt(jDuration) || 60 }) });
+              const d = await r.json();
+              if (d.session) {
+                const now = Date.now(); const dur = parseInt(jDuration) || 60;
+                setJTimerSessionId(d.session.id); setJTimerStart(now); setJTimerDuration(dur); setJElapsed(0);
+                localStorage.setItem('dezik_timer', JSON.stringify({ sessionId: d.session.id, startTime: now, durationMinutes: dur }));
+                await customerFetch('/api/customer/journal/sessions', { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ session_id: d.session.id, status: 'in_progress', started_at: new Date().toISOString() }) });
+                setView('journal-timer');
+              }
+            } catch { alert('Помилка'); } finally { setJLoading(false); }
+          }} className="w-full py-3.5 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white font-semibold text-[15px] shadow-lg shadow-[#4b569e]/25 active:scale-[0.97] transition-all disabled:opacity-40">
+            {jLoading ? 'Створюю...' : '🔥 Почати стерилізацію'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════
+  // Journal — Main list
+  // ═══════════════════════════════════
+  if (view === 'journal') {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC]">
+        <div className="max-w-md mx-auto px-4 py-5 space-y-4">
+          {/* Header */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#4b569e] to-[#363f75] flex items-center justify-center shadow-lg shadow-[#4b569e]/25">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+            </div>
+            <div>
+              <h1 className="text-[17px] font-bold text-[#111827]">Журнал стерилізації</h1>
+              <p className="text-[13px] text-[#9CA3AF]">{jStats.total} записів</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+              <p className="text-[22px] font-bold text-[#4b569e]">{jStats.total}</p>
+              <p className="text-[11px] text-[#9CA3AF] font-medium">Циклів</p>
+            </div>
+            <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+              <p className="text-[22px] font-bold text-[#10B981]">{jStats.rate}%</p>
+              <p className="text-[11px] text-[#9CA3AF] font-medium">Успішних</p>
+            </div>
+            <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+              <p className="text-[22px] font-bold text-[#EF4444]">{jStats.failed}</p>
+              <p className="text-[11px] text-[#9CA3AF] font-medium">Невдалих</p>
+            </div>
+          </div>
+
+          {/* New cycle button */}
+          <button onClick={() => {
+            setJInstruments(''); setJPacket('kraft'); setJResult(null);
+            customerFetch('/api/customer/journal/sterilizers').then(r => r.json()).then(d => setJSterilizers(d.sterilizers ?? [])).catch(() => {});
+            setView('journal-new');
+          }} className="w-full py-3.5 rounded-2xl bg-gradient-to-b from-[#4b569e] to-[#363f75] text-white font-bold text-[15px] shadow-lg shadow-[#4b569e]/25 active:scale-[0.97] transition-all flex items-center justify-center gap-2">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            Новий цикл
+          </button>
+
+          {/* Sessions */}
+          {jLoading ? <div className="flex justify-center py-8"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /></div>
+          : jSessions.length === 0 ? (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 rounded-2xl bg-[#eceef5] flex items-center justify-center mx-auto mb-3"><span className="text-2xl">📋</span></div>
+              <p className="text-[15px] font-semibold text-[#111827]">Ще немає записів</p>
+              <p className="text-[13px] text-[#9CA3AF] mt-1">Почніть перший цикл стерилізації</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {jSessions.map(s => {
+                const isOk = s.result === 'success';
+                const isFail = s.result === 'fail';
+                const packetLabel = s.packet_type === 'kraft' ? 'Крафт' : s.packet_type === 'transparent' ? 'Прозорий' : 'Без пакету';
+                return (
+                  <div key={s.id} className={`bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border ${isFail ? 'border-red-200' : 'border-[#F0F0F0]'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isOk ? 'bg-[#D1FAE5]' : isFail ? 'bg-[#FEE2E2]' : 'bg-[#FEF3C7]'}`}>
+                        <span className="text-lg">{isOk ? '✅' : isFail ? '❌' : '⏳'}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[14px] font-bold text-[#111827] truncate">{s.instrument_name}</p>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex-shrink-0 ml-2 ${isOk ? 'bg-[#D1FAE5] text-[#065F46]' : isFail ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-[#FEF3C7] text-[#92400E]'}`}>
+                            {isOk ? 'УСПІХ' : isFail ? 'НЕВДАЧА' : s.status === 'canceled' ? 'СКАСОВАНО' : 'В ПРОЦЕСІ'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="text-[11px] text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">{s.sterilizer_name}</span>
+                          <span className="text-[11px] text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">{s.temperature}°C</span>
+                          <span className="text-[11px] text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">{s.duration_minutes} хв</span>
+                          <span className="text-[11px] text-[#6B7280] bg-[#F3F4F6] px-1.5 py-0.5 rounded">{packetLabel}</span>
+                        </div>
+                        <p className="text-[11px] text-[#C5C9D1] mt-1.5">{new Date(s.created_at).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // Solution preparation
   // ═══════════════════════════════════
   if (view === 'solution') {
@@ -1856,11 +2197,28 @@ export default function CustomerPage() {
             ), color: 'from-[#10B981] to-[#059669]', label: 'Сертифікати', desc: 'Якість продукції', view: 'certificates' as View },
             { icon: (
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+              </svg>
+            ), color: 'from-[#4b569e] to-[#363f75]', label: 'Журнал стерилізації', desc: 'Контроль циклів', view: 'journal' as View },
+            { icon: (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
               </svg>
             ), color: 'from-[#F59E0B] to-[#D97706]', label: 'Як приготувати розчин?', desc: 'Інструкції', view: 'solution' as View },
           ].map((item, idx) => (
-            <button key={idx} onClick={() => setView(item.view)}
+            <button key={idx} onClick={async () => {
+              if (item.view === 'journal') {
+                setJLoading(true);
+                try {
+                  const r = await customerFetch('/api/customer/journal/link');
+                  const d = await r.json();
+                  if (d.linked) { setJLinked(true); setView('journal'); loadJournal(); }
+                  else { setView('journal-link'); }
+                } catch { setView('journal-link'); } finally { setJLoading(false); }
+              } else {
+                setView(item.view);
+              }
+            }}
               className="relative flex flex-col items-start gap-3 bg-white rounded-2xl p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06),0_6px_16px_rgba(0,0,0,0.04)] border border-[#F0F0F0]
                 active:scale-[0.96] transition-all text-left">
               <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center text-white shadow-md`}>

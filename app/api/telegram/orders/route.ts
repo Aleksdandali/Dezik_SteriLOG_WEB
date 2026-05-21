@@ -80,7 +80,9 @@ export async function GET(request: NextRequest) {
     // Fetch KeyCRM offers for stock display (match by SKU)
     const stockBySku = new Map<string, number>();
     try {
-      for (let offerPage = 1; offerPage <= 3; offerPage++) {
+      // Up to 10 pages × 50 = 500 SKUs. UI handles missing stock as null,
+      // so this is just a safety upper bound to avoid a runaway loop.
+      for (let offerPage = 1; offerPage <= 10; offerPage++) {
         const offersData = await keycrmFetch<{ data: { sku: string; quantity: number }[]; last_page: number }>(
           `/offers?limit=50&page=${offerPage}`
         );

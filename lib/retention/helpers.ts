@@ -18,25 +18,26 @@ export interface ProductMapEntry {
   sku: string;
   name: string;
   category: string;
+  horoshopSkus: string[];
 }
 
 let _productMapCache: Map<number, ProductMapEntry> | null = null;
+let _horoshopSkuMap: Map<string, ProductMapEntry> | null = null;
 let _productMapExpiry = 0;
 const PRODUCT_MAP_TTL = 10 * 60 * 1000; // 10 minutes
 
-/** Load ops_products and build a Map<keycrm_id, {sku, name, category}>. Cached for 10 min. */
+/** Load ops_products and build maps by keycrm_id and horoshop_sku. Cached for 10 min. */
 export async function loadProductMap(
   supabase: SupabaseClient
 ): Promise<Map<number, ProductMapEntry>> {
-  if (_productMapCache && Date.now() < _productMapExpiry) {
+  if (_productMapCache && _horoshopSkuMap && Date.now() < _productMapExpiry) {
     return _productMapCache;
   }
 
-  const { data, error } = await supabase
-    .from('ops_products')
-    .select('sku, name, category, keycrm_id')
-    .eq('active', true)
-    .not('keycrm_id', 'is', null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase.from('ops_products') as any)
+    .select('sku, name, category, keycrm_id, horoshop_skus')
+    .eq('active', true);
 
   if (error) {
     console.error('[loadProductMap] DB error:', error.message);
@@ -44,29 +45,46 @@ export async function loadProductMap(
   }
 
   const map = new Map<number, ProductMapEntry>();
+  const hsMap = new Map<string, ProductMapEntry>();
+
   for (const row of data ?? []) {
+    const entry: ProductMapEntry = {
+      sku: row.sku,
+      name: row.name,
+      category: row.category,
+      horoshopSkus: row.horoshop_skus ?? [],
+    };
+
     if (row.keycrm_id != null) {
-      map.set(row.keycrm_id, {
-        sku: row.sku,
-        name: row.name,
-        category: row.category,
-      });
+      map.set(row.keycrm_id, entry);
+    }
+
+    // Also index by Horoshop SKU
+    for (const hsSku of entry.horoshopSkus) {
+      hsMap.set(hsSku, entry);
     }
   }
 
   _productMapCache = map;
+  _horoshopSkuMap = hsMap;
   _productMapExpiry = Date.now() + PRODUCT_MAP_TTL;
   return map;
 }
 
+/** Get the Horoshop SKU map (must call loadProductMap first) */
+export function getHoroshopSkuMap(): Map<string, ProductMapEntry> {
+  return _horoshopSkuMap ?? new Map();
+}
+
 /**
  * Resolve a KeyCRM order product to our internal SKU.
- * Strategy: 1) match by product_id -> keycrm_id, 2) fuzzy name match as fallback.
+ * Strategy: 1) match by product_id -> keycrm_id, 2) match by Horoshop SKU, 3) fuzzy name match.
  */
 export function resolveProductSku(
   productMap: Map<number, ProductMapEntry>,
   keycrmProductId: number | null | undefined,
-  productName: string
+  productName: string,
+  horoshopSku?: string | null,
 ): { sku: string; entry: ProductMapEntry } | null {
   // 1. Direct match by keycrm_id
   if (keycrmProductId != null) {
@@ -76,13 +94,21 @@ export function resolveProductSku(
     }
   }
 
-  // 2. Fuzzy fallback: normalize product name and try to match
+  // 2. Match by Horoshop SKU (from order product.sku field)
+  if (horoshopSku) {
+    const hsMap = getHoroshopSkuMap();
+    const entry = hsMap.get(horoshopSku);
+    if (entry && CONSUMPTION_DEFAULTS[entry.sku]) {
+      return { sku: entry.sku, entry };
+    }
+  }
+
+  // 3. Fuzzy fallback: normalize product name and try to match
   const normalizedName = productName.toLowerCase().trim();
   for (const [, entry] of productMap) {
     const defaults = CONSUMPTION_DEFAULTS[entry.sku];
     if (!defaults) continue;
     const entryName = entry.name.toLowerCase();
-    // Check if the KeyCRM product name contains our product name or vice versa
     if (normalizedName.includes(entryName) || entryName.includes(normalizedName)) {
       return { sku: entry.sku, entry };
     }

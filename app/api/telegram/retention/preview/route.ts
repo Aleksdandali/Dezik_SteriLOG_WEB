@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
 
     // 1. Get recent orders from KeyCRM (last 200 orders)
     let allOrders: { id: number; ordered_at: string; grand_total: number; payment_status: string; status_id: number;
-      buyer: { phone: string | null; full_name: string | null } | null;
+      client_id?: number;
+      buyer: { id?: number; phone: string | null; full_name: string | null } | null;
       products: { product_id?: number; name: string; sku: string; quantity: number }[];
     }[] = [];
 
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
 
       for (const p of lastOrder.products) {
         // Resolve SKU via keycrm_id mapping (with fuzzy name fallback)
-        const resolved = resolveProductSku(productMap, p.product_id, p.name);
+        const resolved = resolveProductSku(productMap, p.product_id, p.name, (p as Record<string, unknown>).sku as string);
         if (!resolved) continue;
         const sku = resolved.sku;
         const defaults = CONSUMPTION_DEFAULTS[sku];
