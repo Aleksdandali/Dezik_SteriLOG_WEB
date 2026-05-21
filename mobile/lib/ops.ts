@@ -495,3 +495,76 @@ export async function deleteEntry(kind: HistoryKind, id: string, password: strin
     method: 'DELETE',
   });
 }
+
+// ── Shipments (status=8 → status=12 with photo) ────────
+export type ShipmentProduct = {
+  name: string;
+  quantity: number;
+  sku: string | null;
+  thumbnail: string | null;
+  in_stock: number | null;
+};
+
+export type ShipmentOrder = {
+  id: number;
+  payment_status: string;
+  total: number;
+  ordered_at: string;
+  created_at: string;
+  status_changed_at: string | null;
+  status_name: string;
+  manager_comment: string | null;
+  ttn: string | null;
+  recipient: string | null;
+  phone: string | null;
+  city: string | null;
+  address: string | null;
+  region: string | null;
+  delivery: string;
+  buyer_orders_count: number | null;
+  buyer_orders_sum: string | null;
+  buyer_comment: string | null;
+  in_bot: boolean;
+  products: ShipmentProduct[];
+};
+
+export type ArchiveProduct = {
+  name: string;
+  quantity: number;
+  sku: string | null;
+  thumbnail: string | null;
+};
+
+export type ArchiveShipment = {
+  id: number;
+  recipient: string;
+  phone: string | null;
+  city: string | null;
+  address: string | null;
+  region: string | null;
+  ttn: string | null;
+  total: number;
+  payment_status: string;
+  ordered_at: string;
+  completed_at: string;
+  manager_comment: string | null;
+  buyer_comment: string | null;
+  buyer_orders_count: number | null;
+  products: ArchiveProduct[];
+};
+
+export type ArchivePeriod = 'today' | 'yesterday' | 'week';
+
+export async function listShipments(): Promise<ShipmentOrder[]> {
+  const res = await api<{ data: ShipmentOrder[] }>(`/api/telegram/shipments`);
+  return res.data ?? [];
+}
+
+export async function listShipmentArchive(period: ArchivePeriod): Promise<ArchiveShipment[]> {
+  const res = await api<{ data: ArchiveShipment[] }>(`/api/telegram/shipments/archive?period=${period}`);
+  return res.data ?? [];
+}
+
+export async function markShipped(order_id: number, photo_url: string): Promise<void> {
+  await api(`/api/telegram/shipments`, { method: 'POST', body: { order_id, photo_url } });
+}
