@@ -376,6 +376,7 @@ function TelegramPage() {
   const [view, setView] = useState<View>('menu');
   const [chatConvId, setChatConvId] = useState<string | null>(null);
   const [clientDetailId, setClientDetailId] = useState<number | null>(null);
+  const [clientDetailBackView, setClientDetailBackView] = useState<View>('all-clients');
   const [staff, setStaff] = useState<OpsStaff | null>(null);
   const [allStaff, setAllStaff] = useState<OpsStaff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -543,13 +544,13 @@ function TelegramPage() {
         <BotClientsView />
       )}
       {view === 'all-clients' && (
-        <AllClientsView onClientClick={(id) => { setClientDetailId(id); setView('client-detail'); }} />
+        <AllClientsView onClientClick={(id) => { setClientDetailId(id); setClientDetailBackView('all-clients'); setView('client-detail'); }} />
       )}
       {view === 'retention-preview' && (
-        <RetentionPreview />
+        <RetentionPreview onClientClick={(id) => { setClientDetailId(id); setClientDetailBackView('retention-preview'); setView('client-detail'); }} />
       )}
       {view === 'client-detail' && clientDetailId && (
-        <ClientDetailView buyerId={clientDetailId} onBack={() => setView('all-clients')} />
+        <ClientDetailView buyerId={clientDetailId} onBack={() => setView(clientDetailBackView)} />
       )}
       {(view === 'messages' || view === 'chat-detail') && (
         <MessagesInbox onOpenChat={(id) => { setChatConvId(id); setView('chat-detail'); }} chatConvId={view === 'chat-detail' ? chatConvId : null} onBack={() => setView('messages')} />
@@ -6072,7 +6073,7 @@ function ClientDetailView({ buyerId, onBack }: { buyerId: number; onBack: () => 
 }
 
 // ─── Retention Preview ───────────────────────────────
-function RetentionPreview() {
+function RetentionPreview({ onClientClick }: { onClientClick?: (buyerId: number) => void }) {
   const [data, setData] = useState<{ total_customers: number; total_orders_90d: number; would_send_reminders: number; would_send_winback: number; customers: {
     customer: string; phone: string; totalOrders: number; totalSpend: number; lastOrderDate: string; daysSinceLastOrder: number; segment: string;
     wouldSendPostDelivery: boolean; wouldSendWinback: boolean;
@@ -6080,6 +6081,9 @@ function RetentionPreview() {
   }[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sending, setSending] = useState<string | null>(null); // phone being sent
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     api<typeof data>('/retention/preview').then(setData).catch(() => {}).finally(() => setLoading(false));
@@ -6087,87 +6091,228 @@ function RetentionPreview() {
 
   const segColors: Record<string, string> = { new: 'bg-blue-100 text-blue-700', active: 'bg-green-100 text-green-700', vip: 'bg-purple-100 text-purple-700', dormant: 'bg-red-100 text-red-700' };
 
+  const handleSend = async (c: NonNullable<typeof data>['customers'][0], type: 'reorder_reminder' | 'post_delivery' | 'win_back') => {
+    setSending(c.phone);
+    setSendError(null);
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('medium');
+    try {
+      const products = c.products.filter(p => p.wouldSendReminder || p.status !== 'ok').map(p => ({
+        name: p.name,
+        daysLeft: p.daysUntilEmpty,
+      }));
+      await api('/retention/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: c.phone,
+          messageType: type,
+          products,
+          segment: c.segment,
+          totalOrders: c.totalOrders,
+          firstName: c.customer.split(' ')[0],
+        }),
+      });
+      setSent(prev => new Set(prev).add(c.phone));
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Помилка';
+      setSendError(msg);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+    }
+    setSending(null);
+  };
+
   if (loading) return <div className="flex flex-col items-center py-16 gap-3"><div className="w-6 h-6 border-2 border-[#4b569e] border-t-transparent rounded-full animate-spin" /><p className="text-[13px] text-[#9CA3AF]">Аналізую замовлення...</p></div>;
   if (!data) return <p className="text-center py-12 text-[#9CA3AF]">Помилка завантаження</p>;
 
+  const needsAction = data.customers.filter(c => c.products.some(p => p.wouldSendReminder) || c.wouldSendWinback || c.wouldSendPostDelivery);
+  const ok = data.customers.filter(c => !c.products.some(p => p.wouldSendReminder) && !c.wouldSendWinback && !c.wouldSendPostDelivery);
+
+  // Funnel counts
+  const fNew = data.customers.filter(c => c.segment === 'new').length;
+  const fActive = data.customers.filter(c => c.segment === 'active').length;
+  const fVip = data.customers.filter(c => c.segment === 'vip').length;
+  const fDormant = data.customers.filter(c => c.segment === 'dormant').length;
+  // "active" in preview = returning + regular (2+ orders, not dormant)
+  const fReturning = data.customers.filter(c => c.segment === 'active' && c.totalOrders <= 3).length;
+  const fRegular = data.customers.filter(c => c.segment === 'active' && c.totalOrders >= 4).length;
+
+  const fTotal = data.total_customers;
+  const funnelSteps = [
+    { label: 'Новий', count: fNew, color: '#3B82F6', bg: '#EFF6FF', pct: fTotal > 0 ? Math.round((fNew / fTotal) * 100) : 0 },
+    { label: 'Повторний', count: fReturning, color: '#10B981', bg: '#ECFDF5', pct: fTotal > 0 ? Math.round((fReturning / fTotal) * 100) : 0 },
+    { label: 'Постійний', count: fRegular, color: '#8B5CF6', bg: '#F5F3FF', pct: fTotal > 0 ? Math.round((fRegular / fTotal) * 100) : 0 },
+    { label: 'VIP', count: fVip, color: '#F59E0B', bg: '#FFFBEB', pct: fTotal > 0 ? Math.round((fVip / fTotal) * 100) : 0 },
+  ];
+
+  const convToRepeat = fTotal > 0 ? Math.round(((fReturning + fRegular + fVip) / fTotal) * 100) : 0;
+
   return (
     <div className="space-y-4">
-      <PageHeader icon="🔄" title="Retention Preview" subtitle="Що відправити клієнтам" />
+      <PageHeader icon="🔄" title="Retention" subtitle={`${data.total_customers} клієнтів за 90 днів`} />
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
-          <p className="text-[18px] font-bold text-[#111827]">{data.total_customers}</p>
-          <p className="text-[11px] text-[#9CA3AF]">Клієнтів (90д)</p>
+      {/* Funnel */}
+      <div className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider">Воронка</p>
+          <p className="text-[12px] text-[#9CA3AF]">Конверсія в повторних: <span className="font-bold text-[#111827]">{convToRepeat}%</span></p>
         </div>
-        <div className="bg-white rounded-[20px] p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
-          <p className="text-[18px] font-bold text-[#111827]">{data.total_orders_90d}</p>
-          <p className="text-[11px] text-[#9CA3AF]">Замовлень</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-[#FEF3C7] rounded-[20px] p-3 border border-[#FDE68A] text-center">
-          <p className="text-[18px] font-bold text-[#92400E]">{data.would_send_reminders}</p>
-          <p className="text-[11px] text-[#92400E]">Нагадування</p>
-        </div>
-        <div className="bg-[#FEE2E2] rounded-[20px] p-3 border border-[#FECACA] text-center">
-          <p className="text-[18px] font-bold text-[#DC2626]">{data.would_send_winback}</p>
-          <p className="text-[11px] text-[#DC2626]">Win-back</p>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        {data.customers.map(c => {
-          const isExp = expanded === c.phone;
-          const urgent = c.products.filter(p => p.status === 'overdue' || p.status === 'empty').length;
-          const soon = c.products.filter(p => p.status === 'soon').length;
-          return (
-            <div key={c.phone}>
-              <button onClick={() => setExpanded(isExp ? null : c.phone)}
-                className="w-full bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:scale-[0.98] transition-all text-left">
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[14px] font-bold text-[#111827] truncate">{c.customer}</p>
-                      <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${segColors[c.segment] ?? 'bg-gray-100 text-gray-600'}`}>{c.segment}</span>
-                    </div>
-                    <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.totalSpend.toLocaleString('uk-UA')} грн · {c.daysSinceLastOrder}д тому</p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {urgent > 0 && <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center">{urgent}</span>}
-                    {soon > 0 && <span className="w-5 h-5 rounded-full bg-[#F59E0B] text-white text-[10px] font-bold flex items-center justify-center">{soon}</span>}
-                    <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-                  </div>
+        <div className="space-y-2">
+          {funnelSteps.map((step, i) => {
+            const maxCount = Math.max(...funnelSteps.map(s => s.count), 1);
+            const barPct = Math.max(8, (step.count / maxCount) * 100);
+            return (
+              <div key={step.label}>
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[13px] font-semibold" style={{ color: step.color }}>{step.label}</span>
+                  <span className="text-[13px] font-bold text-[#111827]">{step.count} <span className="text-[11px] font-normal text-[#9CA3AF]">({step.pct}%)</span></span>
                 </div>
-              </button>
-              {isExp && (
-                <div className="mt-1 bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] overflow-hidden">
-                  {c.wouldSendWinback && <div className="px-4 py-2 bg-[#FEE2E2] text-[12px] font-semibold text-[#DC2626]">🔄 Win-back: клієнт неактивний {c.daysSinceLastOrder} днів</div>}
-                  {c.wouldSendPostDelivery && <div className="px-4 py-2 bg-[#D1FAE5] text-[12px] font-semibold text-[#065F46]">📦 Post-delivery: відправити "Все отримали?"</div>}
-                  {c.products.length === 0 ? <p className="px-4 py-3 text-[13px] text-[#9CA3AF]">Немає витратних товарів</p>
-                  : c.products.map((p, i) => {
-                    const colors = { ok: 'text-[#059669]', soon: 'text-[#D97706]', empty: 'text-[#DC2626]', overdue: 'text-[#DC2626]' };
-                    const labels = { ok: 'ОК', soon: 'Скоро', empty: 'Закінчується', overdue: 'Закінчився' };
-                    return (
-                      <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-medium text-[#111827] truncate">{p.name} ×{p.lastOrderedQty}</p>
-                          <p className="text-[11px] text-[#9CA3AF]">Пустий: {p.estimatedEmptyDate}</p>
+                <div className="h-[6px] bg-[#F3F4F6] rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: step.color }} />
+                </div>
+                {i < funnelSteps.length - 1 && (
+                  <div className="flex justify-center py-0.5">
+                    <svg className="w-3 h-3 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" /></svg>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {fDormant > 0 && (
+          <div className="mt-3 pt-3 border-t border-[#F0F0F0] flex items-center justify-between">
+            <span className="text-[12px] text-[#EF4444] font-medium">Сплячі</span>
+            <span className="text-[13px] font-bold text-[#EF4444]">{fDormant}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Action summary */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#F59E0B]">{data.would_send_reminders}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Нагадати</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#EF4444]">{data.would_send_winback}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Повернути</p>
+        </div>
+        <div className="bg-white rounded-[16px] p-2.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] text-center">
+          <p className="text-[16px] font-bold text-[#10B981]">{sent.size}</p>
+          <p className="text-[10px] text-[#9CA3AF]">Надіслано</p>
+        </div>
+      </div>
+
+      {sendError && (
+        <div className="bg-[#FEE2E2] rounded-[16px] px-4 py-2 text-[12px] text-[#DC2626] font-medium">{sendError}</div>
+      )}
+
+      {/* Customers that need action */}
+      {needsAction.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Потребують дії ({needsAction.length})</p>
+          {needsAction.map(c => {
+            const isExp = expanded === c.phone;
+            const isSent = sent.has(c.phone);
+            const isSending = sending === c.phone;
+            const urgent = c.products.filter(p => p.status === 'overdue' || p.status === 'empty').length;
+            const soon = c.products.filter(p => p.status === 'soon').length;
+            const hasReminder = c.products.some(p => p.wouldSendReminder);
+
+            // Determine action type
+            let actionType: 'reorder_reminder' | 'post_delivery' | 'win_back' = 'reorder_reminder';
+            let actionLabel = 'Нагадати';
+            let actionColor = 'bg-[#F59E0B]';
+            if (c.wouldSendPostDelivery) { actionType = 'post_delivery'; actionLabel = 'Перевірити'; actionColor = 'bg-[#10B981]'; }
+            else if (c.wouldSendWinback) { actionType = 'win_back'; actionLabel = 'Повернути'; actionColor = 'bg-[#EF4444]'; }
+
+            return (
+              <div key={c.phone}>
+                <div className={`bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border ${isSent ? 'border-[#D1FAE5]' : 'border-[#F0F0F0]'} overflow-hidden`}>
+                  <button onClick={() => setExpanded(isExp ? null : c.phone)}
+                    className="w-full p-4 active:bg-[#FAFAFA] transition-all text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-[14px] font-bold text-[#111827] truncate">{c.customer}</p>
+                          <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold ${segColors[c.segment] ?? 'bg-gray-100 text-gray-600'}`}>{c.segment}</span>
+                          {isSent && <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-[#D1FAE5] text-[#065F46]">Надіслано</span>}
                         </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <p className={`text-[13px] font-bold ${colors[p.status as keyof typeof colors] ?? 'text-[#9CA3AF]'}`}>
-                            {p.daysUntilEmpty > 0 ? `${p.daysUntilEmpty}д` : `${Math.abs(p.daysUntilEmpty)}д назад`}
-                          </p>
-                          <p className={`text-[10px] font-semibold ${colors[p.status as keyof typeof colors]}`}>{labels[p.status as keyof typeof labels]}{p.wouldSendReminder ? ' 📩' : ''}</p>
-                        </div>
+                        <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.totalSpend.toLocaleString('uk-UA')} грн · {c.daysSinceLastOrder}д тому</p>
                       </div>
-                    );
-                  })}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {urgent > 0 && <span className="w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] font-bold flex items-center justify-center">{urgent}</span>}
+                        {soon > 0 && <span className="w-5 h-5 rounded-full bg-[#F59E0B] text-white text-[10px] font-bold flex items-center justify-center">{soon}</span>}
+                        <svg className={`w-4 h-4 text-[#C5C9D1] transition-transform ${isExp ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                      </div>
+                    </div>
+                  </button>
+                  {isExp && (
+                    <>
+                      {c.wouldSendWinback && <div className="px-4 py-2 bg-[#FEE2E2] text-[12px] font-semibold text-[#DC2626]">Клієнт неактивний {c.daysSinceLastOrder} днів</div>}
+                      {c.wouldSendPostDelivery && <div className="px-4 py-2 bg-[#D1FAE5] text-[12px] font-semibold text-[#065F46]">Замовлення щойно доставлене</div>}
+                      {c.products.length === 0 ? <p className="px-4 py-3 text-[13px] text-[#9CA3AF]">Немає витратних товарів</p>
+                      : c.products.map((p, i) => {
+                        const colors = { ok: 'text-[#059669]', soon: 'text-[#D97706]', empty: 'text-[#DC2626]', overdue: 'text-[#DC2626]' };
+                        const labels = { ok: 'ОК', soon: 'Скоро', empty: 'Закінчується', overdue: 'Закінчився' };
+                        return (
+                          <div key={i} className={`flex items-center justify-between px-4 py-2.5 ${i > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-[#111827] truncate">{p.name} ×{p.lastOrderedQty}</p>
+                              <p className="text-[11px] text-[#9CA3AF]">Пустий: {p.estimatedEmptyDate}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 ml-2">
+                              <p className={`text-[13px] font-bold ${colors[p.status as keyof typeof colors] ?? 'text-[#9CA3AF]'}`}>
+                                {p.daysUntilEmpty > 0 ? `${p.daysUntilEmpty}д` : `${Math.abs(p.daysUntilEmpty)}д назад`}
+                              </p>
+                              <p className={`text-[10px] font-semibold ${colors[p.status as keyof typeof colors]}`}>{labels[p.status as keyof typeof labels]}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Action buttons */}
+                      {!isSent && (
+                        <div className="flex gap-2 p-3 border-t border-[#F0F0F0]">
+                          <button
+                            onClick={() => handleSend(c, actionType)}
+                            disabled={isSending}
+                            className={`flex-1 h-[40px] rounded-xl ${actionColor} text-white text-[13px] font-bold active:scale-[0.97] disabled:opacity-50 flex items-center justify-center gap-1.5`}
+                          >
+                            {isSending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : actionLabel}
+                          </button>
+                        </div>
+                      )}
+                      {isSent && (
+                        <div className="px-4 py-2.5 border-t border-[#D1FAE5] bg-[#F0FDF4] text-[12px] font-semibold text-[#065F46] text-center">
+                          Повідомлення надіслано в Telegram
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* OK customers */}
+      {ok.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[12px] font-bold text-[#9CA3AF] uppercase tracking-wider px-1">Все ОК ({ok.length})</p>
+          {ok.slice(0, 5).map(c => (
+            <div key={c.phone} className="bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[#111827] truncate">{c.customer}</p>
+                  <p className="text-[12px] text-[#9CA3AF]">{c.totalOrders} зам · {c.daysSinceLastOrder}д тому</p>
+                </div>
+                <span className="text-[11px] font-bold text-[#059669]">OK</span>
+              </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+          {ok.length > 5 && <p className="text-center text-[12px] text-[#C5C9D1]">+ ще {ok.length - 5} клієнтів</p>}
+        </div>
+      )}
     </div>
   );
 }

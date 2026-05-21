@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Dezik Staff",
+    "slug": "dezik-staff",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "dezikstaff",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ua.dezik.staff",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "ua.dezik.staff",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#ffffff"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "2625520e-81ed-4908-9421-e3d5c4b3f3c0"
+      }
+    },
+    "owner": "dezik"
+  }
+}

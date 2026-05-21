@@ -227,7 +227,8 @@ async function processOrder(
     const resolved = resolveProductSku(
       productMap,
       product.product_id,
-      product.name
+      product.name,
+      product.sku
     );
     if (!resolved) continue; // Unknown product, skip
 
