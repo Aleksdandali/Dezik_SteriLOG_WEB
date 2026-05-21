@@ -12,15 +12,19 @@ type Action = {
     | '/audit/new'
     | '/supplier-payment/new'
     | '/movement/new'
+    | '/movement/pending'
     | '/production/new'
+    | '/receiving/new'
     | '/cash';
 };
 
 const ACTIONS: Action[] = [
   { emoji: '🏭', title: 'Виробництво', subtitle: 'Друк / упаковка', href: '/production/new' },
+  { emoji: '📥', title: 'Приймання', subtitle: 'На склад + ТТН', href: '/receiving/new' },
+  { emoji: '📦', title: 'Переміщення', subtitle: 'Між складами + фото', href: '/movement/new' },
+  { emoji: '✅', title: 'Підтвердити прибуття', subtitle: 'Очікують підтвердження', href: '/movement/pending' },
   { emoji: '💰', title: 'Витрата', subtitle: 'Сума + фото чека', href: '/expense/new' },
   { emoji: '🧾', title: 'Оплата постачальнику', subtitle: 'Постачальник + сума', href: '/supplier-payment/new' },
-  { emoji: '📦', title: 'Переміщення', subtitle: 'Між складами + фото', href: '/movement/new' },
   { emoji: '📝', title: 'Переоблік', subtitle: 'Залишки на локації', href: '/audit/new' },
   { emoji: '💵', title: 'Каса', subtitle: 'Звіт за період', href: '/cash' },
 ];

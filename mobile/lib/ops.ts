@@ -173,6 +173,60 @@ export async function createProduction(input: ProductionInput): Promise<void> {
   await api('/api/telegram/production', { method: 'POST', body: input });
 }
 
+// ── Receivings (warehouse intake) ──────────────────────
+export type ReceivingInput = {
+  supplier: string;
+  quantity: number;
+  amount: number;
+  ttn?: string | null;
+  photo_url: string;
+  location: OpsLocation;
+  description?: string | null;
+};
+
+export async function createReceiving(input: ReceivingInput): Promise<void> {
+  await api('/api/telegram/receivings', { method: 'POST', body: input });
+}
+
+// ── Movements: pending + confirm (warehouse-side flow) ─
+export type PendingMovement = {
+  id: string;
+  staff_id: string;
+  from_location: OpsLocation;
+  to_location: OpsLocation;
+  description: string;
+  quantity: number | null;
+  photo_url: string | null;
+  bag_size: BagSize | null;
+  material: BagMaterial | null;
+  packages: number | null;
+  shipment_id: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  ops_staff?: { name: string } | null;
+};
+
+export async function listPendingMovements(location: OpsLocation): Promise<PendingMovement[]> {
+  const res = await api<{ data: PendingMovement[] }>(`/api/telegram/movements/pending?location=${location}`);
+  return res.data ?? [];
+}
+
+export type ConfirmShipmentInput = {
+  shipment_id: string;
+  items: { id: string; confirmed_packages: number }[];
+  photo_url?: string;
+};
+
+export type ConfirmSingleInput = {
+  movement_id: string;
+  confirmed_packages: number;
+  photo_url?: string;
+};
+
+export async function confirmMovement(input: ConfirmShipmentInput | ConfirmSingleInput): Promise<void> {
+  await api('/api/telegram/movements/confirm', { method: 'POST', body: input });
+}
+
 // ── Cash report (read-only dashboard) ──────────────────
 export type CashPeriod = 'today' | 'week' | 'month';
 
