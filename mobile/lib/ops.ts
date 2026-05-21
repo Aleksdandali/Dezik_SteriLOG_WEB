@@ -611,3 +611,40 @@ export type ReportData = {
 export async function fetchReport(period: ReportPeriod): Promise<ReportData> {
   return api<ReportData>(`/api/telegram/reports?period=${period}`);
 }
+
+// ── Analytics (KeyCRM order analytics) ─────────────────
+export type AnalyticsPeriod = 'today' | 'week' | 'month';
+
+export type AnalyticsSource = {
+  name: string;
+  source_id: number;
+  orders: number;
+  revenue: number;
+};
+
+export type AnalyticsStatus = {
+  name: string;
+  status_id: number;
+  count: number;
+};
+
+export type AnalyticsDay = {
+  date: string;
+  orders: number;
+  revenue: number;
+};
+
+export type AnalyticsData = {
+  period: { from: string; to: string };
+  total_orders: number;
+  total_revenue: number;
+  by_source: AnalyticsSource[];
+  by_status: AnalyticsStatus[];
+  by_day: AnalyticsDay[];
+  avg_order: number;
+  paid_percent: number;
+};
+
+export async function fetchAnalytics(period: AnalyticsPeriod): Promise<AnalyticsData> {
+  return api<AnalyticsData>(`/api/telegram/analytics?period=${period}`);
+}
