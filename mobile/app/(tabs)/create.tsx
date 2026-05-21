@@ -20,7 +20,8 @@ type ActionHref =
   | '/salary/new'
   | '/salary/list'
   | '/history'
-  | '/team';
+  | '/team'
+  | '/shipments';
 
 type Action = {
   emoji: string;
@@ -36,6 +37,7 @@ const ACTIONS: Action[] = [
   { emoji: '📦', title: 'Переміщення', subtitle: 'Між складами + фото', href: '/movement/new' },
   { emoji: '✅', title: 'Підтвердити прибуття', subtitle: 'Очікують підтвердження', href: '/movement/pending' },
   { emoji: '📊', title: 'Склад', subtitle: 'Залишки за локацією', href: '/stock' },
+  { emoji: '📬', title: 'Відправки', subtitle: 'Зібрати + фото', href: '/shipments' },
   { emoji: '💰', title: 'Витрата', subtitle: 'Сума + фото чека', href: '/expense/new' },
   { emoji: '🧾', title: 'Оплата постачальнику', subtitle: 'Постачальник + сума', href: '/supplier-payment/new' },
   { emoji: '📝', title: 'Переоблік', subtitle: 'Залишки на локації', href: '/audit/new' },
