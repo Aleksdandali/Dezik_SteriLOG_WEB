@@ -367,6 +367,71 @@ export async function listSalaries(period?: string): Promise<SalaryEntry[]> {
   return res.data ?? [];
 }
 
+// ── Team (admin) ───────────────────────────────────────
+export type StaffRole = 'staff' | 'admin';
+
+export type TeamMember = {
+  id: string;
+  telegram_id: number;
+  name: string;
+  role: StaffRole | string;
+  location: OpsLocation | null;
+  visible_sections: string[] | null;
+  active: boolean;
+};
+
+export type JoinRequest = {
+  id: string;
+  telegram_id: number;
+  name: string;
+  username: string | null;
+  created_at: string;
+};
+
+export type TeamData = { staff: TeamMember[]; requests: JoinRequest[] };
+
+export const STAFF_SECTIONS: { id: string; label: string }[] = [
+  { id: 'production', label: 'Виробництво' },
+  { id: 'movement', label: 'Переміщення' },
+  { id: 'warehouse', label: 'Склад' },
+  { id: 'shipments', label: 'Відправки' },
+  { id: 'cash-report', label: 'Каса' },
+  { id: 'expense', label: 'Витрати' },
+  { id: 'receiving', label: 'Приймання' },
+  { id: 'inventory-audit', label: 'Переоблік' },
+];
+
+export async function fetchTeam(): Promise<TeamData> {
+  return api<TeamData>(`/api/telegram/team`);
+}
+
+export type ApproveRequestInput = {
+  request_id: string;
+  role: StaffRole;
+  location?: OpsLocation | null;
+  visible_sections?: string[];
+};
+
+export async function approveRequest(input: ApproveRequestInput): Promise<void> {
+  await api(`/api/telegram/team`, { method: 'POST', body: { action: 'approve', ...input } });
+}
+
+export async function rejectRequest(request_id: string): Promise<void> {
+  await api(`/api/telegram/team`, { method: 'POST', body: { action: 'reject', request_id } });
+}
+
+export type UpdateStaffInput = {
+  staff_id: string;
+  role?: StaffRole;
+  location?: OpsLocation | null;
+  visible_sections?: string[];
+  active?: boolean;
+};
+
+export async function updateStaff(input: UpdateStaffInput): Promise<void> {
+  await api(`/api/telegram/team`, { method: 'POST', body: { action: 'update_staff', ...input } });
+}
+
 // ── History (read + admin delete) ──────────────────────
 export type ExpenseEntry = {
   id: string;
