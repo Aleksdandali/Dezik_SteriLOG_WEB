@@ -23,7 +23,8 @@ type ActionHref =
   | '/team'
   | '/shipments'
   | '/reports'
-  | '/analytics';
+  | '/analytics'
+  | '/fop-docs';
 
 type Action = {
   emoji: string;
@@ -49,6 +50,7 @@ const ACTIONS: Action[] = [
   { emoji: '🧮', title: 'Зарплати — звіт', subtitle: 'По місяцях (admin)', href: '/salary/list' },
   { emoji: '📊', title: 'Звіти P&L', subtitle: 'Прибуток + витрати (admin)', href: '/reports' },
   { emoji: '📈', title: 'Аналітика', subtitle: 'Замовлення + джерела', href: '/analytics' },
+  { emoji: '📄', title: 'Документи ФОП', subtitle: 'Завантаження + share', href: '/fop-docs' },
   { emoji: '📋', title: 'Історія', subtitle: 'Витрати / Приймання / Перемiщ.', href: '/history' },
   { emoji: '👥', title: 'Команда', subtitle: 'Заявки + ролі (admin)', href: '/team' },
 ];
