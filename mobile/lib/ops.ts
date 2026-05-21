@@ -312,3 +312,37 @@ export async function fetchCash(opts: { period?: CashPeriod; date?: string } = {
   const q = opts.date ? `?date=${opts.date}` : `?period=${opts.period ?? 'today'}`;
   return api<CashData>(`/api/telegram/cash${q}`);
 }
+
+// ── Staff list ────────────────────────────────────────
+export type Staff = {
+  id: string;
+  name: string;
+  role?: string | null;
+  location?: OpsLocation | null;
+  active?: boolean | null;
+};
+
+export async function listStaff(): Promise<Staff[]> {
+  const res = await api<{ data: Staff[] }>(`/api/telegram/staff`);
+  return res.data ?? [];
+}
+
+// ── Salaries (admin only) ──────────────────────────────
+export type SalaryType = 'salary' | 'advance';
+
+export const SALARY_TYPE_LABELS: Record<SalaryType, string> = {
+  salary: 'Зарплата',
+  advance: 'Аванс',
+};
+
+export type SalaryInput = {
+  recipient_id: string;
+  amount: number;
+  type: SalaryType;
+  period: string; // YYYY-MM
+  notes?: string | null;
+};
+
+export async function createSalary(input: SalaryInput): Promise<void> {
+  await api('/api/telegram/salaries', { method: 'POST', body: input });
+}
