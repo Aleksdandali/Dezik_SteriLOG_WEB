@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
 import { addToOfferStock } from '@/lib/keycrm';
+import { broadcastOps } from '@/lib/telegram/realtime';
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,6 +97,14 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    broadcastOps('movement.confirmed', {
+      shipment_id: shipment_id ?? null,
+      movement_id: movement_id ?? null,
+      ids: shipment_id && items
+        ? (items as { id: string }[]).map(i => i.id)
+        : (movement_id ? [movement_id] : []),
+    });
 
     return NextResponse.json({
       ok: true,

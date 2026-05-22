@@ -6,6 +6,12 @@
  */
 export const API_BASE_URL = 'https://dezik-admin.vercel.app';
 
+// Supabase Realtime (anon key — safe for client bundles).
+// Used only for broadcast subscriptions on the shared `ops` channel.
+export const SUPABASE_URL = 'https://csshbetufyocutdislkn.supabase.co';
+export const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzc2hiZXR1ZnlvY3V0ZGlzbGtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMDQ4MjAsImV4cCI6MjA4ODg4MDgyMH0.QUm7jActUqQeYAMLo-pC30AX-PPgFpyy4fhaMGb7vMQ';
+
 /** Storage keys for SecureStore */
 export const STORAGE = {
   AUTH_TOKEN: 'dezik.auth.token',

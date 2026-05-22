@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
+import { broadcastOps } from '@/lib/telegram/realtime';
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,6 +89,12 @@ export async function POST(request: NextRequest) {
       const msg = `📝 <b>Новий переоблік</b>\n${LOCS[location] ?? location}\n${rows.length} позицій\n\n⏳ Очікує підтвердження`;
       for (const a of admins ?? []) { try { await sendMessage(a.telegram_id, msg); } catch {} }
     } catch {}
+
+    broadcastOps('audit.created', {
+      audit_id: audit.id,
+      location,
+      status: audit.status ?? (isAdmin ? 'approved' : 'pending'),
+    });
 
     return NextResponse.json({ data: audit }, { status: 201 });
   } catch (err) {

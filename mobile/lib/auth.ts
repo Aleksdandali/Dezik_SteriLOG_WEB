@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import { STORAGE } from './config';
 import { clearOrdersCache } from './orders';
 import { clearChatCache } from './chat';
+import { disposeRealtime } from './realtime';
 
 export type Staff = {
   id: string;
@@ -42,6 +43,7 @@ export async function clearToken(): Promise<void> {
   ]);
   clearOrdersCache();
   clearChatCache();
+  disposeRealtime();
 }
 
 export async function getStaff(): Promise<Staff | null> {

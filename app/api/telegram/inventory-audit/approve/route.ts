@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
+import { broadcastOps } from '@/lib/telegram/realtime';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
       .eq('id', audit_id);
 
     if (error) throw error;
+
+    broadcastOps('audit.reviewed', { audit_id, status: newStatus });
 
     return NextResponse.json({ ok: true, status: newStatus });
   } catch (err) {

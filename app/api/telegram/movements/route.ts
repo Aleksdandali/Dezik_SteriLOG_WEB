@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
+import { broadcastOps } from '@/lib/telegram/realtime';
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,6 +67,13 @@ export async function POST(request: NextRequest) {
       console.error('[Movement POST] DB error:', JSON.stringify(error));
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    broadcastOps('movement.pending', {
+      id: data.id,
+      from_location,
+      to_location,
+      shipment_id: data.shipment_id ?? null,
+    });
 
     return NextResponse.json({ data }, { status: 201 });
   } catch (err) {
