@@ -35,7 +35,8 @@
           "cameraPermission": "Dezik Staff потребує доступу до камери для зйомки чеків та документів."
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

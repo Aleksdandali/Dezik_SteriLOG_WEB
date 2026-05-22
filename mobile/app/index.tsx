@@ -18,5 +18,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={authed ? '/(tabs)/orders' : '/(auth)/login'} />;
+  return <Redirect href={authed ? '/(tabs)/create' : '/(auth)/login'} />;
 }

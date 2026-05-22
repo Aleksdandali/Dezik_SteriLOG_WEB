@@ -32,6 +32,7 @@ type ActionHref =
   | '/production/history'
   | '/receiving/new'
   | '/stock'
+  | '/stock-dashboard'
   | '/cash'
   | '/salary/new'
   | '/salary/list'
@@ -51,8 +52,10 @@ type BadgeKey =
   | 'pendingMovements'
   | 'pendingAudits';
 
+type IconName = keyof typeof Ionicons.glyphMap;
+
 type MainItem = {
-  icon: string;
+  icon: IconName;
   label: string;
   desc: string;
   href: ActionHref;
@@ -63,7 +66,7 @@ type MainItem = {
 };
 
 type SecondaryItem = {
-  icon: string;
+  icon: IconName;
   label: string;
   href: ActionHref;
   adminOnly?: boolean;
@@ -76,30 +79,30 @@ const UNREAD_REFRESH_MS = 30_000; // Matches MainMenu in app/telegram/page.tsx.
 
 // Order + sections mirror MainMenu in app/telegram/page.tsx.
 const MAIN_ITEMS: MainItem[] = [
-  { icon: '🏭', label: 'Виробництво', desc: 'Друк / Упаковка', href: '/production/new', color: '#4b569e', section: 'production' },
-  { icon: '🚚', label: 'Переміщення', desc: 'Між точками', href: '/movement/new', color: '#3B82F6', section: 'movement' },
-  { icon: '📋', label: 'Склад', desc: 'Вхідні / Залишки', href: '/stock', color: '#10B981', section: 'warehouse' },
-  { icon: '📊', label: 'Залишки', desc: 'Всі локації', href: '/stock', color: '#8B5CF6', section: 'stock-dashboard' },
-  { icon: '📦', label: 'Приймання', desc: 'Від постачальника', href: '/receiving/new', color: '#F59E0B', section: 'receiving' },
-  { icon: '📝', label: 'Замовлення', desc: 'Обробка KeyCRM', href: '/orders', color: '#3B82F6', badgeKey: 'newOrders', section: 'orders' },
-  { icon: '📬', label: 'Відправки', desc: 'На збірку', href: '/shipments', color: '#F59E0B', badgeKey: 'shipments', section: 'shipments' },
-  { icon: '🧾', label: 'Каса', desc: 'Продажі', href: '/cash', color: '#10B981', section: 'cash-report' },
-  { icon: '💰', label: 'Витрати', desc: 'Записати витрату', href: '/expense/new', color: '#EF4444', section: 'expense' },
-  { icon: '💬', label: 'Повідомлення', desc: 'Чати з клієнтами', href: '/chat', color: '#4b569e', badgeKey: 'unread', section: 'messages' },
+  { icon: 'cube', label: 'Виробництво', desc: 'Друк / Упаковка', href: '/production/new', color: '#4b569e', section: 'production' },
+  { icon: 'swap-horizontal', label: 'Переміщення', desc: 'Між точками', href: '/movement/new', color: '#3B82F6', section: 'movement' },
+  { icon: 'archive', label: 'Склад', desc: 'Вхідні / Залишки', href: '/stock', color: '#10B981', section: 'warehouse' },
+  { icon: 'stats-chart', label: 'Залишки', desc: 'Всі локації', href: '/stock-dashboard', color: '#8B5CF6', section: 'stock-dashboard' },
+  { icon: 'download', label: 'Приймання', desc: 'Від постачальника', href: '/receiving/new', color: '#F59E0B', section: 'receiving' },
+  { icon: 'receipt', label: 'Замовлення', desc: 'Обробка KeyCRM', href: '/orders', color: '#3B82F6', badgeKey: 'newOrders', section: 'orders' },
+  { icon: 'paper-plane', label: 'Відправки', desc: 'На збірку', href: '/shipments', color: '#F59E0B', badgeKey: 'shipments', section: 'shipments' },
+  { icon: 'cash', label: 'Каса', desc: 'Продажі', href: '/cash', color: '#10B981', section: 'cash-report' },
+  { icon: 'wallet', label: 'Витрати', desc: 'Записати витрату', href: '/expense/new', color: '#EF4444', section: 'expense' },
+  { icon: 'chatbubble-ellipses', label: 'Повідомлення', desc: 'Чати з клієнтами', href: '/chat', color: '#4b569e', badgeKey: 'unread', section: 'messages' },
 ];
 
 const SECONDARY_ITEMS: SecondaryItem[] = [
-  { icon: '🏦', label: 'Оплати постач.', href: '/supplier-payment/new', section: 'supplier-payment' },
-  { icon: '✅', label: 'Підтвердити прибуття', href: '/movement/pending', badgeKey: 'pendingMovements', section: 'movement' },
-  { icon: '📝', label: 'Переоблік', href: '/audit/new', badgeKey: 'pendingAudits', section: 'inventory-audit' },
-  { icon: '⚖️', label: 'Розгляд переоблiків', href: '/audit/queue', adminOnly: true, section: 'inventory-audit' },
-  { icon: '🗂', label: 'Історія виробництва', href: '/production/history', section: 'production' },
-  { icon: '📋', label: 'Історія', href: '/history', section: 'history' },
-  { icon: '💵', label: 'Зарплати', href: '/salary/list', adminOnly: true, section: 'salary' },
-  { icon: '👥', label: 'Команда', href: '/team', adminOnly: true, section: 'team' },
-  { icon: '📊', label: 'Звіти P&L', href: '/reports', adminOnly: true, section: 'reports' },
-  { icon: '📈', label: 'Аналітика', href: '/analytics', adminOnly: true, section: 'analytics' },
-  { icon: '📄', label: 'Документи ФОП', href: '/fop-docs', adminOnly: true, section: 'fop-docs' },
+  { icon: 'card', label: 'Оплати постач.', href: '/supplier-payment/new', section: 'supplier-payment' },
+  { icon: 'checkmark-circle', label: 'Підтвердити прибуття', href: '/movement/pending', badgeKey: 'pendingMovements', section: 'movement' },
+  { icon: 'clipboard', label: 'Переоблік', href: '/audit/new', badgeKey: 'pendingAudits', section: 'inventory-audit' },
+  { icon: 'shield-checkmark', label: 'Розгляд переоблiків', href: '/audit/queue', adminOnly: true, section: 'inventory-audit' },
+  { icon: 'time', label: 'Історія виробництва', href: '/production/history', section: 'production' },
+  { icon: 'file-tray-full', label: 'Історія', href: '/history', section: 'history' },
+  { icon: 'cash-outline', label: 'Зарплати', href: '/salary/list', adminOnly: true, section: 'salary' },
+  { icon: 'people', label: 'Команда', href: '/team', adminOnly: true, section: 'team' },
+  { icon: 'bar-chart', label: 'Звіти P&L', href: '/reports', adminOnly: true, section: 'reports' },
+  { icon: 'trending-up', label: 'Аналітика', href: '/analytics', adminOnly: true, section: 'analytics' },
+  { icon: 'document-text', label: 'Документи ФОП', href: '/fop-docs', adminOnly: true, section: 'fop-docs' },
 ];
 
 // Color hex + 0x12 (≈ 7% alpha) — same as the bot's inline `${color}12` style.
@@ -273,7 +276,7 @@ export default function CreateScreen() {
                 style={({ pressed }) => [styles.mainCard, pressed && styles.mainCardPressed]}
               >
                 <View style={[styles.iconBox, { backgroundColor: tintBg(item.color) }]}>
-                  <Text style={styles.iconEmoji}>{item.icon}</Text>
+                  <Ionicons name={item.icon} size={22} color={item.color} />
                 </View>
                 <View style={styles.cardBody}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{item.label}</Text>
@@ -309,7 +312,9 @@ export default function CreateScreen() {
                     pressed && styles.listRowPressed,
                   ]}
                 >
-                  <Text style={styles.listIcon}>{item.icon}</Text>
+                  <View style={styles.listIconBox}>
+                    <Ionicons name={item.icon} size={18} color={colors.brand} />
+                  </View>
                   <Text style={styles.listLabel}>{item.label}</Text>
                   {badge > 0 ? (
                     <View style={styles.listBadge}>
@@ -340,7 +345,7 @@ export default function CreateScreen() {
               style={styles.botBanner}
             >
               <View style={styles.botBannerIcon}>
-                <Text style={styles.botBannerEmoji}>👥</Text>
+                <Ionicons name="people" size={20} color={colors.success} />
               </View>
               <View style={styles.botBannerBody}>
                 <Text style={styles.botBannerTitle}>Клієнти в боті</Text>
@@ -446,7 +451,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconEmoji: { fontSize: 20, lineHeight: 24 },
   cardBody: { gap: 2 },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', lineHeight: 18 },
   cardSubtitle: { fontSize: 11, color: '#9CA3AF', lineHeight: 14 },
@@ -494,7 +498,14 @@ const styles = StyleSheet.create({
   },
   listRowPressed: { backgroundColor: '#F8F8FA' },
   listDivider: { borderTopWidth: 1, borderTopColor: DIVIDER },
-  listIcon: { fontSize: 20, width: 32, textAlign: 'center' },
+  listIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   listLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: '#111827' },
   listBadge: {
     minWidth: 22,
@@ -526,7 +537,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  botBannerEmoji: { fontSize: 18, lineHeight: 22 },
   botBannerBody: { flex: 1, gap: 2 },
   botBannerTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
   botBannerSub: { fontSize: 12, color: '#6B7280' },
