@@ -34,7 +34,8 @@
           "photosPermission": "Dezik Staff потребує доступу до фото для прикріплення чеків та документів.",
           "cameraPermission": "Dezik Staff потребує доступу до камери для зйомки чеків та документів."
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

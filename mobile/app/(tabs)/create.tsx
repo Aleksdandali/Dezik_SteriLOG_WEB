@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
 import {
   fetchBotClientsCount,
   fetchCashToday,
@@ -16,6 +17,7 @@ import {
   type OpsLocation,
 } from '@/lib/ops';
 import { getStaff, type Staff } from '@/lib/auth';
+import { STORAGE } from '@/lib/config';
 import { colors } from '@/lib/theme';
 
 // ── Routing ────────────────────────────────────────────
@@ -129,6 +131,20 @@ export default function CreateScreen() {
 
   useEffect(() => {
     getStaff().then(s => { if (aliveRef.current) setStaff(s); }).catch(() => {});
+    // Hydrate from cached snapshot for instant first paint. Background refresh updates it.
+    SecureStore.getItemAsync(STORAGE.DASHBOARD_SNAPSHOT).then(raw => {
+      if (!raw || !aliveRef.current) return;
+      try {
+        const s = JSON.parse(raw) as {
+          counts?: Record<BadgeKey, number>;
+          cashToday?: number;
+          botClients?: number;
+        };
+        if (s.counts) setCounts(c => ({ ...c, ...s.counts }));
+        if (typeof s.cashToday === 'number') setCashToday(s.cashToday);
+        if (typeof s.botClients === 'number') setBotClients(s.botClients);
+      } catch { /* ignore stale snapshot */ }
+    }).catch(() => {});
   }, []);
 
   const refreshUnread = useCallback(async () => {
@@ -154,15 +170,23 @@ export default function CreateScreen() {
     const val = (i: number, fallback = 0) =>
       results[i].status === 'fulfilled' ? (results[i] as PromiseFulfilledResult<number>).value : fallback;
 
-    setCounts({
+    const nextCounts = {
       shipments: val(0),
       newOrders: val(1),
       unread: val(2),
       pendingAudits: val(3),
       pendingMovements: val(4),
-    });
-    setCashToday(val(5));
-    setBotClients(val(6));
+    };
+    const nextCash = val(5);
+    const nextBot = val(6);
+    setCounts(nextCounts);
+    setCashToday(nextCash);
+    setBotClients(nextBot);
+    // Persist fresh snapshot so next launch paints with real numbers immediately.
+    SecureStore.setItemAsync(
+      STORAGE.DASHBOARD_SNAPSHOT,
+      JSON.stringify({ counts: nextCounts, cashToday: nextCash, botClients: nextBot }),
+    ).catch(() => {});
   }, []);
 
   // Refresh every time tab regains focus.

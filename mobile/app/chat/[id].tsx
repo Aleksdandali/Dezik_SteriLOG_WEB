@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ApiError } from '@/lib/api';
@@ -176,7 +176,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
     <View style={[styles.bubbleRow, isManager ? styles.bubbleRowRight : styles.bubbleRowLeft]}>
       <View style={[styles.bubble, isManager ? styles.bubbleManager : styles.bubbleCustomer]}>
         {msg.content_type === 'image' && msg.media_url && (
-          <Image source={{ uri: msg.media_url }} style={styles.image} resizeMode="cover" />
+          <Image source={{ uri: msg.media_url }} style={styles.image} contentFit="cover" />
         )}
         {!!msg.text && (
           <Text style={[styles.bubbleText, isManager && styles.bubbleTextManager]}>

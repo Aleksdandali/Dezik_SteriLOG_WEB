@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -14,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -199,7 +199,7 @@ export default function FopDocsScreen() {
         <Pressable style={styles.lightbox} onPress={() => setViewing(null)}>
           {viewing && (
             <>
-              <Image source={{ uri: viewing.url }} style={styles.lightboxImage} resizeMode="contain" />
+              <Image source={{ uri: viewing.url }} style={styles.lightboxImage} contentFit="contain" />
               <View style={styles.lightboxBar}>
                 <Pressable onPress={() => shareDoc(viewing)} style={styles.lightboxButton}>
                   <Text style={styles.lightboxButtonText}>↗ Поділитися</Text>

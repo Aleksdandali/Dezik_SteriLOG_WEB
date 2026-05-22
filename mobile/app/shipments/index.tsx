@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -13,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -229,7 +229,7 @@ export default function ShipmentsScreen() {
 
       <Modal visible={!!lightbox} transparent onRequestClose={() => setLightbox(null)}>
         <Pressable style={styles.lightboxOverlay} onPress={() => setLightbox(null)}>
-          {lightbox && <Image source={{ uri: lightbox }} style={styles.lightboxImage} resizeMode="contain" />}
+          {lightbox && <Image source={{ uri: lightbox }} style={styles.lightboxImage} contentFit="contain" />}
         </Pressable>
       </Modal>
     </SafeAreaView>
@@ -429,7 +429,7 @@ function ArchiveCard({
 
           {shipPhoto && (
             <Pressable onPress={() => onPhoto(shipPhoto)} style={styles.shipPhotoBox}>
-              <Image source={{ uri: shipPhoto }} style={styles.shipPhoto} />
+              <Image source={{ uri: shipPhoto }} style={styles.shipPhoto} contentFit="cover" />
               <Text style={styles.shipPhotoHint}>Фото відправки</Text>
             </Pressable>
           )}
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.surface,
   },
-  shipPhoto: { width: '100%', height: 200, resizeMode: 'cover' },
+  shipPhoto: { width: '100%', height: 200 },
   shipPhotoHint: { ...text.faint, padding: spacing.sm, textAlign: 'center' },
 
   lightboxOverlay: {

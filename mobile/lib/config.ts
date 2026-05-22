@@ -11,4 +11,5 @@ export const STORAGE = {
   AUTH_TOKEN: 'dezik.auth.token',
   STAFF: 'dezik.auth.staff',
   PUSH_TOKEN: 'dezik.push.token',
+  DASHBOARD_SNAPSHOT: 'dezik.dashboard.snapshot',
 } as const;
