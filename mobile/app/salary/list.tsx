@@ -82,7 +82,7 @@ export default function SalaryListScreen() {
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <Stack.Screen options={{ title: 'Зарплати', headerTintColor: colors.brand }} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodBar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScroll} contentContainerStyle={styles.periodBar}>
         {periods.map(p => {
           const active = period === p;
           return (
@@ -179,13 +179,16 @@ function Row({ item }: { item: SalaryEntry }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
 
+  periodScroll: { flexGrow: 0, flexShrink: 0 },
   periodBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
   periodChip: {
+    alignSelf: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,

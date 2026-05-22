@@ -67,6 +67,7 @@ export default function OrdersScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
         contentContainerStyle={styles.filterBar}
       >
         {STATUS_FILTERS.map(f => {
@@ -141,14 +142,20 @@ const styles = StyleSheet.create({
   empty: { color: colors.textMuted, fontSize: 15 },
   error: { color: colors.danger, padding: spacing.lg, textAlign: 'center' },
 
+  // flexGrow:0 prevents the horizontal ScrollView from absorbing the
+  // remaining column space (which would vertically stretch chips into "columns"
+  // while the loading spinner is showing).
+  filterScroll: { flexGrow: 0, flexShrink: 0 },
   filterBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
   filterChip: {
+    alignSelf: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,

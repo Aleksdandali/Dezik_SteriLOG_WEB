@@ -154,7 +154,7 @@ export default function ShipmentsScreen() {
       </View>
 
       {tab === 'archive' && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.periodBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.periodScroll} contentContainerStyle={styles.periodBar}>
           {ARCHIVE_PERIODS.map(p => {
             const active = period === p.id;
             return (
@@ -475,14 +475,17 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, color: colors.brandDark, fontWeight: '600' },
   tabTextActive: { color: colors.card, fontWeight: '700' },
 
+  periodScroll: { flexGrow: 0, flexShrink: 0 },
   periodBar: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: 0,
   },
   periodChip: {
+    alignSelf: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
