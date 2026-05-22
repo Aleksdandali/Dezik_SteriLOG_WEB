@@ -648,3 +648,34 @@ export type AnalyticsData = {
 export async function fetchAnalytics(period: AnalyticsPeriod): Promise<AnalyticsData> {
   return api<AnalyticsData>(`/api/telegram/analytics?period=${period}`);
 }
+
+// ── Dashboard counters (home screen badges) ────────────
+export async function fetchShipmentCount(): Promise<number> {
+  const r = await api<{ count: number }>(`/api/telegram/shipments/count`);
+  return r.count ?? 0;
+}
+
+export async function fetchNewOrdersCount(): Promise<number> {
+  const r = await api<{ total: number }>(`/api/telegram/orders?status=1`);
+  return r.total ?? 0;
+}
+
+export async function fetchCashToday(): Promise<number> {
+  const r = await api<{ total_sum: number }>(`/api/telegram/cash?period=today`);
+  return r.total_sum ?? 0;
+}
+
+export async function fetchPendingAuditsCount(): Promise<number> {
+  const r = await api<{ data: { status: string }[] }>(`/api/telegram/inventory-audit?days=30`);
+  return (r.data ?? []).filter(a => a.status === 'pending').length;
+}
+
+export async function fetchUnreadCount(): Promise<number> {
+  const r = await api<{ data: { unread_by_manager: number }[] }>(`/api/telegram/chat/conversations`);
+  return (r.data ?? []).reduce((s, c) => s + (c.unread_by_manager ?? 0), 0);
+}
+
+export async function fetchBotClientsCount(): Promise<number> {
+  const r = await api<{ data: unknown[] }>(`/api/telegram/team?type=bot_clients`);
+  return (r.data ?? []).length;
+}
