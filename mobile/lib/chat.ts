@@ -75,3 +75,8 @@ export function markConversationRead(id: string): void {
   const c = cache.get(id);
   if (c) cache.set(id, { ...c, unread_by_manager: 0 });
 }
+
+/** Drop all cached conversations. Called from logout. */
+export function clearChatCache(): void {
+  cache.clear();
+}

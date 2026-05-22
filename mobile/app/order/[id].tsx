@@ -21,6 +21,7 @@ import {
   type Order,
 } from '@/lib/orders';
 import { colors, radius, spacing, text } from '@/lib/theme';
+import { fmtUAH } from '@/lib/format';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,9 +31,12 @@ export default function OrderDetailScreen() {
 
   if (!order) {
     return (
-      <SafeAreaView style={styles.center}>
-        <Stack.Screen options={{ title: `#${id}` }} />
+      <SafeAreaView style={styles.center} edges={['left', 'right', 'bottom']}>
+        <Stack.Screen options={{ title: `#${id}`, headerTintColor: colors.brand }} />
         <Text style={styles.empty}>Замовлення не знайдено. Поверніться до списку і відкрийте знову.</Text>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← До списку</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -75,9 +79,9 @@ export default function OrderDetailScreen() {
               <Text style={styles.statusText}>{order.status_name}</Text>
             </View>
           </View>
-          <Text style={styles.total}>{Math.round(order.total)} ₴</Text>
+          <Text style={styles.total}>{fmtUAH(order.total)}</Text>
           {order.discount > 0 && (
-            <Text style={styles.meta}>Знижка: {Math.round(order.discount)} ₴</Text>
+            <Text style={styles.meta}>Знижка: {fmtUAH(order.discount)}</Text>
           )}
           <Text style={styles.meta}>{new Date(order.ordered_at).toLocaleString('uk-UA')}</Text>
         </View>
@@ -112,7 +116,7 @@ export default function OrderDetailScreen() {
                 <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
                 {p.sku && <Text style={styles.productSku}>SKU: {p.sku}</Text>}
                 <View style={styles.productLine}>
-                  <Text style={styles.productQty}>{p.quantity} × {Math.round(p.price)} ₴</Text>
+                  <Text style={styles.productQty}>{p.quantity} × {fmtUAH(p.price)}</Text>
                   {p.in_stock != null && (
                     <Text style={[styles.stock, p.in_stock < p.quantity && styles.stockLow]}>
                       на складі: {p.in_stock}
@@ -256,4 +260,13 @@ const styles = StyleSheet.create({
   actionTextDanger: { color: colors.danger },
 
   busyOverlay: { paddingVertical: spacing.lg, alignItems: 'center' },
+
+  backBtn: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+  },
+  backBtnText: { color: colors.card, fontSize: 15, fontWeight: '700' },
 });

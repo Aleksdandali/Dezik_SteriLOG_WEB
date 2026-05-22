@@ -76,3 +76,8 @@ export function cacheOrder(order: Order): void {
 export function getCachedOrder(id: number): Order | undefined {
   return orderCache.get(id);
 }
+
+/** Drop all cached orders. Called from logout to avoid leaking data across users. */
+export function clearOrdersCache(): void {
+  orderCache.clear();
+}

@@ -1,5 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { STORAGE } from './config';
+import { clearOrdersCache } from './orders';
+import { clearChatCache } from './chat';
 
 export type Staff = {
   id: string;
@@ -29,8 +31,17 @@ export async function setToken(token: string): Promise<void> {
 }
 
 export async function clearToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(STORAGE.AUTH_TOKEN);
-  await SecureStore.deleteItemAsync(STORAGE.STAFF);
+  // Wipe every per-user key + in-memory caches so the next sign-in starts
+  // clean and we never leak previous-user data on shared devices.
+  await Promise.all([
+    SecureStore.deleteItemAsync(STORAGE.AUTH_TOKEN),
+    SecureStore.deleteItemAsync(STORAGE.STAFF),
+    SecureStore.deleteItemAsync(STORAGE.PUSH_TOKEN),
+    SecureStore.deleteItemAsync(STORAGE.DASHBOARD_SNAPSHOT),
+    SecureStore.deleteItemAsync(STORAGE.FOP_DOCS),
+  ]);
+  clearOrdersCache();
+  clearChatCache();
 }
 
 export async function getStaff(): Promise<Staff | null> {

@@ -20,10 +20,22 @@ export const colors = {
   successText: '#065F46',
 
   danger: '#EF4444',
+  dangerTint: '#FEE2E2',
+  dangerText: '#991B1B',
+  dangerBorder: '#FECACA',
+
   warning: '#F59E0B',
   warningTint: '#FEF3C7',
   warningText: '#92400E',
+
   info: '#3B82F6',
+  infoTint: '#DBEAFE',
+  infoText: '#1E40AF',
+
+  // Hairline border on dark/colored surfaces (input outlines, focus rings).
+  hairline: 'rgba(0,0,0,0.08)',
+  overlay: 'rgba(0,0,0,0.5)',
+  lightboxBg: 'rgba(0,0,0,0.95)',
 } as const;
 
 export const radius = {

@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { ApiError } from '@/lib/api';
 import { listOrders, cacheOrder, type Order } from '@/lib/orders';
 import { colors, radius, spacing, text } from '@/lib/theme';
+import { fmtUAH, plural } from '@/lib/format';
 
 const STATUS_FILTERS: { id: number; label: string }[] = [
   { id: 1, label: 'Нові' },
@@ -96,7 +97,9 @@ export default function OrdersScreen() {
           contentContainerStyle={orders.length === 0 ? styles.emptyContainer : styles.listContent}
           ListHeaderComponent={
             orders.length > 0 ? (
-              <Text style={styles.countLabel}>{orders.length} замовлень</Text>
+              <Text style={styles.countLabel}>
+                {orders.length} {plural(orders.length, 'замовлення', 'замовлення', 'замовлень')}
+              </Text>
             ) : null
           }
           ListEmptyComponent={<Text style={styles.empty}>Немає замовлень у цьому статусі</Text>}
@@ -107,7 +110,7 @@ export default function OrdersScreen() {
             >
               <View style={styles.rowHeader}>
                 <Text style={styles.id}>#{item.id}</Text>
-                <Text style={styles.total}>{Math.round(item.total)} ₴</Text>
+                <Text style={styles.total}>{fmtUAH(item.total)}</Text>
               </View>
               <Text style={styles.name} numberOfLines={1}>{item.recipient ?? '—'}</Text>
               {item.city && <Text style={styles.meta} numberOfLines={1}>{item.city}</Text>}

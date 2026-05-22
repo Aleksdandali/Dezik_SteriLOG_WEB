@@ -1,15 +1,26 @@
 import { useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { api, ApiError } from '@/lib/api';
 import { setStaff, setToken, Staff } from '@/lib/auth';
+import { colors, radius, spacing, text } from '@/lib/theme';
 
 /**
- * Login by 6-digit code from @dezik_ua_bot.
+ * Login by 6-digit code from @Dezik_OS_bot.
  *
- * Flow (to be implemented on backend — see README → "Backend gaps"):
- *   1. Staff opens chat with @dezik_ua_bot and sends /login
+ *   1. Staff opens chat with @Dezik_OS_bot and sends /login
  *   2. Bot replies with a 6-digit code valid for ~5 min
  *   3. Staff enters the code here → POST /api/telegram/staff/login-code
  *   4. Backend verifies code + returns { token, staff }
@@ -32,7 +43,8 @@ export default function LoginScreen() {
       });
       await setToken(res.token);
       await setStaff(res.staff);
-      router.replace('/(tabs)/orders');
+      // Land on the dashboard (Головна) — same initialRouteName as (tabs)/_layout.
+      router.replace('/(tabs)/create');
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Невідома помилка';
       Alert.alert('Помилка входу', msg);
@@ -41,65 +53,96 @@ export default function LoginScreen() {
     }
   };
 
+  const disabled = loading || code.length !== 6;
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.inner}>
-        <Text style={styles.title}>Dezik Staff</Text>
-        <Text style={styles.subtitle}>
-          Відкрийте @Dezik_OS_bot і надішліть команду{' '}
-          <Text style={styles.code}>/login</Text>, щоб отримати код
-        </Text>
-
-        <Pressable onPress={() => Linking.openURL('https://t.me/Dezik_OS_bot')}>
-          <Text style={styles.link}>Відкрити бота →</Text>
-        </Pressable>
-
-        <TextInput
-          style={styles.input}
-          value={code}
-          onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
-          placeholder="000000"
-          keyboardType="number-pad"
-          maxLength={6}
-          autoFocus
-        />
-
-        <Pressable
-          style={[styles.button, (loading || code.length !== 6) && styles.buttonDisabled]}
-          onPress={submit}
-          disabled={loading || code.length !== 6}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.buttonText}>{loading ? 'Перевіряємо…' : 'Увійти'}</Text>
-        </Pressable>
-      </View>
+          <Text style={styles.title}>Dezik Staff</Text>
+          <Text style={styles.subtitle}>
+            Відкрийте @Dezik_OS_bot і надішліть команду{' '}
+            <Text style={styles.code}>/login</Text>, щоб отримати код
+          </Text>
+
+          <Pressable onPress={() => Linking.openURL('https://t.me/Dezik_OS_bot')} hitSlop={8}>
+            <Text style={styles.link}>Відкрити бота →</Text>
+          </Pressable>
+
+          <TextInput
+            style={styles.input}
+            value={code}
+            onChangeText={t => setCode(t.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000"
+            placeholderTextColor={colors.textFaint}
+            keyboardType="number-pad"
+            maxLength={6}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={submit}
+            textContentType="oneTimeCode"
+            autoComplete="one-time-code"
+          />
+
+          <Pressable
+            style={[styles.button, disabled && styles.buttonDisabled]}
+            onPress={submit}
+            disabled={disabled}
+          >
+            <Text style={styles.buttonText}>{loading ? 'Перевіряємо…' : 'Увійти'}</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  inner: { flex: 1, paddingHorizontal: 24, paddingTop: 64, gap: 16 },
-  title: { fontSize: 32, fontWeight: '700' },
-  subtitle: { fontSize: 15, color: '#555', lineHeight: 22 },
-  code: { fontFamily: 'Courier', backgroundColor: '#f3f3f3', paddingHorizontal: 6 },
-  link: { color: '#0a84ff', fontSize: 16, marginTop: 8 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.xxl * 2,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
+  title: { ...text.title, fontSize: 32 },
+  subtitle: { ...text.body, color: colors.textMuted, lineHeight: 22 },
+  code: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    backgroundColor: colors.brandTint,
+    color: colors.brandDark,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  link: { color: colors.brand, fontSize: 16, fontWeight: '600', marginTop: spacing.xs },
   input: {
-    marginTop: 32,
+    marginTop: spacing.xl,
     fontSize: 28,
     letterSpacing: 8,
     textAlign: 'center',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.lg,
+    color: colors.text,
   },
   button: {
-    marginTop: 16,
-    backgroundColor: '#000',
-    paddingVertical: 16,
-    borderRadius: 12,
+    marginTop: spacing.md,
+    backgroundColor: colors.brand,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  buttonText: { color: colors.card, fontSize: 16, fontWeight: '700' },
 });

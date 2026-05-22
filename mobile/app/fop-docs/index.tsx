@@ -19,6 +19,7 @@ import { Stack } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { uploadPhoto } from '@/lib/ops';
+import { STORAGE } from '@/lib/config';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type FopDoc = {
@@ -28,7 +29,7 @@ type FopDoc = {
   uploaded_at: string;
 };
 
-const STORAGE_KEY = 'fop-documents';
+const STORAGE_KEY = STORAGE.FOP_DOCS;
 
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -48,7 +49,16 @@ export default function FopDocsScreen() {
 
   useEffect(() => {
     SecureStore.getItemAsync(STORAGE_KEY)
-      .then(s => { if (s) setDocs(JSON.parse(s)); })
+      .then(s => {
+        if (!s) return;
+        try {
+          const parsed = JSON.parse(s);
+          if (Array.isArray(parsed)) setDocs(parsed as FopDoc[]);
+        } catch {
+          // Corrupt entry — drop it so the user can re-upload cleanly.
+          SecureStore.deleteItemAsync(STORAGE_KEY).catch(() => {});
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -271,8 +281,8 @@ const styles = StyleSheet.create({
   docRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
   docPressed: { opacity: 0.7 },
   docIcon: { width: 44, height: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  docIconPdf: { backgroundColor: '#FEE2E2' },
-  docIconImage: { backgroundColor: '#DBEAFE' },
+  docIconPdf: { backgroundColor: colors.dangerTint },
+  docIconImage: { backgroundColor: colors.infoTint },
   docIconText: { fontSize: 20 },
   docBody: { flex: 1, gap: 2 },
   docName: { ...text.bodyStrong },
@@ -292,7 +302,7 @@ const styles = StyleSheet.create({
 
   lightbox: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: colors.lightboxBg,
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? 40 : 0,
@@ -315,7 +325,7 @@ const styles = StyleSheet.create({
 
   renameOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,

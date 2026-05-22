@@ -12,4 +12,5 @@ export const STORAGE = {
   STAFF: 'dezik.auth.staff',
   PUSH_TOKEN: 'dezik.push.token',
   DASHBOARD_SNAPSHOT: 'dezik.dashboard.snapshot',
+  FOP_DOCS: 'dezik.fop.docs',
 } as const;
