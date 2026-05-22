@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "@supabase/supabase-js": "^2.106.1",
+    "@supabase/realtime-js": "^2.106.1",
     "expo": "~55.0.0",
     "expo-constants": "~55.0.16",
     "expo-font": "~55.0.8",

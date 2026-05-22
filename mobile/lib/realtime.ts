@@ -15,11 +15,7 @@
 import 'react-native-url-polyfill/auto';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import {
-  createClient,
-  type RealtimeChannel,
-  type SupabaseClient,
-} from '@supabase/supabase-js';
+import { RealtimeClient, type RealtimeChannel } from '@supabase/realtime-js';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './config';
 
 export type OpsEvent =
@@ -39,18 +35,20 @@ const ALL_EVENTS: OpsEvent[] = [
 ];
 
 // ── Singletons (lazy-init on first subscribe) ───────────────────────────
-let client: SupabaseClient | null = null;
+let client: RealtimeClient | null = null;
 let channel: RealtimeChannel | null = null;
 let appStateSub: { remove: () => void } | null = null;
 
 const bus = new Map<OpsEvent, Set<Handler>>();
 for (const ev of ALL_EVENTS) bus.set(ev, new Set());
 
-function getClient(): SupabaseClient {
+function getClient(): RealtimeClient {
   if (!client) {
-    client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      realtime: { params: { eventsPerSecond: 10 } },
+    // Supabase Realtime endpoint sits under /realtime/v1 of the project URL,
+    // but the JS client wants the wss URL. Pass the project URL + apikey via
+    // params; the SDK builds the right wss:// endpoint internally.
+    client = new RealtimeClient(`${SUPABASE_URL}/realtime/v1`, {
+      params: { apikey: SUPABASE_ANON_KEY, eventsPerSecond: 10 },
     });
   }
   return client;
@@ -81,7 +79,7 @@ function ensureChannel(): RealtimeChannel {
     appStateSub = AppState.addEventListener('change', (next: AppStateStatus) => {
       if (next === 'active' && channel) {
         // Reconnect socket if it went stale while backgrounded.
-        client?.realtime.connect();
+        client?.connect();
       }
     });
   }
@@ -135,7 +133,7 @@ export function disposeRealtime(): void {
     appStateSub = null;
   }
   if (client) {
-    client.realtime.disconnect();
+    client.disconnect();
     client = null;
   }
 }
