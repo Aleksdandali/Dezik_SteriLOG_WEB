@@ -21,6 +21,26 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
+    // ── Apple App Review backdoor ──────────────────────────────────────
+    // Reviewers cannot receive codes from our Telegram bot, so they would
+    // otherwise be unable to log in and would reject the build. We accept a
+    // fixed env-controlled code that maps to a pre-provisioned read-only
+    // demo staff row. Revoke instantly by clearing APPLE_REVIEW_CODE.
+    const reviewCode = process.env.APPLE_REVIEW_CODE;
+    const reviewStaffId = process.env.APPLE_REVIEW_STAFF_ID;
+    if (reviewCode && reviewStaffId && code === reviewCode) {
+      const { data: demoStaff } = await supabase
+        .from('ops_staff')
+        .select('*')
+        .eq('id', reviewStaffId)
+        .eq('active', true)
+        .single();
+      if (demoStaff) {
+        const token = issueStaffToken(demoStaff.id, demoStaff.telegram_id ?? 0);
+        return NextResponse.json({ token, staff: demoStaff });
+      }
+    }
+
     const { data: row } = await supabase
       .from('ops_staff_login_codes')
       .select('code, telegram_id, expires_at')

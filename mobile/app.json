@@ -2,13 +2,20 @@
   "expo": {
     "name": "Dezik Staff",
     "slug": "dezik-staff",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "dezikstaff",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3A5DAE"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ua.dezik.staff",
+      "icon": "./assets/icon.png",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -16,7 +23,8 @@
     "android": {
       "package": "ua.dezik.staff",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#3A5DAE"
       }
     },
     "plugins": [
