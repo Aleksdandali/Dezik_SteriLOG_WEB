@@ -150,7 +150,7 @@ export default function StockDashboardScreen() {
                 onPress={() => toggleCat(c.id)}
                 style={[styles.toggleBtn, active && styles.toggleBtnActive]}
               >
-                <Ionicons name={c.icon} size={16} color={active ? '#FFFFFF' : colors.brandDark} />
+                <Ionicons name={c.icon} size={16} color={active ? colors.card : colors.brandDark} />
                 <Text style={[styles.toggleText, active && styles.toggleTextActive]}>{c.label}</Text>
               </Pressable>
             );
@@ -345,10 +345,6 @@ export default function StockDashboardScreen() {
   );
 }
 
-const CARD_RADIUS = 20;
-const BORDER = '#F0F0F0';
-const DIVIDER = '#F5F5F5';
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: spacing.md, gap: 16, paddingBottom: spacing.xxl * 2 },
@@ -364,7 +360,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
   },
   toggleBtnActive: {
     backgroundColor: colors.brand,
@@ -376,7 +372,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   toggleText: { fontSize: 13, fontWeight: '700', color: colors.brandDark },
-  toggleTextActive: { color: '#FFFFFF' },
+  toggleTextActive: { color: colors.card },
 
   searchBox: {
     flexDirection: 'row',
@@ -398,11 +394,11 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     backgroundColor: colors.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: radius.xl,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     alignItems: 'center',
     gap: 4,
   },
@@ -415,7 +411,7 @@ const styles = StyleSheet.create({
   },
   summaryDot: { width: 10, height: 10, borderRadius: 5 },
   summaryCount: { fontSize: 18, fontWeight: '700', color: colors.text },
-  summaryLabel: { fontSize: 11, color: colors.textFaint },
+  summaryLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
 
   sectionLabel: {
     fontSize: 11,
@@ -428,9 +424,9 @@ const styles = StyleSheet.create({
   },
   list: {
     backgroundColor: colors.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     overflow: 'hidden',
   },
 
@@ -450,7 +446,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 12,
   },
-  rowDivider: { borderTopWidth: 1, borderTopColor: DIVIDER },
+  rowDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   itemDot: { width: 8, height: 8, borderRadius: 4 },
   itemName: { flex: 1, fontSize: 14, fontWeight: '500', color: colors.text },
@@ -459,17 +455,18 @@ const styles = StyleSheet.create({
   qtyPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   qtyPillText: { fontSize: 13, fontWeight: '700' },
   itemQty: { fontSize: 15, fontWeight: '700' },
-  itemUnit: { fontSize: 11, color: colors.textFaint, width: 24 },
-  itemUnitSm: { fontSize: 10, color: colors.textFaint },
+  itemUnit: { fontSize: 12, color: colors.textMuted, width: 24 },
+  // 11pt minimum for metadata; textMuted for AA contrast on white.
+  itemUnitSm: { fontSize: 11, color: colors.textMuted },
 
   locCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     backgroundColor: colors.card,
-    borderRadius: CARD_RADIUS,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     padding: 14,
   },
   locCardPressed: { transform: [{ scale: 0.98 }] },
@@ -495,7 +492,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: colors.border,
   },
   locSourceText: { fontSize: 11, color: colors.textFaint },
   emptyInList: { paddingVertical: 18, textAlign: 'center', fontSize: 13, color: colors.textFaint },

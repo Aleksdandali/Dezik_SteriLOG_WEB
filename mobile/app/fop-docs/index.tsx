@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: radius.md,
   },
-  lightboxButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  lightboxButtonText: { color: colors.card, fontSize: 14, fontWeight: '600' },
 
   renameOverlay: {
     flex: 1,

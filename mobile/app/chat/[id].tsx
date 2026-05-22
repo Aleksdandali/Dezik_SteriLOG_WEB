@@ -218,11 +218,13 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderBottomLeftRadius: radius.sm,
   },
-  bubbleText: { fontSize: 14, color: colors.text, lineHeight: 20 },
+  // 15pt body for readability; 11pt timestamp clears metadata minimum.
+  bubbleText: { fontSize: 15, color: colors.text, lineHeight: 21 },
   bubbleTextManager: { color: colors.card },
   image: { width: 220, height: 220, borderRadius: radius.md, marginBottom: spacing.xs },
-  time: { fontSize: 10, color: colors.textFaint, marginTop: 2, alignSelf: 'flex-end' },
-  timeManager: { color: 'rgba(255,255,255,0.7)' },
+  time: { fontSize: 11, color: colors.textMuted, marginTop: 2, alignSelf: 'flex-end' },
+  // Higher opacity for AA contrast against the brand background.
+  timeManager: { color: 'rgba(255,255,255,0.85)' },
 
   inputBar: {
     flexDirection: 'row',

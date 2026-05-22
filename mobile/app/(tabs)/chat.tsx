@@ -61,6 +61,8 @@ export default function ChatScreen() {
           return (
             <Pressable
               onPress={() => openChat(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Чат з ${title}${item.unread_by_manager > 0 ? `, ${item.unread_by_manager} непрочитаних` : ''}`}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <View style={styles.avatar}>

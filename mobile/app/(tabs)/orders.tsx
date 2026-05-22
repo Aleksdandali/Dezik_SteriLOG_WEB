@@ -106,6 +106,8 @@ export default function OrdersScreen() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => openOrder(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Замовлення №${item.id}, ${item.recipient ?? ''}, ${Math.round(item.total)} грн`}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <View style={styles.rowHeader}>

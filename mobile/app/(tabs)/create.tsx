@@ -18,7 +18,7 @@ import {
 } from '@/lib/ops';
 import { getStaff, type Staff } from '@/lib/auth';
 import { STORAGE } from '@/lib/config';
-import { colors } from '@/lib/theme';
+import { colors, radius, spacing } from '@/lib/theme';
 
 // ── Routing ────────────────────────────────────────────
 type ActionHref =
@@ -321,7 +321,7 @@ export default function CreateScreen() {
                       <Text style={styles.listBadgeText}>{fmtBadge(badge)}</Text>
                     </View>
                   ) : (
-                    <Ionicons name="chevron-forward" size={16} color="#C5C9D1" />
+                    <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
                   )}
                 </Pressable>
               );
@@ -351,7 +351,7 @@ export default function CreateScreen() {
                 <Text style={styles.botBannerTitle}>Клієнти в боті</Text>
                 <Text style={styles.botBannerSub}>{botClients} активних чатів</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#C5C9D1" />
+              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
             </LinearGradient>
           </Pressable>
         ) : null}
@@ -361,11 +361,8 @@ export default function CreateScreen() {
 }
 
 // ── Styles (pixel-matched to MainMenu in app/telegram/page.tsx) ─────────────
-const SECTION_GAP = 24; // space-y-6
-const GRID_GAP = 12; // gap-3
-const CARD_RADIUS = 20;
-const BORDER = '#F0F0F0';
-const DIVIDER = '#F5F5F5';
+const SECTION_GAP = spacing.xxl; // space-y-6
+const GRID_GAP = spacing.md; // gap-3
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
@@ -400,9 +397,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  logoText: { color: '#FFFFFF', fontWeight: '700', fontSize: 20 },
-  appTitle: { fontSize: 17, fontWeight: '700', color: '#111827', lineHeight: 20 },
-  appSubtitle: { fontSize: 13, color: '#9CA3AF', marginTop: 1 },
+  logoText: { color: colors.card, fontWeight: '700', fontSize: 20 },
+  appTitle: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 20 },
+  // textMuted (#6B7280) passes AA on white; textFaint (#9CA3AF) does not.
+  appSubtitle: { fontSize: 13, color: colors.textMuted, marginTop: 1 },
   adminBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -426,14 +424,14 @@ const styles = StyleSheet.create({
     // Two cards per row with a 12-px gap between them.
     flexBasis: `${(100 - 4) / 2}%`,
     flexGrow: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: CARD_RADIUS,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 20,
     gap: 12,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     // Bot has a two-layer shadow; RN supports only one — pick the heavier layer.
     shadowColor: '#000',
     shadowOpacity: 0.05,
@@ -452,8 +450,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cardBody: { gap: 2 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', lineHeight: 18 },
-  cardSubtitle: { fontSize: 11, color: '#9CA3AF', lineHeight: 14 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text, lineHeight: 18 },
+  // textMuted for AA on white; bumped 11→12 to clear minimum metadata size.
+  cardSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 15 },
   badge: {
     position: 'absolute',
     top: 8,
@@ -466,22 +465,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', lineHeight: 13 },
+  badgeText: { color: colors.card, fontSize: 11, fontWeight: '700', lineHeight: 14 },
 
   // Secondary section (label has 12-px gap to list; container has 24-px gap to neighbors)
   section: { gap: 12 },
+  // Eyebrow label: small + uppercase + bold + tracked → readable despite
+  // textFaint colour (group label, not body text).
   sectionLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: colors.textMuted,
     letterSpacing: 0.8,
+    textTransform: 'uppercase',
     paddingHorizontal: 4,
   },
   list: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: CARD_RADIUS,
+    backgroundColor: colors.card,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: colors.border,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOpacity: 0.04,
@@ -496,8 +498,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  listRowPressed: { backgroundColor: '#F8F8FA' },
-  listDivider: { borderTopWidth: 1, borderTopColor: DIVIDER },
+  listRowPressed: { backgroundColor: colors.surface },
+  listDivider: { borderTopWidth: 1, borderTopColor: colors.divider },
   listIconBox: {
     width: 32,
     height: 32,
@@ -506,7 +508,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: '#111827' },
+  listLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: colors.text },
   listBadge: {
     minWidth: 22,
     height: 22,
@@ -516,7 +518,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  listBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', lineHeight: 14 },
+  listBadgeText: { color: colors.card, fontSize: 12, fontWeight: '700', lineHeight: 14 },
 
   // Bot clients banner
   bannerPressed: { transform: [{ scale: 0.98 }] },
@@ -525,7 +527,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 16,
-    borderRadius: CARD_RADIUS,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: 'rgba(75,86,158,0.10)',
   },
@@ -538,6 +540,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   botBannerBody: { flex: 1, gap: 2 },
-  botBannerTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  botBannerSub: { fontSize: 12, color: '#6B7280' },
+  botBannerTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  botBannerSub: { fontSize: 12, color: colors.textMuted },
 });
