@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import {
   type AuditProduct,
 } from '@/lib/audit-catalog';
 import { fetchStock, type OpsLocation } from '@/lib/ops';
+import { loadDraft, saveDraft } from '@/lib/audit-drafts';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 export type AuditSubmitItem = {
@@ -69,6 +70,55 @@ export default function FinishedProductAudit({
   const [quantities, setQuantities] = useState<Record<string, string>>(seeded);
   const [expectedQty, setExpectedQty] = useState<Record<string, number>>({});
   const [loadingExpected, setLoadingExpected] = useState(true);
+  // True once we've checked SecureStore for a draft. Until then we don't
+  // auto-save (otherwise the initial empty state would wipe a real draft).
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  // "💾 Збережено локально" badge shows briefly after each persist so the
+  // operator gets visual confirmation their count survives a crash/signal loss.
+  const [savedTick, setSavedTick] = useState(0);
+  const lastDraftJsonRef = useRef<string>('');
+
+  // Hydrate draft on mount. Prefill (from rejected audit) takes precedence
+  // over draft — re-counting an already-rejected audit shouldn't be polluted
+  // by a stray draft for the same warehouse + item_type.
+  useEffect(() => {
+    let cancelled = false;
+    if (initialQuantitiesByName) {
+      setDraftLoaded(true);
+      return () => { cancelled = true; };
+    }
+    loadDraft(locationId, itemType).then(d => {
+      if (cancelled) return;
+      if (d) {
+        const out: Record<string, string> = {};
+        for (const [id, qty] of Object.entries(d)) out[id] = String(qty);
+        setQuantities(out);
+      }
+      setDraftLoaded(true);
+    }).catch(() => { if (!cancelled) setDraftLoaded(true); });
+    return () => { cancelled = true; };
+  }, [locationId, itemType, initialQuantitiesByName]);
+
+  // Auto-save the draft on every quantity change (debounced 500ms). Stored as
+  // {id: number} — same shape loadDraft returns — so reloads round-trip exactly.
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const numeric: Record<string, number> = {};
+    for (const [id, val] of Object.entries(quantities)) {
+      if (val === '' || val === undefined) continue;
+      const n = Number(val);
+      if (Number.isFinite(n)) numeric[id] = n;
+    }
+    const json = JSON.stringify(numeric);
+    if (json === lastDraftJsonRef.current) return;
+    const t = setTimeout(() => {
+      lastDraftJsonRef.current = json;
+      saveDraft(locationId, itemType, numeric)
+        .then(() => setSavedTick(x => x + 1))
+        .catch(() => { /* best-effort; next change will retry */ });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [quantities, draftLoaded, locationId, itemType]);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +223,12 @@ export default function FinishedProductAudit({
           </View>
         );
       })}
+
+      {savedTick > 0 && filledCount > 0 && (
+        // Operator's reassurance that count survives a crash / signal loss.
+        // Updates with every debounced save (~500ms after a keystroke pause).
+        <Text style={styles.draftSaved}>💾 Збережено локально</Text>
+      )}
 
       {filledCount > 0 && (
         <View style={styles.summaryBlock}>
@@ -348,6 +404,12 @@ const styles = StyleSheet.create({
   },
   unit: { fontSize: 11, color: colors.textFaint, minWidth: 22 },
 
+  draftSaved: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.success,
+    alignSelf: 'center',
+  },
   summaryBlock: { gap: spacing.sm },
   summaryCard: {
     backgroundColor: colors.brandTint,

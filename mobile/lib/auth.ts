@@ -43,6 +43,7 @@ export async function clearToken(): Promise<void> {
     SecureStore.deleteItemAsync(STORAGE.PUSH_TOKEN),
     SecureStore.deleteItemAsync(STORAGE.DASHBOARD_SNAPSHOT),
     SecureStore.deleteItemAsync(STORAGE.FOP_DOCS),
+    SecureStore.deleteItemAsync(STORAGE.AUDIT_DRAFTS),
   ]);
   clearOrdersCache();
   clearChatCache();

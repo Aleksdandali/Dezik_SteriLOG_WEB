@@ -19,4 +19,6 @@ export const STORAGE = {
   PUSH_TOKEN: 'dezik.push.token',
   DASHBOARD_SNAPSHOT: 'dezik.dashboard.snapshot',
   FOP_DOCS: 'dezik.fop.docs',
+  /** All in-flight audit drafts as a single JSON object keyed by `${location}::${itemType}`. */
+  AUDIT_DRAFTS: 'dezik.audit.drafts',
 } as const;

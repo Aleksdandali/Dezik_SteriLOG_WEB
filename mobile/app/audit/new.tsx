@@ -5,6 +5,7 @@ import { router, Stack } from 'expo-router';
 import FinishedProductAudit, { type AuditSubmitItem } from '@/components/FinishedProductAudit';
 import { createAudit, LOCATION_LABELS, type OpsLocation } from '@/lib/ops';
 import { consumePrefill } from '@/lib/audit-prefill';
+import { clearDraft } from '@/lib/audit-drafts';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type Phase = 'location' | 'type' | 'grid';
@@ -77,15 +78,23 @@ export default function NewAuditScreen() {
   };
 
   const submit = async (items: AuditSubmitItem[]) => {
-    if (!location) return;
+    if (!location || !type) return;
     setBusy(true);
     try {
       await createAudit({ location, items });
+      // Only clear the local draft on confirmed server success — if submit
+      // failed (e.g. signal drop), the draft stays so the operator can retry
+      // when back online without re-typing 20+ rows.
+      await clearDraft(location, type).catch(() => {});
       Alert.alert('Готово', 'Переоблік збережено', [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (e) {
-      Alert.alert('Помилка', e instanceof Error ? e.message : 'Не вдалось зберегти');
+      Alert.alert(
+        'Помилка',
+        (e instanceof Error ? e.message : 'Не вдалось зберегти') +
+          '\n\nДані збережено локально — спробуй ще раз, коли зʼявиться інтернет.',
+      );
     } finally {
       setBusy(false);
     }
