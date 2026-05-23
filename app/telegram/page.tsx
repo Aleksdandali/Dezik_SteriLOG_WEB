@@ -2499,8 +2499,24 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
   });
 
   const handleAuditApprove = async (auditId: string, action: 'approve' | 'reject') => {
+    // Reject must collect an actionable reason — backend enforces min 3 chars.
+    // window.prompt is good enough inside Telegram Mini App; we re-prompt on
+    // empty input rather than silently sending an invalid request.
+    let reason: string | undefined;
+    if (action === 'reject') {
+      const input = window.prompt('Причина відхилення (мін. 3 символи):', '');
+      if (input == null) return; // user cancelled
+      reason = input.trim();
+      if (reason.length < 3) {
+        alert('Причина має бути ≥3 символів');
+        return;
+      }
+    }
     try {
-      await api('/inventory-audit/approve', { method: 'POST', body: JSON.stringify({ audit_id: auditId, action }) });
+      await api('/inventory-audit/approve', {
+        method: 'POST',
+        body: JSON.stringify({ audit_id: auditId, action, reason }),
+      });
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
       setViewingAudit(null);
       loadAuditArchive();
@@ -2537,6 +2553,14 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
               </p>
             </div>
           </div>
+
+          {a.status === 'rejected' && a.rejection_reason && (
+            // Operator opens their rejected audit → sees exactly what to fix.
+            <div className="bg-red-50 border-l-[3px] border-red-600 rounded-[12px] p-4">
+              <p className="text-[11px] font-bold uppercase text-red-700 mb-1">Причина відхилення</p>
+              <p className="text-[14px] text-red-900">{a.rejection_reason}</p>
+            </div>
+          )}
 
           <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
             {items.map((item: HistoryItem, idx: number) => {

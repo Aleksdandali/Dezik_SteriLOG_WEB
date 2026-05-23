@@ -10,12 +10,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin only' }, { status: 403 });
     }
 
-    const { audit_id, action } = await request.json();
+    const { audit_id, action, reason } = await request.json();
     if (!audit_id || (action !== 'approve' && action !== 'reject')) {
       // Whitelist actions explicitly — previously any string other than
       // 'approve' (including typos) silently became a reject.
       return NextResponse.json(
         { error: "Body must include audit_id and action ∈ {'approve','reject'}" },
+        { status: 400 },
+      );
+    }
+    // Reject must include actionable reason — operator needs to know what to
+    // fix on re-count. Approves may pass a note but it's optional.
+    const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
+    if (action === 'reject' && trimmedReason.length < 3) {
+      return NextResponse.json(
+        { error: 'Reject вимагає поле reason (мін. 3 символи)' },
         { status: 400 },
       );
     }
@@ -46,7 +55,14 @@ export async function POST(request: NextRequest) {
     const newStatus = action === 'approve' ? 'approved' : 'rejected';
     const { error } = await supabase
       .from('ops_inventory_audits')
-      .update({ status: newStatus, approved_by: staff.id, approved_at: new Date().toISOString() })
+      .update({
+        status: newStatus,
+        approved_by: staff.id,
+        approved_at: new Date().toISOString(),
+        // Only set on reject so re-approving an audit after rename never
+        // resurrects an old reason. Approves clear it for the same reason.
+        rejection_reason: action === 'reject' ? trimmedReason : null,
+      })
       .eq('id', audit_id)
       .eq('status', 'pending'); // race guard: only update if still pending
 

@@ -207,6 +207,8 @@ export interface OpsInventoryAudit {
   location: OpsLocation;
   audit_date: string;
   created_at: string;
+  /** Set when reviewer rejected the audit. Required by approve API for reject action. */
+  rejection_reason?: string | null;
   ops_staff?: OpsStaff;
   ops_inventory_audit_items?: OpsInventoryAuditItem[];
 }

@@ -271,6 +271,8 @@ export type AuditEntry = {
   status: 'pending' | 'approved' | 'rejected' | string;
   created_at: string;
   approved_at: string | null;
+  /** Required when status='rejected'. Shown to operator so they know what to fix. */
+  rejection_reason?: string | null;
   ops_staff?: { name: string } | null;
   ops_inventory_audit_items: AuditItem[];
   delta_summary: AuditDeltaSummary | null;
@@ -282,8 +284,15 @@ export async function listAudits(location?: OpsLocation): Promise<AuditEntry[]> 
   return res.data ?? [];
 }
 
-export async function reviewAudit(audit_id: string, action: 'approve' | 'reject'): Promise<void> {
-  await api('/api/telegram/inventory-audit/approve', { method: 'POST', body: { audit_id, action } });
+export async function reviewAudit(
+  audit_id: string,
+  action: 'approve' | 'reject',
+  reason?: string,
+): Promise<void> {
+  await api('/api/telegram/inventory-audit/approve', {
+    method: 'POST',
+    body: { audit_id, action, reason },
+  });
 }
 
 // ── Stock dashboard ───────────────────────────────────

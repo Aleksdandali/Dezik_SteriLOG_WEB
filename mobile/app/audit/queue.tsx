@@ -92,18 +92,59 @@ export default function AuditQueueScreen() {
     return v;
   }, [scopedToAllowed, locFilter, filter]);
 
-  const review = async (audit: AuditEntry, action: 'approve' | 'reject') => {
+  const submitReview = async (audit: AuditEntry, action: 'approve' | 'reject', reason?: string) => {
     setPendingId(audit.id);
     try {
-      await reviewAudit(audit.id, action);
+      await reviewAudit(audit.id, action, reason);
       setItems(prev => prev.map(a =>
-        a.id === audit.id ? { ...a, status: action === 'approve' ? 'approved' : 'rejected' } : a,
+        a.id === audit.id
+          ? {
+              ...a,
+              status: action === 'approve' ? 'approved' : 'rejected',
+              rejection_reason: action === 'reject' ? (reason ?? null) : null,
+            }
+          : a,
       ));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Помилка';
       Alert.alert('Помилка', msg.includes('Admin only') ? 'Потрібна роль admin' : msg);
     } finally {
       setPendingId(null);
+    }
+  };
+
+  // Reject must collect an actionable reason — backend enforces min 3 chars.
+  // Alert.prompt is iOS-only but this app ships iOS first; on other platforms
+  // we fall back to a yes/no Alert with a generic reason so the flow doesn't
+  // dead-end. The backend still validates length.
+  const review = (audit: AuditEntry, action: 'approve' | 'reject') => {
+    if (action === 'approve') {
+      submitReview(audit, 'approve');
+      return;
+    }
+    if (Alert.prompt) {
+      Alert.prompt(
+        'Причина відхилення',
+        'Що операторові виправити? (мін. 3 символи)',
+        [
+          { text: 'Скасувати', style: 'cancel' },
+          {
+            text: 'Відхилити',
+            style: 'destructive',
+            onPress: (text?: string) => {
+              const reason = (text ?? '').trim();
+              if (reason.length < 3) {
+                Alert.alert('Помилка', 'Причина має бути ≥3 символів');
+                return;
+              }
+              submitReview(audit, 'reject', reason);
+            },
+          },
+        ],
+        'plain-text',
+      );
+    } else {
+      submitReview(audit, 'reject', 'Без вказаної причини');
     }
   };
 
@@ -232,6 +273,15 @@ export default function AuditQueueScreen() {
                     </Text>
                   )}
                 </Pressable>
+
+                {expanded && audit.status === 'rejected' && audit.rejection_reason && (
+                  // Operator opens their rejected audit → sees exactly why
+                  // and what to fix on re-count.
+                  <View style={styles.reasonBox}>
+                    <Text style={styles.reasonLabel}>Причина відхилення</Text>
+                    <Text style={styles.reasonText}>{audit.rejection_reason}</Text>
+                  </View>
+                )}
 
                 {expanded && (
                   <View style={styles.itemList}>
@@ -391,6 +441,16 @@ const styles = StyleSheet.create({
 
   statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999 },
   statusText: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+
+  reasonBox: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
+  },
+  reasonLabel: { fontSize: 11, fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', marginBottom: 2 },
+  reasonText: { ...text.body, color: '#7F1D1D' },
 
   itemList: {
     backgroundColor: colors.surface,
