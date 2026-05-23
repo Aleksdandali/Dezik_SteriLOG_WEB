@@ -1,7 +1,9 @@
-// Mobile mirror of lib/telegram/audit-catalog.ts — must stay byte-for-byte
-// identical so MiniApp + iOS + bot use the same product names, ids, groups,
-// units and colors. The web side is canonical; copy any change over here.
-import type { OpsLocation } from './ops';
+// Product catalog for inventory audits — single source of truth for web.
+// MUST stay byte-for-byte in sync with mobile/lib/audit-catalog.ts (mirror
+// copy for the standalone Expo project, which can't reach into this folder).
+// Any change here MUST be mirrored over there, and vice-versa.
+
+import type { OpsLocation } from './types';
 
 export type AuditProduct = {
   id: string;
@@ -52,8 +54,8 @@ export const OTHER_PRODUCTS: AuditProduct[] = [
 
 export type AuditItemType = 'raw' | 'finished';
 
-// Match the bot: finished @ afina_sklad = bags + other; finished elsewhere = bags;
-// raw anywhere = RAW_MATERIALS.
+// Match the bot: finished @ afina_sklad = bags + other; finished elsewhere =
+// bags; raw anywhere = RAW_MATERIALS.
 export function getAuditProducts(
   itemType: AuditItemType,
   location: OpsLocation,
