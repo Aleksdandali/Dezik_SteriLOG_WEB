@@ -235,17 +235,50 @@ export default function AuditQueueScreen() {
 
                 {expanded && (
                   <View style={styles.itemList}>
-                    {audit.ops_inventory_audit_items.map((it, i) => (
-                      <View key={i} style={styles.itemRow}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.itemName}>
-                            {it.item_type === 'raw' ? '🧱 ' : '📦 '}{it.name}
-                          </Text>
-                          {it.notes && <Text style={styles.itemNotes}>{it.notes}</Text>}
+                    {audit.ops_inventory_audit_items.map((it, i) => {
+                      // Per-item Δ vs baseline (most recent approved audit).
+                      //   baseline_quantity == null  → new item (no baseline)
+                      //   diff == 0                  → unchanged
+                      //   |Δ%| > 25                  → danger (red)
+                      //   |Δ%| > 10                  → warning (amber)
+                      //   else                       → muted
+                      const base = it.baseline_quantity;
+                      const diff = base == null ? null : it.quantity - base;
+                      const pct = base == null || base === 0
+                        ? null
+                        : Math.abs(diff! / base) * 100;
+                      const tone =
+                        diff == null ? 'new' :
+                        diff === 0 ? 'same' :
+                        pct != null && pct > 25 ? 'danger' :
+                        pct != null && pct > 10 ? 'warn' : 'muted';
+                      const deltaLabel =
+                        diff == null ? 'нов.' :
+                        diff === 0 ? null :
+                        `${diff > 0 ? '+' : ''}${diff}${pct != null ? ` · ${Math.round(pct)}%` : ''}`;
+                      return (
+                        <View key={i} style={styles.itemRow}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.itemName}>
+                              {it.item_type === 'raw' ? '🧱 ' : '📦 '}{it.name}
+                            </Text>
+                            {it.notes && <Text style={styles.itemNotes}>{it.notes}</Text>}
+                          </View>
+                          <View style={styles.itemQtyCol}>
+                            <Text style={styles.itemQty}>{it.quantity} {it.unit}</Text>
+                            {deltaLabel && (
+                              <Text style={[
+                                styles.itemDelta,
+                                tone === 'new' ? styles.itemDeltaNew :
+                                tone === 'danger' ? styles.itemDeltaDanger :
+                                tone === 'warn' ? styles.itemDeltaWarn :
+                                styles.itemDeltaMuted,
+                              ]}>{deltaLabel}</Text>
+                            )}
+                          </View>
                         </View>
-                        <Text style={styles.itemQty}>{it.quantity} {it.unit}</Text>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 )}
 
@@ -374,7 +407,13 @@ const styles = StyleSheet.create({
   },
   itemName: { ...text.body, fontWeight: '500' },
   itemNotes: { ...text.faint, marginTop: 2 },
+  itemQtyCol: { alignItems: 'flex-end' },
   itemQty: { ...text.bodyStrong, color: colors.brand },
+  itemDelta: { fontSize: 11, fontWeight: '700', marginTop: 2 },
+  itemDeltaNew: { color: colors.textFaint },
+  itemDeltaMuted: { color: colors.textMuted },
+  itemDeltaWarn: { color: '#B45309' },
+  itemDeltaDanger: { color: '#B91C1C' },
 
   actionsRow: { flexDirection: 'row', gap: spacing.sm },
   actionBtn: {

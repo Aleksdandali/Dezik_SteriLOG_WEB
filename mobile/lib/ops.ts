@@ -62,6 +62,12 @@ export type AuditItem = {
   quantity: number;
   unit: string;
   notes?: string | null;
+  /**
+   * Quantity for this item from the most recent APPROVED audit at the same
+   * location (server-injected). null = new item or no prior baseline.
+   * Drives per-item Δ in the queue detail view.
+   */
+  baseline_quantity?: number | null;
 };
 
 // Multipart upload mirrors /api/telegram/upload — field "photo", optional "folder".

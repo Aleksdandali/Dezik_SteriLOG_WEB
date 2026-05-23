@@ -2535,15 +2535,41 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
           </div>
 
           <div className="bg-white rounded-[20px] shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0]">
-            {items.map((item: HistoryItem, idx: number) => (
-              <div key={idx} className={`px-4 py-3 flex justify-between items-center ${idx > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
-                <span className="text-[14px] font-medium text-[#111827]">{item.name}</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-[17px] font-bold text-[#111827]">{item.quantity}</span>
-                  <span className="text-[12px] text-[#9CA3AF]">{item.unit}</span>
+            {items.map((item: HistoryItem, idx: number) => {
+              // Per-item Δ vs the previous approved snapshot.
+              //   baseline_quantity == null → new item (нов.)
+              //   diff == 0                 → unchanged, no badge
+              //   |Δ%| > 25                  → red
+              //   |Δ%| > 10                  → amber
+              //   else                       → muted grey
+              const base = (item as HistoryItem & { baseline_quantity?: number | null }).baseline_quantity ?? null;
+              const qty = Number(item.quantity ?? 0);
+              const diff = base == null ? null : qty - base;
+              const pct = base == null || base === 0 ? null : Math.abs(diff! / base) * 100;
+              const deltaLabel =
+                diff == null ? 'нов.' :
+                diff === 0 ? null :
+                `${diff > 0 ? '+' : ''}${diff}${pct != null ? ` · ${Math.round(pct)}%` : ''}`;
+              const deltaCls =
+                diff == null ? 'text-[#9CA3AF]' :
+                pct != null && pct > 25 ? 'text-red-600' :
+                pct != null && pct > 10 ? 'text-amber-600' :
+                'text-[#9CA3AF]';
+              return (
+                <div key={idx} className={`px-4 py-3 flex justify-between items-center ${idx > 0 ? 'border-t border-[#F5F5F5]' : ''}`}>
+                  <span className="text-[14px] font-medium text-[#111827]">{item.name}</span>
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[17px] font-bold text-[#111827]">{item.quantity}</span>
+                      <span className="text-[12px] text-[#9CA3AF]">{item.unit}</span>
+                    </div>
+                    {deltaLabel && (
+                      <span className={`text-[11px] font-bold mt-0.5 ${deltaCls}`}>{deltaLabel}</span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {isPending && isAdmin && (

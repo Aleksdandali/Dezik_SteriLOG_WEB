@@ -35,6 +35,12 @@ function itemKey(it: AuditItem): string {
   return `${it.item_type}::${it.name}`;
 }
 
+/**
+ * Returned-item shape: original item + baseline_quantity for reviewer's
+ * item-level Δ display. null = no baseline (new item or no prior audit).
+ */
+type ItemWithBaseline<I> = I & { baseline_quantity: number | null };
+
 function summarize(
   current: AuditForDelta,
   baseline: AuditForDelta,
@@ -68,12 +74,18 @@ function summarize(
 }
 
 /**
- * Annotate each audit in `list` with a `delta_summary` field. Mutates a copy,
- * returns a new array. Caller decides what to do when summary is null.
+ * Annotate each audit in `list` with a `delta_summary` field AND inject a
+ * `baseline_quantity` on every item (null = no baseline). Returns a new array.
+ * Item-level baseline lets the detail view show per-item Δ without a 2nd fetch.
  */
 export function withDeltaSummaries<T extends AuditForDelta>(
   list: T[],
-): Array<T & { delta_summary: AuditDeltaSummary | null }> {
+): Array<
+  Omit<T, 'ops_inventory_audit_items'> & {
+    delta_summary: AuditDeltaSummary | null;
+    ops_inventory_audit_items: ItemWithBaseline<T['ops_inventory_audit_items'][number]>[];
+  }
+> {
   // Group approved audits by location, sorted by date ASC, so for each entry
   // we can find the most recent approved one strictly before it in O(log n).
   const approvedByLoc = new Map<string, AuditForDelta[]>();
@@ -98,8 +110,16 @@ export function withDeltaSummaries<T extends AuditForDelta>(
       if (c.audit_date < audit.audit_date) baseline = c;
       else break;
     }
+    const baselineByKey = baseline
+      ? new Map(baseline.ops_inventory_audit_items.map(i => [itemKey(i), i.quantity]))
+      : null;
+    const itemsWithBaseline = audit.ops_inventory_audit_items.map(it => ({
+      ...it,
+      baseline_quantity: baselineByKey?.get(itemKey(it)) ?? null,
+    })) as ItemWithBaseline<T['ops_inventory_audit_items'][number]>[];
     return {
       ...audit,
+      ops_inventory_audit_items: itemsWithBaseline,
       delta_summary: baseline ? summarize(audit, baseline) : null,
     };
   });

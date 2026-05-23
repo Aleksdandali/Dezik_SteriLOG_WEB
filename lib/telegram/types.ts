@@ -219,6 +219,12 @@ export interface OpsInventoryAuditItem {
   unit: string;
   quantity: number;
   notes: string | null;
+  /**
+   * Quantity for this item from the most recent APPROVED audit at the same
+   * location, injected by withDeltaSummaries(). null = new item or no prior
+   * audit. Drives per-item Δ display in reviewer's detail view.
+   */
+  baseline_quantity?: number | null;
 }
 
 /* ── UI labels ── */
