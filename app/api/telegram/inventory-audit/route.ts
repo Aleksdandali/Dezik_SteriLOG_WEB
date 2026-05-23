@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaff } from '@/lib/telegram/auth';
 import { broadcastOps } from '@/lib/telegram/realtime';
+import { withDeltaSummaries, type AuditForDelta } from '@/lib/telegram/audit-delta';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ data });
+    const annotated = withDeltaSummaries((data ?? []) as AuditForDelta[]);
+    return NextResponse.json({ data: annotated });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';
     return NextResponse.json({ error: message }, { status: message === 'Unauthorized' ? 401 : 500 });

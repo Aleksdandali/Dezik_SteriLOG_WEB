@@ -250,6 +250,13 @@ export async function listProduction(days = 30): Promise<ProductionEntry[]> {
 }
 
 // ── Inventory-audit list + approval (admin) ────────────
+export type AuditDeltaSummary = {
+  baseline_audit_id: string;
+  baseline_date: string;
+  items_with_delta: number;
+  largest_delta_pct: number;
+};
+
 export type AuditEntry = {
   id: string;
   staff_id: string;
@@ -260,6 +267,7 @@ export type AuditEntry = {
   approved_at: string | null;
   ops_staff?: { name: string } | null;
   ops_inventory_audit_items: AuditItem[];
+  delta_summary: AuditDeltaSummary | null;
 };
 
 export async function listAudits(location?: OpsLocation): Promise<AuditEntry[]> {

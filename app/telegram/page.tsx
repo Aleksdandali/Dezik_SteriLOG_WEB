@@ -2614,6 +2614,9 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
             <div className="space-y-3">
               {auditArchive.map((a: HistoryItem) => {
                 const itemCount = a.ops_inventory_audit_items?.length ?? 0;
+                const ds = a.delta_summary as
+                  | { items_with_delta: number; largest_delta_pct: number; baseline_date: string }
+                  | null;
                 return (
                   <button key={a.id} onClick={() => setViewingAudit(a)}
                     className="w-full text-left bg-white rounded-[20px] p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] border border-[#F0F0F0] active:bg-[#F8FAFC]">
@@ -2634,6 +2637,19 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
                         {a.status === 'approved' ? '✅ Затверджено' : a.status === 'rejected' ? '❌ Відхилено' : '⏳ Очікує'}
                       </span>
                     </div>
+                    {ds && (
+                      // Δ vs prior approved snapshot — спрощує review:
+                      // 0 змін = підозріло (copy-paste), >50% = треба перевірити
+                      <p className={`text-[12px] mt-1.5 font-medium ${
+                        ds.items_with_delta === 0 ? 'text-amber-600' :
+                        ds.largest_delta_pct >= 50 ? 'text-red-600' :
+                        'text-[#9CA3AF]'
+                      }`}>
+                        {ds.items_with_delta === 0
+                          ? '⚠️ Δ = 0 vs минулого переобліку'
+                          : `Δ ${ds.items_with_delta} поз. · max ${ds.largest_delta_pct}%`}
+                      </p>
+                    )}
                   </button>
                 );
               })}

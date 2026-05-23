@@ -639,6 +639,20 @@ function AuditArchivePanel({ location, staff }: { location: OpsLocation; staff: 
               <Text style={styles.archiveMeta}>
                 {a.ops_staff?.name ?? ''} · {count} позицій
               </Text>
+              {a.delta_summary && (
+                <Text style={[
+                  styles.archiveDelta,
+                  a.delta_summary.items_with_delta === 0
+                    ? styles.archiveDeltaSuspicious
+                    : a.delta_summary.largest_delta_pct >= 50
+                    ? styles.archiveDeltaWarn
+                    : undefined,
+                ]}>
+                  {a.delta_summary.items_with_delta === 0
+                    ? '⚠️ Δ = 0 vs минулого переобліку'
+                    : `Δ ${a.delta_summary.items_with_delta} поз. · max ${a.delta_summary.largest_delta_pct}%`}
+                </Text>
+              )}
             </View>
             <View style={[styles.badge, { backgroundColor: badge.bg }]}>
               <Text style={[styles.badgeText, { color: badge.fg }]}>{badge.label}</Text>
@@ -826,6 +840,9 @@ const styles = StyleSheet.create({
   },
   archiveDate: { ...text.bodyStrong },
   archiveMeta: { ...text.meta, marginTop: 2 },
+  archiveDelta: { ...text.meta, marginTop: 2, fontWeight: '500' },
+  archiveDeltaSuspicious: { color: '#B45309' },
+  archiveDeltaWarn: { color: '#B91C1C' },
   badge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 11, fontWeight: '700' },
 

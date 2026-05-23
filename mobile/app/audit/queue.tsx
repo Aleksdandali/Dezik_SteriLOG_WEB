@@ -148,6 +148,21 @@ export default function AuditQueueScreen() {
                     {audit.ops_inventory_audit_items.length} позицій · разом {totalQty}
                     <Text style={styles.chevron}>{expanded ? '  ▾' : '  ›'}</Text>
                   </Text>
+                  {audit.delta_summary && (
+                    // Δ vs minulého schválenia — 0 змін = підозріло, >=50% = check
+                    <Text style={[
+                      styles.cardDelta,
+                      audit.delta_summary.items_with_delta === 0
+                        ? styles.cardDeltaSuspicious
+                        : audit.delta_summary.largest_delta_pct >= 50
+                        ? styles.cardDeltaWarn
+                        : undefined,
+                    ]}>
+                      {audit.delta_summary.items_with_delta === 0
+                        ? '⚠️ Δ = 0 vs минулого переобліку'
+                        : `Δ ${audit.delta_summary.items_with_delta} поз. · max ${audit.delta_summary.largest_delta_pct}%`}
+                    </Text>
+                  )}
                 </Pressable>
 
                 {expanded && (
@@ -243,6 +258,9 @@ const styles = StyleSheet.create({
   cardTitle: { ...text.bodyStrong },
   cardMeta: { ...text.meta, marginTop: 2 },
   cardSummary: { ...text.meta, marginTop: spacing.xs },
+  cardDelta: { ...text.meta, marginTop: 2, fontWeight: '500' },
+  cardDeltaSuspicious: { color: '#B45309' },
+  cardDeltaWarn: { color: '#B91C1C' },
   chevron: { color: colors.textFaint },
 
   statusBadge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 999 },
