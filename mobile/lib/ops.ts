@@ -385,6 +385,8 @@ export type TeamMember = {
   name: string;
   role: StaffRole | string;
   location: OpsLocation | null;
+  /** Multi-warehouse access. Empty = fallback to `location`. Admins ignore this. */
+  visible_locations: OpsLocation[];
   visible_sections: string[] | null;
   active: boolean;
 };
@@ -419,6 +421,7 @@ export type ApproveRequestInput = {
   role: StaffRole;
   location?: OpsLocation | null;
   visible_sections?: string[];
+  visible_locations?: OpsLocation[];
 };
 
 export async function approveRequest(input: ApproveRequestInput): Promise<void> {
@@ -434,6 +437,7 @@ export type UpdateStaffInput = {
   role?: StaffRole;
   location?: OpsLocation | null;
   visible_sections?: string[];
+  visible_locations?: OpsLocation[];
   active?: boolean;
 };
 

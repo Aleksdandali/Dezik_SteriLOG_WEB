@@ -4900,6 +4900,9 @@ function TeamView() {
   const [approveRole, setApproveRole] = useState<'staff' | 'admin'>('staff');
   const [approveLocation, setApproveLocation] = useState<OpsLocation | ''>('');
   const [approveSections, setApproveSections] = useState<string[]>(['production', 'movement', 'warehouse']);
+  // Extra warehouses this staffer should also see (beyond `location`). Backend
+  // implicitly includes `location`, so this list is the "and also" set.
+  const [approveLocations, setApproveLocations] = useState<OpsLocation[]>([]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -4927,6 +4930,7 @@ function TeamView() {
           role: linkToStaffId ? undefined : approveRole,
           location: linkToStaffId ? undefined : (approveLocation || null),
           visible_sections: linkToStaffId ? undefined : approveSections,
+          visible_locations: linkToStaffId ? undefined : approveLocations,
         }),
       });
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
@@ -4960,6 +4964,7 @@ function TeamView() {
           role: approveRole,
           location: approveLocation || null,
           visible_sections: approveSections,
+          visible_locations: approveLocations,
         }),
       });
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
@@ -4984,6 +4989,9 @@ function TeamView() {
     setApproveRole(s.role as 'staff' | 'admin');
     setApproveLocation((s.location as OpsLocation) || '');
     setApproveSections((s as unknown as { visible_sections?: string[] }).visible_sections ?? []);
+    setApproveLocations(
+      ((s as unknown as { visible_locations?: OpsLocation[] }).visible_locations ?? []),
+    );
   };
 
   return (
@@ -5074,6 +5082,29 @@ function TeamView() {
                                     {LOCATION_LABELS[loc]}
                                   </button>
                                 ))}
+                              </div>
+                            </Field>
+
+                            <Field label="Інші локації (на додачу до основної)">
+                              <div className="flex flex-wrap gap-2">
+                                {(Object.keys(LOCATION_LABELS) as OpsLocation[]).map(loc => {
+                                  const active = approveLocations.includes(loc);
+                                  const isHome = approveLocation === loc;
+                                  return (
+                                    <button
+                                      key={loc}
+                                      disabled={isHome}
+                                      onClick={() => setApproveLocations(prev =>
+                                        active ? prev.filter(x => x !== loc) : [...prev, loc]
+                                      )}
+                                      className={`px-3 py-2 rounded-xl text-[12px] font-semibold ${
+                                        isHome ? 'bg-[#eceef5] text-[#9CA3AF]' :
+                                        active ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'
+                                      }`}>
+                                      {LOCATION_LABELS[loc]}{isHome ? ' (осн.)' : ''}
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </Field>
 
@@ -5169,6 +5200,29 @@ function TeamView() {
                                 {LOCATION_LABELS[loc]}
                               </button>
                             ))}
+                          </div>
+                        </Field>
+
+                        <Field label="Інші локації (на додачу до основної)">
+                          <div className="flex flex-wrap gap-2">
+                            {(Object.keys(LOCATION_LABELS) as OpsLocation[]).map(loc => {
+                              const active = approveLocations.includes(loc);
+                              const isHome = approveLocation === loc;
+                              return (
+                                <button
+                                  key={loc}
+                                  disabled={isHome}
+                                  onClick={() => setApproveLocations(prev =>
+                                    active ? prev.filter(x => x !== loc) : [...prev, loc]
+                                  )}
+                                  className={`px-3 py-2 rounded-xl text-[12px] font-semibold ${
+                                    isHome ? 'bg-[#eceef5] text-[#9CA3AF]' :
+                                    active ? 'bg-[#4b569e] text-white' : 'bg-white text-[#363f75] border border-[#E5E7EB]'
+                                  }`}>
+                                  {LOCATION_LABELS[loc]}{isHome ? ' (осн.)' : ''}
+                                </button>
+                              );
+                            })}
                           </div>
                         </Field>
 

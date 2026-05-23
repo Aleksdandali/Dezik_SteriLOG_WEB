@@ -50,7 +50,14 @@ export interface OpsStaff {
   telegram_id: number;
   name: string;
   role: OpsRole;
+  /** Home warehouse — single value, set on staff approval. */
   location: OpsLocation | null;
+  /**
+   * Optional multi-warehouse access list. Empty array = fallback to `location`
+   * only. Admins are implicitly all-locations regardless of this value.
+   * Resolve via `resolveVisibleLocations(staff)`.
+   */
+  visible_locations: OpsLocation[];
   active: boolean;
   visible_sections: string[];
   created_at: string;

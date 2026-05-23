@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { action } = body;
 
     if (action === 'approve') {
-      const { request_id, role, location, visible_sections, link_to_staff_id } = body;
+      const { request_id, role, location, visible_sections, visible_locations, link_to_staff_id } = body;
       if (!request_id) return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
 
       // Get request
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
           role,
           location: location || null,
           visible_sections: visible_sections || [],
+          visible_locations: Array.isArray(visible_locations) ? visible_locations : [],
         });
       }
 
@@ -110,13 +111,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'update_staff') {
-      const { staff_id, role, location, visible_sections, active } = body;
+      const { staff_id, role, location, visible_sections, visible_locations, active } = body;
       if (!staff_id) return NextResponse.json({ error: 'Missing staff_id' }, { status: 400 });
 
       const updateData: Record<string, unknown> = {};
       if (role !== undefined) updateData.role = role;
       if (location !== undefined) updateData.location = location;
       if (visible_sections !== undefined) updateData.visible_sections = visible_sections;
+      if (visible_locations !== undefined && Array.isArray(visible_locations)) {
+        updateData.visible_locations = visible_locations;
+      }
       if (active !== undefined) updateData.active = active;
 
       await supabase.from('ops_staff').update(updateData).eq('id', staff_id);
