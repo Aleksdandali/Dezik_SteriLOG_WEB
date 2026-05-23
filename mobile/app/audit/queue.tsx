@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -10,19 +10,22 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import {
   listAudits,
   LOCATION_LABELS,
   reviewAudit,
   type AuditEntry,
+  type OpsLocation,
 } from '@/lib/ops';
 import { canReviewAudit, getAuditBadge } from '@/lib/audit-status';
 import { getStaff, type Staff } from '@/lib/auth';
 import { useOpsEvent } from '@/lib/realtime';
+import { resolveVisibleLocations } from '@/lib/locations';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
+type LocationFilter = OpsLocation | 'all';
 
 const FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'pending', label: 'Очікують' },
@@ -33,6 +36,7 @@ const FILTERS: { id: StatusFilter; label: string }[] = [
 
 export default function AuditQueueScreen() {
   const [filter, setFilter] = useState<StatusFilter>('pending');
+  const [locFilter, setLocFilter] = useState<LocationFilter>('all');
   const [items, setItems] = useState<AuditEntry[]>([]);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +46,11 @@ export default function AuditQueueScreen() {
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   useEffect(() => { getStaff().then(setStaff); }, []);
+
+  // Warehouses the staffer is allowed to see. Drives the chip switcher.
+  // Single warehouse = no switcher (just header label). >1 = chips with 'Всі'.
+  const allowedLocs = useMemo(() => resolveVisibleLocations(staff), [staff]);
+  const showLocChips = allowedLocs.length > 1;
 
   const load = useCallback(async () => {
     setError(null);
@@ -70,7 +79,18 @@ export default function AuditQueueScreen() {
     setRefreshing(false);
   };
 
-  const visible = filter === 'all' ? items : items.filter(a => a.status === filter);
+  // Two-stage filter: first by warehouse access (always), then by status +
+  // currently-selected location chip.
+  const scopedToAllowed = useMemo(
+    () => (staff?.role === 'admin' ? items : items.filter(a => allowedLocs.includes(a.location))),
+    [items, staff, allowedLocs],
+  );
+  const visible = useMemo(() => {
+    let v = scopedToAllowed;
+    if (locFilter !== 'all') v = v.filter(a => a.location === locFilter);
+    if (filter !== 'all') v = v.filter(a => a.status === filter);
+    return v;
+  }, [scopedToAllowed, locFilter, filter]);
 
   const review = async (audit: AuditEntry, action: 'approve' | 'reject') => {
     setPendingId(audit.id);
@@ -89,12 +109,60 @@ export default function AuditQueueScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <Stack.Screen options={{ title: 'Розгляд переоблiків', headerTintColor: colors.brand }} />
+      <Stack.Screen
+        options={{
+          title: 'Переоблiки',
+          headerTintColor: colors.brand,
+          headerRight: () => (
+            <Pressable
+              onPress={() => router.push('/audit/new')}
+              accessibilityRole="button"
+              accessibilityLabel="Новий переоблік"
+              style={({ pressed }) => [styles.newBtn, pressed && styles.newBtnPressed]}
+            >
+              <Text style={styles.newBtnText}>+ Новий</Text>
+            </Pressable>
+          ),
+        }}
+      />
+
+      {showLocChips && (
+        // Warehouse chip switcher — only when staffer has access to >1
+        // location (admins always; cross-site staffers via visible_locations).
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.locBar}
+        >
+          {(['all', ...allowedLocs] as LocationFilter[]).map(loc => {
+            const active = locFilter === loc;
+            const label = loc === 'all' ? 'Всі' : LOCATION_LABELS[loc];
+            const count = loc === 'all'
+              ? scopedToAllowed.length
+              : scopedToAllowed.filter(a => a.location === loc).length;
+            return (
+              <Pressable
+                key={loc}
+                onPress={() => setLocFilter(loc)}
+                style={[styles.locChip, active && styles.locChipActive]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.locChipText, active && styles.locChipTextActive]}>
+                  {label}{count > 0 ? ` · ${count}` : ''}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
 
       <View style={styles.filterBar}>
         {FILTERS.map(f => {
           const active = filter === f.id;
-          const count = f.id === 'all' ? items.length : items.filter(a => a.status === f.id).length;
+          const base = locFilter === 'all'
+            ? scopedToAllowed
+            : scopedToAllowed.filter(a => a.location === locFilter);
+          const count = f.id === 'all' ? base.length : base.filter(a => a.status === f.id).length;
           return (
             <Pressable
               key={f.id}
@@ -214,6 +282,31 @@ export default function AuditQueueScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
+
+  newBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+    backgroundColor: colors.brand,
+    marginRight: spacing.sm,
+  },
+  newBtnPressed: { opacity: 0.7 },
+  newBtnText: { color: colors.card, fontWeight: '700', fontSize: 13 },
+
+  locBar: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+  },
+  locChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+  },
+  locChipActive: { backgroundColor: colors.brandDark },
+  locChipText: { fontSize: 12, color: colors.brandDark, fontWeight: '600' },
+  locChipTextActive: { color: colors.card, fontWeight: '700' },
 
   filterBar: {
     flexDirection: 'row',

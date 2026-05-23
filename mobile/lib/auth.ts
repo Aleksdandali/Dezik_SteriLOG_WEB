@@ -9,7 +9,10 @@ export type Staff = {
   telegram_id: number;
   name: string;
   role: 'admin' | 'manager' | 'operator' | string;
+  /** Home warehouse — single value. */
   location?: string | null;
+  /** Extra warehouses beyond `location`. Empty = home only. Admins see all. */
+  visible_locations?: string[];
   visible_sections?: string[];
 };
 

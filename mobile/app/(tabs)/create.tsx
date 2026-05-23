@@ -94,8 +94,10 @@ const MAIN_ITEMS: MainItem[] = [
 const SECONDARY_ITEMS: SecondaryItem[] = [
   { icon: 'card', label: 'Оплати постач.', href: '/supplier-payment/new', section: 'supplier-payment' },
   { icon: 'checkmark-circle', label: 'Підтвердити прибуття', href: '/movement/pending', badgeKey: 'pendingMovements', section: 'movement' },
-  { icon: 'clipboard', label: 'Переоблік', href: '/audit/new', badgeKey: 'pendingAudits', section: 'inventory-audit' },
-  { icon: 'shield-checkmark', label: 'Розгляд переоблiків', href: '/audit/queue', adminOnly: true, section: 'inventory-audit' },
+  // Single audit entry point — list view with "+ Новий" button, status/location
+  // filters and admin review actions all in one place. Staff see only their
+  // allowed locations; admins see everything.
+  { icon: 'clipboard', label: 'Переоблік', href: '/audit/queue', badgeKey: 'pendingAudits', section: 'inventory-audit' },
   { icon: 'time', label: 'Історія виробництва', href: '/production/history', section: 'production' },
   { icon: 'file-tray-full', label: 'Історія', href: '/history', section: 'history' },
   { icon: 'cash-outline', label: 'Зарплати', href: '/salary/list', adminOnly: true, section: 'salary' },
