@@ -43,6 +43,7 @@ import {
   BAG_MATERIAL_LABELS,
   PRODUCTION_STAGE_LABELS,
 } from '@/lib/telegram/types';
+import { useOpsEvent } from '@/lib/telegram/realtime-client';
 
 // ─── Types ────────────────────────────────────────────
 type View =
@@ -582,6 +583,12 @@ function MainMenu({
     }).catch(() => {});
   };
 
+  const refreshPendingAudits = useCallback(() => {
+    api<{ data: { status: string }[] }>('/inventory-audit?days=30').then(r => {
+      setPendingAuditsCount((r.data ?? []).filter(a => a.status === 'pending').length);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     api<{ count: number }>('/shipments/count').then(r => setShipmentCount(r.count)).catch(() => {});
     fetch('/api/telegram/team?type=bot_clients', { headers: { 'x-telegram-init-data': getInitData() } })
@@ -589,12 +596,15 @@ function MainMenu({
     refreshUnread();
     api<{ total: number }>('/orders?status=1').then(r => setNewOrdersCount(r.total ?? 0)).catch(() => {});
     api<{ total_sum: number }>('/cash?period=today').then(r => setCashToday(r.total_sum ?? 0)).catch(() => {});
-    api<{ data: { status: string }[] }>('/inventory-audit?days=30').then(r => {
-      setPendingAuditsCount((r.data ?? []).filter(a => a.status === 'pending').length);
-    }).catch(() => {});
+    refreshPendingAudits();
     const interval = setInterval(refreshUnread, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshPendingAudits]);
+
+  // Live: keep the "📝 Переоблік" badge in sync when another device creates
+  // a new audit or an admin approves/rejects one.
+  useOpsEvent('audit.created', refreshPendingAudits);
+  useOpsEvent('audit.reviewed', refreshPendingAudits);
 
   const sections = staff.visible_sections ?? [];
   const canSee = (view: string) => isAdmin || sections.length === 0 || sections.includes(view);
@@ -2460,7 +2470,7 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
   }
 
   // Load audit archive — called manually, no useEffect
-  const loadAuditArchive = async () => {
+  const loadAuditArchive = useCallback(async () => {
     if (!selectedLoc) return;
     setAuditArchiveLoading(true);
     try {
@@ -2468,7 +2478,21 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
       setAuditArchive(res.data ?? []);
     } catch { setAuditArchive([]); }
     finally { setAuditArchiveLoading(false); }
-  };
+  }, [selectedLoc]);
+
+  // Realtime: another device created/reviewed an audit on this warehouse →
+  // refresh the archive so reviewers don't see a stale list. Guards on
+  // selectedLoc + auditSubTab='archive' so we don't fetch when irrelevant.
+  useOpsEvent('audit.created', (payload) => {
+    if (payload?.location === selectedLoc && tab === 'audit' && auditSubTab === 'archive') {
+      loadAuditArchive();
+    }
+  });
+  useOpsEvent('audit.reviewed', (payload) => {
+    if (payload?.location === selectedLoc && tab === 'audit' && auditSubTab === 'archive') {
+      loadAuditArchive();
+    }
+  });
 
   const handleAuditApprove = async (auditId: string, action: 'approve' | 'reject') => {
     try {

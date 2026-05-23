@@ -19,6 +19,7 @@ import {
 } from '@/lib/ops';
 import { canReviewAudit, getAuditBadge } from '@/lib/audit-status';
 import { getStaff, type Staff } from '@/lib/auth';
+import { useOpsEvent } from '@/lib/realtime';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
@@ -57,6 +58,11 @@ export default function AuditQueueScreen() {
     setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // Live updates: another device creates or reviews an audit → reload list so
+  // the queue never shows stale pending/approved/rejected counts.
+  useOpsEvent('audit.created', () => { load(); });
+  useOpsEvent('audit.reviewed', () => { load(); });
 
   const onRefresh = async () => {
     setRefreshing(true);
