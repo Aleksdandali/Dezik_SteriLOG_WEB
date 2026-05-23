@@ -252,6 +252,7 @@ export async function listProduction(days = 30): Promise<ProductionEntry[]> {
 // ── Inventory-audit list + approval (admin) ────────────
 export type AuditEntry = {
   id: string;
+  staff_id: string;
   location: OpsLocation;
   audit_date: string;
   status: 'pending' | 'approved' | 'rejected' | string;

@@ -28,6 +28,7 @@ import {
   type StockItem,
 } from '@/lib/ops';
 import { useOpsEvent } from '@/lib/realtime';
+import { canReviewAudit, getAuditBadge } from '@/lib/audit-status';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type WarehouseTab = 'incoming' | 'stock' | 'audit';
@@ -46,11 +47,8 @@ const SOURCE_LABEL: Record<string, string> = {
   production: 'Виробництво (live)',
 };
 
-const STATUS_BADGE: Record<string, { bg: string; fg: string; label: string }> = {
-  pending:  { bg: colors.warningTint, fg: colors.warningText, label: '⏳ Очікує' },
-  approved: { bg: colors.successTint, fg: colors.successText, label: '✅ Підтверджено' },
-  rejected: { bg: colors.dangerTint,  fg: colors.dangerText,  label: '❌ Відхилено' },
-};
+// Status badges and review-permission live in mobile/lib/audit-status.ts —
+// shared with /audit/queue so labels and colors cannot drift.
 
 // ───────────────────────────────────────────────────────
 // Top-level screen — 3-level navigation mirroring the Telegram bot.
@@ -549,8 +547,7 @@ function AuditArchivePanel({ location, staff }: { location: OpsLocation; staff: 
   // Detail view ── matches bot's viewingAudit screen.
   if (viewing) {
     const itemsList = viewing.ops_inventory_audit_items ?? [];
-    const isPending = viewing.status === 'pending';
-    const isAdmin = staff?.role === 'admin';
+    const canReview = canReviewAudit(viewing, staff);
     const acting = actionId === viewing.id;
     return (
       <View style={{ gap: spacing.md }}>
@@ -580,7 +577,7 @@ function AuditArchivePanel({ location, staff }: { location: OpsLocation; staff: 
             </View>
           ))}
         </View>
-        {isPending && isAdmin && (
+        {canReview && (
           <View style={styles.actionsRow}>
             <Pressable
               style={[styles.actionBtn, styles.actionReject, acting && styles.actionDisabled]}
@@ -596,12 +593,12 @@ function AuditArchivePanel({ location, staff }: { location: OpsLocation; staff: 
               onPress={() => review(viewing, 'approve')}
               disabled={acting}
               accessibilityRole="button"
-              accessibilityLabel="Підтвердити"
+              accessibilityLabel="Затвердити"
             >
               {acting ? (
                 <ActivityIndicator color={colors.card} />
               ) : (
-                <Text style={styles.actionApproveText}>Підтвердити ✅</Text>
+                <Text style={styles.actionApproveText}>Затвердити ✅</Text>
               )}
             </Pressable>
           </View>
@@ -626,7 +623,7 @@ function AuditArchivePanel({ location, staff }: { location: OpsLocation; staff: 
     >
       {items.map(a => {
         const count = a.ops_inventory_audit_items?.length ?? 0;
-        const badge = STATUS_BADGE[a.status] ?? STATUS_BADGE.pending;
+        const badge = getAuditBadge(a.status);
         return (
           <Pressable
             key={a.id}

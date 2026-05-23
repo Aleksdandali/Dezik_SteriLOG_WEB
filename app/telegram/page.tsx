@@ -2607,7 +2607,7 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
                         a.status === 'rejected' ? 'bg-red-100 text-red-700' :
                         'bg-orange-100 text-orange-700'
                       }`}>
-                        {a.status === 'approved' ? '✅ Підтверджено' : a.status === 'rejected' ? '❌ Відхилено' : '⏳ Очікує'}
+                        {a.status === 'approved' ? '✅ Затверджено' : a.status === 'rejected' ? '❌ Відхилено' : '⏳ Очікує'}
                       </span>
                     </div>
                   </button>

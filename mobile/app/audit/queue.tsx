@@ -17,31 +17,30 @@ import {
   reviewAudit,
   type AuditEntry,
 } from '@/lib/ops';
+import { canReviewAudit, getAuditBadge } from '@/lib/audit-status';
+import { getStaff, type Staff } from '@/lib/auth';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
 
 const FILTERS: { id: StatusFilter; label: string }[] = [
   { id: 'pending', label: 'Очікують' },
-  { id: 'approved', label: 'Затв.' },
-  { id: 'rejected', label: 'Відхил.' },
-  { id: 'all', label: 'Все' },
+  { id: 'approved', label: 'Затверджені' },
+  { id: 'rejected', label: 'Відхилені' },
+  { id: 'all', label: 'Всі' },
 ];
-
-const STATUS_BADGE: Record<string, { bg: string; fg: string; label: string }> = {
-  pending: { bg: colors.warningTint, fg: colors.warningText, label: 'Очікує' },
-  approved: { bg: colors.successTint, fg: colors.successText, label: 'Затверджено' },
-  rejected: { bg: '#FEE2E2', fg: '#991B1B', label: 'Відхилено' },
-};
 
 export default function AuditQueueScreen() {
   const [filter, setFilter] = useState<StatusFilter>('pending');
   const [items, setItems] = useState<AuditEntry[]>([]);
+  const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+
+  useEffect(() => { getStaff().then(setStaff); }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -120,9 +119,10 @@ export default function AuditQueueScreen() {
         ) : (
           visible.map(audit => {
             const expanded = expandedId === audit.id;
-            const badge = STATUS_BADGE[audit.status] ?? STATUS_BADGE.pending;
+            const badge = getAuditBadge(audit.status);
             const totalQty = audit.ops_inventory_audit_items.reduce((s, i) => s + i.quantity, 0);
             const busyThis = pendingId === audit.id;
+            const canReview = canReviewAudit(audit, staff);
             return (
               <View key={audit.id} style={styles.card}>
                 <Pressable onPress={() => setExpandedId(expanded ? null : audit.id)}>
@@ -160,7 +160,7 @@ export default function AuditQueueScreen() {
                   </View>
                 )}
 
-                {audit.status === 'pending' && (
+                {canReview && (
                   <View style={styles.actionsRow}>
                     <Pressable
                       style={[styles.actionBtn, styles.actionReject, busyThis && styles.actionDisabled]}
