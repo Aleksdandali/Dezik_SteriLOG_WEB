@@ -11,20 +11,20 @@ export async function POST(request: NextRequest) {
     }
 
     const { audit_id, action, reason } = await request.json();
-    if (!audit_id || (action !== 'approve' && action !== 'reject')) {
+    if (!audit_id || (action !== 'approve' && action !== 'reject' && action !== 'revoke')) {
       // Whitelist actions explicitly — previously any string other than
       // 'approve' (including typos) silently became a reject.
       return NextResponse.json(
-        { error: "Body must include audit_id and action ∈ {'approve','reject'}" },
+        { error: "Body must include audit_id and action ∈ {'approve','reject','revoke'}" },
         { status: 400 },
       );
     }
-    // Reject must include actionable reason — operator needs to know what to
-    // fix on re-count. Approves may pass a note but it's optional.
+    // Reject + revoke must include actionable reason — operator (and audit log)
+    // needs to know what to fix / why a baseline got undone. Approves are silent.
     const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
-    if (action === 'reject' && trimmedReason.length < 3) {
+    if ((action === 'reject' || action === 'revoke') && trimmedReason.length < 3) {
       return NextResponse.json(
-        { error: 'Reject вимагає поле reason (мін. 3 символи)' },
+        { error: `${action === 'reject' ? 'Reject' : 'Revoke'} вимагає поле reason (мін. 3 символи)` },
         { status: 400 },
       );
     }
@@ -43,6 +43,32 @@ export async function POST(request: NextRequest) {
     if (existing.staff_id === staff.id) {
       return NextResponse.json({ error: 'Cannot review own audit' }, { status: 403 });
     }
+    // Revoke flips an APPROVED audit back to rejected with a reason — the
+    // operator gets notified that the baseline they relied on was undone, and
+    // the rejection_reason becomes the audit log line. All other actions
+    // require the audit to be still pending.
+    if (action === 'revoke') {
+      if (existing.status !== 'approved') {
+        return NextResponse.json(
+          { error: `Revoke потребує статус 'approved' (зараз: ${existing.status})` },
+          { status: 409 },
+        );
+      }
+      const { error } = await supabase
+        .from('ops_inventory_audits')
+        .update({
+          status: 'rejected',
+          approved_by: staff.id,
+          approved_at: new Date().toISOString(),
+          rejection_reason: `[Revoked] ${trimmedReason}`,
+        })
+        .eq('id', audit_id)
+        .eq('status', 'approved'); // race guard
+      if (error) throw error;
+      broadcastOps('audit.reviewed', { audit_id, status: 'rejected', location: existing.location });
+      return NextResponse.json({ ok: true, status: 'rejected', revoked: true });
+    }
+
     if (existing.status !== 'pending') {
       // Idempotent: already approved/rejected — return current state instead of
       // silently overwriting reviewer + timestamp.

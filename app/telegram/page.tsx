@@ -2498,13 +2498,16 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
     }
   });
 
-  const handleAuditApprove = async (auditId: string, action: 'approve' | 'reject') => {
-    // Reject must collect an actionable reason — backend enforces min 3 chars.
+  const handleAuditApprove = async (auditId: string, action: 'approve' | 'reject' | 'revoke') => {
+    // Reject + revoke must collect an actionable reason — backend enforces ≥3 chars.
     // window.prompt is good enough inside Telegram Mini App; we re-prompt on
     // empty input rather than silently sending an invalid request.
     let reason: string | undefined;
-    if (action === 'reject') {
-      const input = window.prompt('Причина відхилення (мін. 3 символи):', '');
+    if (action === 'reject' || action === 'revoke') {
+      const promptLabel = action === 'reject'
+        ? 'Причина відхилення (мін. 3 символи):'
+        : 'Причина відкликання approve (мін. 3 символи):';
+      const input = window.prompt(promptLabel, '');
       if (input == null) return; // user cancelled
       reason = input.trim();
       if (reason.length < 3) {
@@ -2610,6 +2613,18 @@ function WarehouseView({ staff }: { staff: OpsStaff }) {
                 Підтвердити ✅
               </Btn>
             </div>
+          )}
+
+          {a.status === 'approved' && isAdmin && a.staff_id !== staff.id && (
+            // Revoke: admin can undo their own (or other reviewer's) approve
+            // when an error surfaces after the fact. Reason mandatory; backend
+            // writes "[Revoked] …" into rejection_reason as audit log.
+            <button
+              onClick={() => handleAuditApprove(a.id, 'revoke')}
+              className="w-full py-2.5 rounded-xl text-[12px] font-semibold text-[#9CA3AF] bg-white border border-[#F0F0F0]"
+            >
+              ↺ Відкликати підтвердження
+            </button>
           )}
         </div>
       );

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import FinishedProductAudit, { type AuditSubmitItem } from '@/components/FinishedProductAudit';
 import { createAudit, LOCATION_LABELS, type OpsLocation } from '@/lib/ops';
+import { consumePrefill } from '@/lib/audit-prefill';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type Phase = 'location' | 'type' | 'grid';
@@ -22,6 +23,19 @@ export default function NewAuditScreen() {
   const [location, setLocation] = useState<OpsLocation | null>(null);
   const [type, setType] = useState<AuditType | null>(null);
   const [busy, setBusy] = useState(false);
+  // Optional starting quantities when entered via "Створити заново" on a
+  // rejected audit. Consumed once on mount so a stale prefill from an aborted
+  // earlier flow can never leak into a fresh "Новий" tap.
+  const [prefillQuantities, setPrefillQuantities] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    const p = consumePrefill();
+    if (!p) return;
+    setLocation(p.location);
+    setType(p.itemType);
+    setPrefillQuantities(p.quantitiesByName);
+    setPhase('grid');
+  }, []);
 
   const warehouse = WAREHOUSES.find(w => w.id === location) ?? null;
 
@@ -147,6 +161,7 @@ export default function NewAuditScreen() {
             submitting={busy}
             onSubmit={submit}
             onBack={back}
+            initialQuantitiesByName={prefillQuantities ?? undefined}
           />
         )}
       </ScrollView>

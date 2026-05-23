@@ -29,6 +29,12 @@ type Props = {
   submitting: boolean;
   onSubmit: (items: AuditSubmitItem[]) => void;
   onBack: () => void;
+  /**
+   * Optional seed quantities keyed by audit-catalog product name (NOT id).
+   * Used by "Створити заново з відхиленого" — we get the previous audit's
+   * items by name from the server, then match them against catalog ids here.
+   */
+  initialQuantitiesByName?: Record<string, number>;
 };
 
 // Pre-built audit grid — mirrors FinishedProductAudit in app/telegram/page.tsx.
@@ -42,13 +48,25 @@ export default function FinishedProductAudit({
   submitting,
   onSubmit,
   onBack,
+  initialQuantitiesByName,
 }: Props) {
   const products = useMemo(
     () => getAuditProducts(itemType, locationId),
     [itemType, locationId],
   );
 
-  const [quantities, setQuantities] = useState<Record<string, string>>({});
+  // Seed quantities from a prior audit (e.g. rejected → "Створити заново").
+  // Match by catalog name; items the catalog no longer knows about are dropped.
+  const seeded = useMemo<Record<string, string>>(() => {
+    if (!initialQuantitiesByName) return {};
+    const out: Record<string, string> = {};
+    for (const p of products) {
+      const q = initialQuantitiesByName[p.name];
+      if (q != null) out[p.id] = String(q);
+    }
+    return out;
+  }, [initialQuantitiesByName, products]);
+  const [quantities, setQuantities] = useState<Record<string, string>>(seeded);
   const [expectedQty, setExpectedQty] = useState<Record<string, number>>({});
   const [loadingExpected, setLoadingExpected] = useState(true);
 

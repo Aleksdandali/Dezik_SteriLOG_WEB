@@ -286,7 +286,7 @@ export async function listAudits(location?: OpsLocation): Promise<AuditEntry[]> 
 
 export async function reviewAudit(
   audit_id: string,
-  action: 'approve' | 'reject',
+  action: 'approve' | 'reject' | 'revoke',
   reason?: string,
 ): Promise<void> {
   await api('/api/telegram/inventory-audit/approve', {

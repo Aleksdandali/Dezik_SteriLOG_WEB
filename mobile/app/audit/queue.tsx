@@ -22,6 +22,8 @@ import { canReviewAudit, getAuditBadge } from '@/lib/audit-status';
 import { getStaff, type Staff } from '@/lib/auth';
 import { useOpsEvent } from '@/lib/realtime';
 import { resolveVisibleLocations } from '@/lib/locations';
+import { setPrefill } from '@/lib/audit-prefill';
+import type { AuditItemType } from '@/lib/audit-catalog';
 import { colors, radius, spacing, text } from '@/lib/theme';
 
 type StatusFilter = 'pending' | 'approved' | 'rejected' | 'all';
@@ -92,19 +94,23 @@ export default function AuditQueueScreen() {
     return v;
   }, [scopedToAllowed, locFilter, filter]);
 
-  const submitReview = async (audit: AuditEntry, action: 'approve' | 'reject', reason?: string) => {
+  const submitReview = async (audit: AuditEntry, action: 'approve' | 'reject' | 'revoke', reason?: string) => {
     setPendingId(audit.id);
     try {
       await reviewAudit(audit.id, action, reason);
-      setItems(prev => prev.map(a =>
-        a.id === audit.id
-          ? {
-              ...a,
-              status: action === 'approve' ? 'approved' : 'rejected',
-              rejection_reason: action === 'reject' ? (reason ?? null) : null,
-            }
-          : a,
-      ));
+      setItems(prev => prev.map(a => {
+        if (a.id !== audit.id) return a;
+        // Revoke writes its own marker into rejection_reason ("[Revoked] …")
+        // to keep audit-log readable; we mirror that locally.
+        if (action === 'revoke') {
+          return { ...a, status: 'rejected', rejection_reason: `[Revoked] ${reason ?? ''}` };
+        }
+        return {
+          ...a,
+          status: action === 'approve' ? 'approved' : 'rejected',
+          rejection_reason: action === 'reject' ? (reason ?? null) : null,
+        };
+      }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Помилка';
       Alert.alert('Помилка', msg.includes('Admin only') ? 'Потрібна роль admin' : msg);
@@ -113,39 +119,59 @@ export default function AuditQueueScreen() {
     }
   };
 
-  // Reject must collect an actionable reason — backend enforces min 3 chars.
+  // Reject + revoke must collect an actionable reason — backend enforces ≥3 chars.
   // Alert.prompt is iOS-only but this app ships iOS first; on other platforms
   // we fall back to a yes/no Alert with a generic reason so the flow doesn't
   // dead-end. The backend still validates length.
-  const review = (audit: AuditEntry, action: 'approve' | 'reject') => {
-    if (action === 'approve') {
-      submitReview(audit, 'approve');
-      return;
-    }
+  const promptReason = (
+    audit: AuditEntry,
+    action: 'reject' | 'revoke',
+    title: string,
+    message: string,
+    confirmLabel: string,
+  ) => {
     if (Alert.prompt) {
       Alert.prompt(
-        'Причина відхилення',
-        'Що операторові виправити? (мін. 3 символи)',
+        title, message,
         [
           { text: 'Скасувати', style: 'cancel' },
           {
-            text: 'Відхилити',
-            style: 'destructive',
+            text: confirmLabel, style: 'destructive',
             onPress: (text?: string) => {
               const reason = (text ?? '').trim();
               if (reason.length < 3) {
                 Alert.alert('Помилка', 'Причина має бути ≥3 символів');
                 return;
               }
-              submitReview(audit, 'reject', reason);
+              submitReview(audit, action, reason);
             },
           },
         ],
         'plain-text',
       );
     } else {
-      submitReview(audit, 'reject', 'Без вказаної причини');
+      submitReview(audit, action, 'Без вказаної причини');
     }
+  };
+
+  const review = (audit: AuditEntry, action: 'approve' | 'reject') => {
+    if (action === 'approve') {
+      submitReview(audit, 'approve');
+      return;
+    }
+    promptReason(audit, 'reject', 'Причина відхилення', 'Що операторові виправити? (мін. 3 символи)', 'Відхилити');
+  };
+
+  // Admin-only — flip an already-approved audit back to rejected. Useful when
+  // the baseline turns out to have been wrong AFTER the fact (e.g. operator
+  // confesses they mis-counted). Reason is mandatory and becomes audit log.
+  const revoke = (audit: AuditEntry) => {
+    promptReason(
+      audit, 'revoke',
+      'Відкликати підтвердження',
+      'Чому відкликаємо approve? (буде записано в historію)',
+      'Відкликати',
+    );
   };
 
   return (
@@ -274,12 +300,39 @@ export default function AuditQueueScreen() {
                   )}
                 </Pressable>
 
-                {expanded && audit.status === 'rejected' && audit.rejection_reason && (
+                {expanded && audit.status === 'rejected' && (
                   // Operator opens their rejected audit → sees exactly why
-                  // and what to fix on re-count.
+                  // and a one-tap path to re-count without re-entering everything.
                   <View style={styles.reasonBox}>
-                    <Text style={styles.reasonLabel}>Причина відхилення</Text>
-                    <Text style={styles.reasonText}>{audit.rejection_reason}</Text>
+                    {audit.rejection_reason && (
+                      <>
+                        <Text style={styles.reasonLabel}>Причина відхилення</Text>
+                        <Text style={styles.reasonText}>{audit.rejection_reason}</Text>
+                      </>
+                    )}
+                    <Pressable
+                      onPress={() => {
+                        // First item's item_type wins — audits don't mix raw + finished.
+                        const firstType = audit.ops_inventory_audit_items[0]?.item_type as AuditItemType | undefined;
+                        if (!firstType) {
+                          Alert.alert('Помилка', 'Немає позицій для копіювання');
+                          return;
+                        }
+                        const quantitiesByName: Record<string, number> = {};
+                        for (const it of audit.ops_inventory_audit_items) {
+                          quantitiesByName[it.name] = it.quantity;
+                        }
+                        setPrefill({
+                          location: audit.location,
+                          itemType: firstType,
+                          quantitiesByName,
+                        });
+                        router.push('/audit/new');
+                      }}
+                      style={({ pressed }) => [styles.reasonCta, pressed && styles.reasonCtaPressed]}
+                    >
+                      <Text style={styles.reasonCtaText}>Створити заново →</Text>
+                    </Pressable>
                   </View>
                 )}
 
@@ -353,6 +406,19 @@ export default function AuditQueueScreen() {
                       )}
                     </Pressable>
                   </View>
+                )}
+
+                {/* Revoke: admin-only, only on already-approved audits, and not
+                    on one's own. canReviewAudit gates author conflict; the
+                    backend re-checks status to avoid races. */}
+                {expanded && audit.status === 'approved' && staff?.role === 'admin' && audit.staff_id !== staff.id && (
+                  <Pressable
+                    onPress={() => revoke(audit)}
+                    disabled={busyThis}
+                    style={({ pressed }) => [styles.revokeBtn, pressed && styles.revokeBtnPressed, busyThis && styles.actionDisabled]}
+                  >
+                    <Text style={styles.revokeBtnText}>↺ Відкликати підтвердження</Text>
+                  </Pressable>
                 )}
               </View>
             );
@@ -450,7 +516,16 @@ const styles = StyleSheet.create({
     borderLeftColor: '#DC2626',
   },
   reasonLabel: { fontSize: 11, fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', marginBottom: 2 },
-  reasonText: { ...text.body, color: '#7F1D1D' },
+  reasonText: { ...text.body, color: '#7F1D1D', marginBottom: spacing.sm },
+  reasonCta: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DC2626',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+  },
+  reasonCtaPressed: { opacity: 0.7 },
+  reasonCtaText: { color: colors.card, fontWeight: '700', fontSize: 13 },
 
   itemList: {
     backgroundColor: colors.surface,
@@ -487,4 +562,16 @@ const styles = StyleSheet.create({
   actionApprove: { backgroundColor: colors.success },
   actionApproveText: { color: colors.card, fontSize: 14, fontWeight: '600' },
   actionDisabled: { opacity: 0.5 },
+
+  revokeBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.divider,
+  },
+  revokeBtnPressed: { opacity: 0.7 },
+  revokeBtnText: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
 });
