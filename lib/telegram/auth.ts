@@ -11,19 +11,6 @@ function getSupabaseAdmin() {
   );
 }
 
-/** Extract telegram user ID from initData without HMAC (fast path) */
-function extractTelegramId(initData: string): number | null {
-  try {
-    const params = new URLSearchParams(initData);
-    const userStr = params.get('user');
-    if (!userStr) return null;
-    const user = JSON.parse(userStr);
-    return user.id ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /** Look up staff by telegram_id */
 async function findStaff(telegramId: number): Promise<OpsStaff | null> {
   const supabase = getSupabaseAdmin();

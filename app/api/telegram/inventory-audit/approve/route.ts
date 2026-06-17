@@ -28,6 +28,9 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+    if (action !== 'approve' && action !== 'reject') {
+      return NextResponse.json({ error: 'action must be "approve" or "reject"' }, { status: 400 });
+    }
 
     const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 

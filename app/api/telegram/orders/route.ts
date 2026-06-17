@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
     await requireStaff(request);
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') ?? '1'; // default: new orders
-    const page = searchParams.get('page') ?? '1';
 
     // Fetch status orders, filter by status_changed_at (last 30 days)
     const allOrders: KOrder[] = [];
@@ -176,6 +175,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, order_id, new_status: STATUS_NAMES[status_id] ?? status_id });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: message === 'Unauthorized' ? 401 : 500 });
   }
 }
